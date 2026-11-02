@@ -97,3 +97,4 @@ export function TimelineRuler({ totalWidthPx }: TimelineRulerProps) {
     </div>
   );
 }
+

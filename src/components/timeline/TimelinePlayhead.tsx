@@ -21,3 +21,4 @@ export function TimelinePlayhead({ totalHeightPx }: TimelinePlayheadProps) {
     />
   );
 }
+
