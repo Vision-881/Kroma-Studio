@@ -1,10 +1,22 @@
 /**
  * Store Zustand principal du projet Kroma.
- * Gère l'état global du projet : catalogue d'assets, sélection et état de modification.
+ * Gère l'état global du projet : catalogue d'assets, timeline multipiste,
+ * tête de lecture et sélection d'éléments.
  */
 import { create } from 'zustand';
 import type { MediaAsset } from '../core/types/asset';
 import { type KromaProject, createDefaultProject } from '../core/types/project';
+import type { SpatialPlacement } from '../core/types/timeline';
+import {
+  createItemFromAsset,
+  addItemToLane,
+  removeItemFromSequence,
+  moveItemInSequence,
+  splitItemInSequence,
+  trimItemInSequence,
+} from '../core/timeline/timelineOps';
+
+export type TimelineTool = 'select' | 'split' | 'delete';
 
 /** État complet du store projet */
 interface ProjectState {
@@ -12,28 +24,54 @@ interface ProjectState {
   project: KromaProject;
   /** Indique si le projet comporte des modifications non sauvegardées */
   isDirty: boolean;
-  /** Identifiant de l'asset actuellement sélectionné, ou null */
+  /** Identifiant de l'asset sélectionné dans la médiathèque, ou null */
   selectedAssetId: string | null;
+  /** Identifiant du clip sélectionné sur la timeline, ou null */
+  selectedItemId: string | null;
+  /** Position courante de la tête de lecture en microsecondes */
+  currentTimeUs: number;
+  /** Facteur de zoom horizontal de la timeline (pixels par seconde) */
+  zoomPixelsPerSecond: number;
+  /** Outil actif dans la barre d'outils de timeline */
+  activeTool: TimelineTool;
 
-  // --- Actions ---
-  /** Ajoute un asset au catalogue du projet */
+  // --- Actions Médiathèque ---
   addAsset: (asset: MediaAsset) => void;
-  /** Supprime un asset du catalogue par son identifiant */
   removeAsset: (assetId: string) => void;
-  /** Sélectionne ou désélectionne un asset */
   setSelectedAsset: (id: string | null) => void;
-  /** Réinitialise le projet à son état par défaut */
+
+  // --- Actions Tête de lecture & Vue ---
+  setCurrentTimeUs: (timeUs: number) => void;
+  setSelectedItemId: (id: string | null) => void;
+  setZoomPixelsPerSecond: (zoom: number) => void;
+  setActiveTool: (tool: TimelineTool) => void;
+
+  // --- Actions Timeline ---
+  addItemFromAsset: (asset: MediaAsset, targetLaneId?: string, placementTimeUs?: number) => void;
+  moveTimelineItem: (itemId: string, targetLaneId: string, newPlacementTimeUs: number) => void;
+  splitTimelineItemAtCurrentTime: (itemId?: string) => void;
+  trimTimelineItem: (itemId: string, handle: 'start' | 'end', deltaUs: number) => void;
+  removeTimelineItem: (itemId: string) => void;
+  toggleLaneMute: (laneId: string) => void;
+  toggleLaneLock: (laneId: string) => void;
+  updateClipPlacement: (itemId: string, updates: Partial<SpatialPlacement>) => void;
+  updateClipGain: (itemId: string, gain: number) => void;
+
+  // --- Gestion du Projet ---
   resetProject: () => void;
 }
 
-/** Store global Zustand pour le projet Kroma */
-export const useProjectStore = create<ProjectState>((set) => ({
+export const useProjectStore = create<ProjectState>((set, get) => ({
   // État initial
   project: createDefaultProject(),
   isDirty: false,
   selectedAssetId: null,
+  selectedItemId: null,
+  currentTimeUs: 0,
+  zoomPixelsPerSecond: 60, // 60 pixels = 1 seconde par défaut
+  activeTool: 'select',
 
-  // Ajoute un asset au catalogue
+  // --- Actions Médiathèque ---
   addAsset: (asset: MediaAsset) =>
     set((state) => ({
       project: {
@@ -44,33 +82,290 @@ export const useProjectStore = create<ProjectState>((set) => ({
       isDirty: true,
     })),
 
-  // Supprime un asset par son identifiant
   removeAsset: (assetId: string) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        asset_catalog: state.project.asset_catalog.filter(
-          (a) => a.asset_id !== assetId,
-        ),
-        modified_timestamp_utc: Date.now() * 1000,
-      },
-      isDirty: true,
-      // Désélectionne si l'asset supprimé était sélectionné
-      selectedAssetId:
-        state.selectedAssetId === assetId ? null : state.selectedAssetId,
-    })),
+    set((state) => {
+      // Retirer aussi les clips de la timeline qui référencent cet asset
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.filter((item) => item.referenced_asset_id !== assetId),
+      }));
 
-  // Sélectionne ou désélectionne un asset
+      return {
+        project: {
+          ...state.project,
+          asset_catalog: state.project.asset_catalog.filter((a) => a.asset_id !== assetId),
+          sequence: {
+            ...state.project.sequence,
+            lanes: updatedLanes,
+          },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+        selectedAssetId: state.selectedAssetId === assetId ? null : state.selectedAssetId,
+      };
+    }),
+
   setSelectedAsset: (id: string | null) =>
     set(() => ({
       selectedAssetId: id,
+      // Si on sélectionne un asset de la médiathèque, on désélectionne le clip de timeline
+      ...(id ? { selectedItemId: null } : {}),
     })),
 
-  // Réinitialise complètement le projet
+  // --- Actions Tête de lecture & Vue ---
+  setCurrentTimeUs: (timeUs: number) =>
+    set((state) => {
+      const maxUs = Math.max(state.project.sequence.total_length_us, 60_000_000); // Au moins 60s navigables
+      const clamped = Math.max(0, Math.min(timeUs, maxUs));
+      return { currentTimeUs: clamped };
+    }),
+
+  setSelectedItemId: (id: string | null) =>
+    set(() => ({
+      selectedItemId: id,
+      // Si on sélectionne un clip de timeline, on désélectionne l'asset de la médiathèque
+      ...(id ? { selectedAssetId: null } : {}),
+    })),
+
+  setZoomPixelsPerSecond: (zoom: number) =>
+    set(() => ({
+      // Zoom borné entre 10 px/s (très dézoomé) et 300 px/s (zoom fin à la frame)
+      zoomPixelsPerSecond: Math.max(10, Math.min(300, zoom)),
+    })),
+
+  setActiveTool: (tool: TimelineTool) =>
+    set(() => ({
+      activeTool: tool,
+    })),
+
+  // --- Actions Timeline ---
+  addItemFromAsset: (asset: MediaAsset, targetLaneId?: string, placementTimeUs?: number) => {
+    const state = get();
+    // Déterminer la piste par défaut selon le type de média si non spécifié
+    let laneId = targetLaneId;
+    if (!laneId) {
+      if (asset.media_kind === 'audio') {
+        const audioLane = state.project.sequence.lanes.find((l) => l.lane_type === 'audio');
+        laneId = audioLane ? audioLane.lane_id : state.project.sequence.lanes[0].lane_id;
+      } else {
+        const visualLane = state.project.sequence.lanes.find((l) => l.lane_type === 'visual');
+        laneId = visualLane ? visualLane.lane_id : state.project.sequence.lanes[0].lane_id;
+      }
+    }
+
+    const posUs = placementTimeUs !== undefined ? placementTimeUs : state.currentTimeUs;
+    const newItem = createItemFromAsset(asset, posUs);
+    const updatedSequence = addItemToLane(state.project.sequence, laneId, newItem);
+
+    set({
+      project: {
+        ...state.project,
+        sequence: updatedSequence,
+        modified_timestamp_utc: Date.now() * 1000,
+      },
+      selectedItemId: newItem.item_id,
+      selectedAssetId: null,
+      isDirty: true,
+    });
+  },
+
+  moveTimelineItem: (itemId: string, targetLaneId: string, newPlacementTimeUs: number) =>
+    set((state) => {
+      const updatedSequence = moveItemInSequence(
+        state.project.sequence,
+        itemId,
+        targetLaneId,
+        newPlacementTimeUs,
+      );
+      return {
+        project: {
+          ...state.project,
+          sequence: updatedSequence,
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  splitTimelineItemAtCurrentTime: (targetItemId?: string) =>
+    set((state) => {
+      const splitTimeUs = state.currentTimeUs;
+      let itemIdToSplit = targetItemId || state.selectedItemId;
+
+      // Si aucun item spécifié ou sélectionné, chercher l'item situé sous la tête de lecture
+      if (!itemIdToSplit) {
+        for (const lane of state.project.sequence.lanes) {
+          const underPlayhead = lane.items.find(
+            (item) =>
+              splitTimeUs > item.placement_time_us &&
+              splitTimeUs < item.placement_time_us + item.play_duration_us,
+          );
+          if (underPlayhead) {
+            itemIdToSplit = underPlayhead.item_id;
+            break;
+          }
+        }
+      }
+
+      if (!itemIdToSplit) return state;
+
+      const updatedSequence = splitItemInSequence(
+        state.project.sequence,
+        itemIdToSplit,
+        splitTimeUs,
+      );
+
+      return {
+        project: {
+          ...state.project,
+          sequence: updatedSequence,
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  trimTimelineItem: (itemId: string, handle: 'start' | 'end', deltaUs: number) =>
+    set((state) => {
+      // Trouver l'asset référencé pour borner la durée source max
+      let maxSourceUs: number | undefined = undefined;
+      for (const lane of state.project.sequence.lanes) {
+        const item = lane.items.find((i) => i.item_id === itemId);
+        if (item && item.referenced_asset_id) {
+          const asset = state.project.asset_catalog.find(
+            (a) => a.asset_id === item.referenced_asset_id,
+          );
+          if (asset && asset.media_kind !== 'image') {
+            maxSourceUs = asset.duration_us;
+          }
+          break;
+        }
+      }
+
+      const updatedSequence = trimItemInSequence(
+        state.project.sequence,
+        itemId,
+        handle,
+        deltaUs,
+        maxSourceUs,
+      );
+
+      return {
+        project: {
+          ...state.project,
+          sequence: updatedSequence,
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  removeTimelineItem: (itemId: string) =>
+    set((state) => {
+      const updatedSequence = removeItemFromSequence(state.project.sequence, itemId);
+      return {
+        project: {
+          ...state.project,
+          sequence: updatedSequence,
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        selectedItemId: state.selectedItemId === itemId ? null : state.selectedItemId,
+        isDirty: true,
+      };
+    }),
+
+  toggleLaneMute: (laneId: string) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((l) =>
+        l.lane_id === laneId ? { ...l, is_muted: !l.is_muted } : l,
+      );
+      return {
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  toggleLaneLock: (laneId: string) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((l) =>
+        l.lane_id === laneId ? { ...l, is_locked: !l.is_locked } : l,
+      );
+      return {
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  updateClipPlacement: (itemId: string, updates: Partial<SpatialPlacement>) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          return {
+            ...item,
+            spatial_placement: {
+              ...(item.spatial_placement || {
+                offset_x_px: 0,
+                offset_y_px: 0,
+                zoom_factor_x: 1.0,
+                zoom_factor_y: 1.0,
+                rotation_degrees: 0,
+                opacity_ratio: 1.0,
+              }),
+              ...updates,
+            },
+          };
+        }),
+      }));
+
+      return {
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  updateClipGain: (itemId: string, gain: number) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          return {
+            ...item,
+            item_gain: Math.max(0, Math.min(2.0, gain)),
+          };
+        }),
+      }));
+
+      return {
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
   resetProject: () =>
     set(() => ({
       project: createDefaultProject(),
       isDirty: false,
       selectedAssetId: null,
+      selectedItemId: null,
+      currentTimeUs: 0,
     })),
 }));

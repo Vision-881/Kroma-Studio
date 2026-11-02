@@ -1,126 +1,143 @@
 # Guide d'utilisation — Kroma Studio
 
-Bienvenue dans le guide d'utilisation de **Kroma Studio**, un éditeur vidéo moderne, réactif et non destructif.
+Bienvenue dans le guide d'utilisation de **Kroma Studio**, un éditeur vidéo moderne dont l'interface et l'ergonomie s'inspirent des standards professionnels de logiciels comme CapCut.
 
-Ce guide est spécialement conçu pour les débutants. Chaque manipulation est décrite étape par étape, de l'installation au premier test de vos fichiers multimédias.
+Ce guide est spécialement conçu pour les débutants. Chaque manipulation est décrite étape par étape, avec des instructions numérotées claires.
 
-> **Note de version :** Ce document correspond à la version **v0.1.0-alpha (Étape 1 du MVP)**. Il décrit exclusivement les fonctionnalités actuellement opérationnelles : découverte de l'interface, import de fichiers par glisser-déposer ou sélection locale, visualisation des vignettes et métadonnées, et gestion du catalogue de médias.
+> **Note de version :** Ce document correspond à la version **v0.2.0-alpha (Étape 2 du MVP)**. Il décrit les fonctionnalités actuellement actives : l'import de médias, l'agencement 4 quadrants, le montage multipiste complet (glisser-déposer de clips, déplacement, découpe au rasoir, rognage par poignées, suppression), le lecteur d'aperçu avec Play/Pause et le panneau d'inspection des propriétés (volume, zoom, opacité).
 
 ---
 
 ## 1. Prérequis système
 
-Pour faire fonctionner Kroma Studio sur votre ordinateur, vous devez disposer des outils suivants :
+Pour exécuter Kroma Studio sur votre machine :
 1. **Système d'exploitation :** Windows 10/11, macOS ou Linux.
-2. **Node.js :** Version 18 ou supérieure installée (avec npm). Pour vérifier, ouvrez un terminal et saisissez :
-   ```bash
-   node -v
-   npm -v
-   ```
-3. **Navigateur web moderne :** Google Chrome, Microsoft Edge, Brave ou Mozilla Firefox (supportant l'accélération matérielle HTML5).
+2. **Node.js :** Version 18 ou supérieure installée (avec npm).
+3. **Navigateur web :** Google Chrome, Microsoft Edge, Brave ou Mozilla Firefox.
 
 ---
 
-## 2. Installation et premier lancement
+## 2. Installation et lancement rapide
 
-Suivez ces 3 étapes simples pour lancer Kroma Studio :
+Suivez ces 3 étapes simples pour démarrer l'application :
 
 ### Étape 1 : Ouvrir le terminal dans le dossier du projet
-Ouvrez votre terminal (par exemple PowerShell sur Windows) et naviguez dans le dossier de Kroma Studio :
 ```powershell
 cd D:\REA\mon-editeur
 ```
 
 ### Étape 2 : Installer les dépendances
-Si ce n'est pas déjà fait, téléchargez les bibliothèques requises en exécutant :
 ```powershell
 npm install
 ```
 
-### Étape 3 : Lancer l'application en mode développement
-Lancez le serveur de développement local :
+### Étape 3 : Lancer le serveur de développement
 ```powershell
 npm run dev
 ```
-Le terminal affichera un lien d'accès local, généralement :
-```
-➜  Local:   http://localhost:5173/
-```
-Maintenez la touche `Ctrl` enfoncée et cliquez sur le lien, ou copiez l'adresse `http://localhost:5173/` dans votre navigateur. Kroma Studio s'affiche immédiatement.
+Ouvrez l'adresse indiquée dans votre navigateur (généralement [http://localhost:5173/](http://localhost:5173/)).
 
 ---
 
-## 3. Découverte de l'interface
+## 3. Découverte de l'interface (4 quadrants style CapCut)
 
-L'interface de Kroma Studio est épurée et pensée pour le confort visuel lors des longues sessions de montage :
+L'espace de travail est structuré en 4 zones complémentaires :
 
-1. **La barre supérieure (Header) :**
-   - Le logo violet **K** et le titre **KROMA Studio**.
-   - Le badge de version actuelle (`v0.1.0-alpha`).
-2. **Le panneau latéral gauche (Médiathèque / MediaBin) :**
-   - Le bouton violet **« Importer »** permettant de parcourir vos dossiers.
-   - La zone d'accueil centrale invitant au glisser-déposer.
-   - La liste sous forme de grille de tous vos fichiers multimédias importés.
-3. **Le panneau central (Zone de travail) :**
-   - Réservé à la future Timeline multipiste et à l'écran de prévisualisation (prévus pour les étapes suivantes).
-4. **La barre inférieure (Footer) :**
-   - Rappel discret de l'état actuel de l'application.
+1. **En haut à gauche — La Médiathèque (MediaBin) :**
+   - Bouton **« Importer »** pour ajouter des vidéos, sons et photos.
+   - Onglets de filtrage rapide : **Tous**, **Vidéos**, **Audios**, **Photos**.
+   - Barre de recherche textuelle pour retrouver instantanément un rush.
+   - Cartes de médias avec bouton **« + »** d'ajout direct sur la timeline au survol.
 
----
+2. **En haut au centre — Le Moniteur de prévisualisation (Player) :**
+   - Écran vidéo au format standard **16:9**.
+   - Affiche en direct le contenu situé sous la tête de lecture rouge.
+   - Boutons de saut rapide (-1 seconde, +1 seconde, retour au début).
+   - Bouton central **Lecture / Pause** (activable aussi avec la barre d'espace).
+   - Double affichage du timecode SMPTE : `Temps actuel` / `Durée totale`.
 
-## 4. Votre premier projet pas à pas : importer des médias
+3. **En haut à droite — Le Panneau Inspecteur (Propriétés) :**
+   - Lorsque vous cliquez sur un clip dans la timeline : permet d'ajuster son **Volume (0% à 200%)**, son **Échelle/Zoom (20% à 300%)**, son **Opacité (0% à 100%)** et sa **Rotation**.
+   - Lorsque vous cliquez sur un média dans la médiathèque : affiche sa résolution, son débit, sa durée et sa taille.
 
-Kroma Studio prend en charge trois catégories de fichiers :
-- **Vidéos :** `.mp4`, `.webm`, `.mov`, `.mkv`, etc.
-- **Pistes audio :** `.mp3`, `.wav`, `.ogg`, `.aac`, `.flac`, etc.
-- **Images fixes :** `.png`, `.jpg`, `.jpeg`, `.webp`, `.svg`, etc.
-
-### Méthode A : Utiliser le bouton « Importer »
-1. Cliquez sur le bouton violet **« Importer »** en haut à gauche de la médiathèque.
-2. Une fenêtre de sélection de fichiers de votre système d'exploitation s'ouvre.
-3. Sélectionnez un ou plusieurs fichiers (maintenez `Ctrl` pour en sélectionner plusieurs).
-4. Cliquez sur **Ouvrir**.
-
-### Méthode B : Le glisser-déposer (Drag & Drop)
-1. Ouvrez votre explorateur de fichiers habituel à côté de votre navigateur.
-2. Attrapez un ou plusieurs fichiers vidéo, audio ou photos avec votre souris.
-3. Glissez-les au-dessus de la médiathèque de Kroma Studio. La zone s'illumine en violet avec le message *« Déposer les fichiers ici »*.
-4. Relâchez le bouton de la souris.
+4. **En bas — La Timeline multipiste :**
+   - **Barre d'outils :** Outil Sélection (flèche), Outil Rasoir/Scission (ciseaux), bouton Diviser, bouton Supprimer (corbeille) et barre de zoom temporel.
+   - **Réglette temporelle graduée (Ruler) :** Affiche les secondes et minutes. Cliquez ou glissez avec la souris n'importe où sur la réglette pour déplacer immédiatement la tête de lecture.
+   - **Tête de lecture rouge :** Marque l'instant précis visualisé.
+   - **Pistes superposées :** Pistes vidéo (bleues), titres (jaunes/oranges) et audio (vertes) avec boutons Mute (silence) et Lock (verrouillage).
 
 ---
 
-## 5. Visualiser et inspecter vos clips
+## 4. Votre premier montage pas à pas
 
-Dès qu'un fichier est déposé :
-1. Une animation de chargement indique que Kroma analyse le conteneur du fichier.
-2. L'application extrait automatiquement :
-   - **Une vignette miniature :** capturée directement sur l'une des premières images nettes de la vidéo (évite les écrans noirs de début de plan).
-   - **Le nom complet du fichier.**
-   - **La durée exacte :** affichée sous forme `MM:SS` (ou `HH:MM:SS` pour les médias longs).
-   - **La résolution native :** par exemple `1920×1080` ou `3840×2160` pour les vidéos et images.
-3. **Sélectionner un clip :** Cliquez sur la carte d'un clip pour le mettre en surbrillance avec une bordure violette lumineuse.
-4. **Supprimer un clip :** Cliquez sur la petite croix `×` située dans le coin supérieur droit de la carte pour retirer le clip du projet.
+### Étape 1 : Importer vos fichiers
+1. Cliquez sur le bouton violet **« Importer »** en haut à gauche ou glissez vos fichiers vidéos/audios/photos directement dans la médiathèque.
+2. Vos fichiers apparaissent instantanément sous forme de cartes avec leur vignette miniature.
+
+### Étape 2 : Déposer un clip sur la timeline
+Vous avez deux manières simples d'insérer un clip :
+- **Méthode A (Glisser-Déposer) :** Cliquez sur une carte de la médiathèque, maintenez le clic gauche enfoncé et glissez le fichier sur la piste de votre choix dans la timeline en bas. Relâchez à l'endroit exact souhaité.
+- **Méthode B (Bouton rapide +) :** Survolez la vignette du média et cliquez sur le petit bouton circulaire violet **« + »**. Le clip est automatiquement inséré sur la bonne piste à la position de la tête de lecture.
+
+### Étape 3 : Déplacer un clip sur la timeline
+1. Assurez-vous que l'outil **« Sélection »** est actif dans la barre d'outils de timeline (c'est l'outil par défaut).
+2. Cliquez au centre du rectangle bleu du clip et faites-le glisser vers la gauche ou vers la droite le long de la piste pour caler son début au moment voulu.
+
+### Étape 4 : Découper un clip en deux (Scission / Split)
+- **Méthode avec le bouton « Diviser » :**
+  1. Déplacez la tête de lecture rouge à l'endroit exact où vous souhaitez couper le clip.
+  2. Cliquez sur le clip pour le sélectionner (il s'entoure d'une bordure blanche contrastée).
+  3. Cliquez sur le bouton **« Diviser »** dans la barre d'outils (icône de scission). Votre clip est instantanément divisé en deux morceaux indépendants sans aucune perte de qualité !
+- **Méthode avec l'outil « Rasoir » :**
+  1. Cliquez sur l'outil **« Rasoir »** (icône de ciseaux) dans la barre d'outils.
+  2. Cliquez directement sur le clip à l'endroit précis que vous souhaitez trancher.
+
+### Étape 5 : Raccourcir ou allonger un clip (Poignées de rognage / Trim)
+1. Survolez l'extrémité gauche ou l'extrémité droite d'un clip. Le curseur de votre souris se transforme en double flèche horizontale `↔`.
+2. Cliquez et faites glisser vers l'intérieur pour couper une partie indésirable (début ou fin).
+3. L'édition est non destructive : vous pouvez à tout moment faire glisser la poignée vers l'extérieur pour réafficher les images coupées !
+
+### Étape 6 : Régler le volume ou le zoom d'un plan
+1. Cliquez sur le clip concerné pour le sélectionner.
+2. Regardez dans le panneau **Inspecteur** tout à droite :
+   - Bougez le curseur **Volume du clip** pour augmenter ou atténuer le niveau sonore.
+   - Bougez le curseur **Échelle (Zoom)** pour recadrer votre vidéo. L'écran de prévisualisation au centre s'adapte en temps réel !
+   - Bougez le curseur **Opacité** pour créer des effets de transparence.
+
+### Étape 7 : Supprimer un segment
+1. Cliquez sur le clip que vous souhaitez enlever.
+2. Cliquez sur l'icône **« Supprimer »** (corbeille rouge) dans la barre d'outils de la timeline ou dans le panneau Inspecteur.
 
 ---
 
-## 6. Problèmes courants et solutions
+## 5. Raccourcis et astuces de navigation
 
-### 1. Le port 5173 est déjà occupé
-* **Symptôme :** Vite démarre sur `http://localhost:5174/` au lieu de `5173`.
-* **Solution :** C'est normal si une autre application utilise ce port. Ouvrez simplement l'adresse indiquée par le terminal dans votre navigateur.
+| Action | Raccourci / Manipulation |
+|---|---|
+| **Lecture / Pause** | Cliquez sur le gros bouton rond blanc ou appuyez sur le bouton Play |
+| **Naviguer dans le temps** | Cliquez n'importe où sur la réglette graduée au-dessus des pistes |
+| **Reculer / Avancer de 1s** | Boutons `SkipBack` et `SkipForward` sous l'écran d'aperçu |
+| **Zoomer sur la timeline** | Glissez le curseur de zoom à droite de la barre d'outils, ou utilisez les boutons `+` et `-` |
+| **Ajuster la vue** | Cliquez sur l'icône carrée **Ajuster** pour voir l'ensemble de votre montage d'un seul coup d'œil |
+| **Couper le son d'une piste** | Cliquez sur l'icône de haut-parleur dans l'en-tête de la piste |
+| **Verrouiller une piste** | Cliquez sur l'icône de cadenas pour empêcher toute modification accidentelle |
 
-### 2. Une vidéo affiche une icône par défaut au lieu d'une vignette
-* **Symptôme :** La carte de votre vidéo s'affiche bien, mais la vignette reste l'icône de pellicule.
-* **Cause :** Certains codecs propriétaires anciens ou spécifiques (comme certaines variantes d'AVI ou de codec propriétaire non supporté nativement par le moteur Chromium du navigateur) ne peuvent pas être décodés directement par le lecteur HTML5 standard.
-* **Solution :** Pour cette étape 1, privilégiez les fichiers au format MP4 (H.264), WebM ou MOV. Lors de l'intégration du moteur FFmpeg en sous-processus (Étape 7), tous les formats sans exception seront transcodés et pris en charge de manière universelle.
+---
+
+## 6. Problèmes fréquents et résolutions
+
+### 1. Pourquoi le bouton « Diviser » est-il grisé ou ne coupe rien ?
+* **Explication :** La scission ne peut s'effectuer que si la tête de lecture rouge traverse réellement le clip sélectionné. Déplacez votre curseur rouge à l'intérieur de la durée du clip avant de couper.
+
+### 2. Le clip ne s'allonge plus quand je tire sur la poignée droite
+* **Explication :** Kroma Studio respecte la durée réelle de votre fichier vidéo source d'origine. Vous ne pouvez pas étirer un clip au-delà de la fin du fichier vidéo enregistré par votre caméra.
 
 ---
 
 ## 7. Prochaines étapes
 
-Ce qui arrive dans les prochaines versions de Kroma Studio :
-- **Étape 2 :** Glisser-déposer des clips de la médiathèque directement sur les pistes de la Timeline, découper les clips (outil rasoir / split) et ajuster leur durée.
-- **Étape 3 :** Tête de lecture interactive avec curseur temporel et lecteur vidéo temps réel synchronisé.
-- **Étape 4 :** Ajout de calques de texte personnalisables (titres, sous-titres, polices et couleurs).
-- **Étape 5 & 6 :** Historique Annuler / Rétablir (`Ctrl+Z` / `Ctrl+Y`) et sauvegarde de votre projet dans un fichier `.kproj`.
-- **Étape 7 :** Export vidéo final en MP4 haute qualité propulsé par FFmpeg.
+Ce qui arrive dans les prochaines étapes de développement :
+- **Étape 3 :** Décodage multi-sources et canevas vidéo haute performance synchronisé en temps réel avec le curseur de temps.
+- **Étape 4 :** Ajout de titres, sous-titres et calques de texte personnalisables directement sur la piste dédiée.
+- **Étape 5 & 6 :** Historique Annuler / Rétablir (`Ctrl+Z` / `Ctrl+Y`) et sauvegarde de projet au format `.kproj`.
+- **Étape 7 :** Export final en fichier vidéo MP4 haute définition via FFmpeg.

@@ -2,6 +2,8 @@
 
 Ce document répertorie l'ensemble des bibliothèques et logiciels tiers utilisés par le projet Kroma Studio, leurs licences respectives et les implications juridiques associées.
 
+Dernière mise à jour : 02/11/2026 (Étape 2 du MVP)
+
 ---
 
 ## 1. Dépendances directes du projet (NPM)
@@ -10,7 +12,7 @@ Ce document répertorie l'ensemble des bibliothèques et logiciels tiers utilis�
 |---|---|---|---|---|
 | **react** | `^19.3.1` | MIT | Bibliothèque d'interface utilisateur | Permissive |
 | **react-dom** | `^19.3.1` | MIT | Moteur de rendu web pour React | Permissive |
-| **zustand** | `^5.0.16` | MIT | Gestionnaire d'état global léger | Permissive |
+| **zustand** | `^5.0.16` | MIT | Gestionnaire d'état global réactif | Permissive |
 | **lucide-react** | `^1.66.0` | ISC | Collection d'icônes vectorielles SVG | Permissive |
 | **@tauri-apps/api** | `^2.12.4` | MIT / Apache-2.0 | API de communication Tauri (étape future) | Permissive |
 | **@tauri-apps/plugin-dialog**| `^2.8.4` | MIT / Apache-2.0 | Boîtes de dialogue système natives | Permissive |

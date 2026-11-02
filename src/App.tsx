@@ -1,48 +1,49 @@
 /**
  * App.tsx — Point d'entrée de l'interface Kroma Studio.
- * Layout sombre à 3 zones : header, corps (médiathèque + timeline), footer.
+ * Disposition moderne inspirée de CapCut :
+ * - Haut-gauche : Médiathèque / Import
+ * - Haut-centre : Moniteur de prévisualisation (Player)
+ * - Haut-droite : Panneau Inspecteur / Propriétés
+ * - Bas : Timeline multipiste pleine largeur
  */
 import './index.css';
+import { Header } from './components/layout/Header';
 import { MediaBin } from './components/media/MediaBin';
+import { PreviewMonitor } from './components/player/PreviewMonitor';
+import { InspectorPanel } from './components/inspector/InspectorPanel';
+import { Timeline } from './components/timeline/Timeline';
 
-/** Composant racine de l'application Kroma Studio */
 function App() {
   return (
     <div className="kroma-shell">
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <header className="kroma-header">
-        <div className="kroma-header__brand">
-          <div className="kroma-logo" aria-hidden="true">K</div>
-          <div className="kroma-header__titles">
-            <span className="kroma-header__name">KROMA</span>
-            <span className="kroma-header__sub">Studio</span>
-          </div>
-        </div>
-        <div className="kroma-header__version">v0.1.0-alpha</div>
-      </header>
+      {/* ── En-tête supérieur ── */}
+      <Header />
 
-      {/* ── Corps principal ──────────────────────────────────────────────── */}
-      <main className="kroma-body">
-        {/* Panneau gauche : médiathèque */}
-        <aside className="kroma-panel kroma-panel--left">
-          <div className="kroma-panel__title">Médiathèque</div>
+      {/* ── Espace de travail supérieur (3 colonnes) ── */}
+      <div className="kroma-workspace-top">
+        {/* Colonne gauche : Médiathèque */}
+        <div className="kroma-column kroma-column--media">
+          <div className="kroma-column__header">
+            <span>Médiathèque</span>
+          </div>
           <MediaBin />
-        </aside>
+        </div>
 
-        {/* Panneau central : timeline (à venir) */}
-        <section className="kroma-panel kroma-panel--center">
-          <div className="kroma-placeholder">
-            <span className="kroma-placeholder__label">
-              Timeline — à venir
-            </span>
-          </div>
-        </section>
-      </main>
+        {/* Colonne centrale : Lecteur d'aperçu */}
+        <div className="kroma-column kroma-column--player">
+          <PreviewMonitor />
+        </div>
 
-      {/* ── Footer ──────────────────────────────────────────────────────── */}
-      <footer className="kroma-footer">
-        Kroma Studio · Étape 1 · Import média
-      </footer>
+        {/* Colonne droite : Inspecteur / Propriétés */}
+        <div className="kroma-column kroma-column--inspector">
+          <InspectorPanel />
+        </div>
+      </div>
+
+      {/* ── Espace inférieur : Timeline multipiste ── */}
+      <div className="kroma-workspace-bottom">
+        <Timeline />
+      </div>
     </div>
   );
 }
