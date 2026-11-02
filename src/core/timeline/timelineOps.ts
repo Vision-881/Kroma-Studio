@@ -56,6 +56,48 @@ export function createItemFromAsset(
 }
 
 /**
+ * Crée un nouveau segment de calque de texte (Text overlay).
+ */
+export function createTextItem(
+  text: string = 'Nouveau Titre',
+  placementTimeUs: number = 0,
+  durationUs: number = 4_000_000,
+): TimelineItem {
+  const itemId = 'item_text_' + Math.random().toString(36).substring(2, 9);
+  return {
+    item_id: itemId,
+    referenced_asset_id: null,
+    placement_time_us: Math.max(0, Math.round(placementTimeUs)),
+    play_duration_us: durationUs,
+    source_in_point_us: 0,
+    source_duration_us: durationUs,
+    item_gain: 0,
+    spatial_placement: {
+      offset_x_px: 0,
+      offset_y_px: 0,
+      zoom_factor_x: 1.0,
+      zoom_factor_y: 1.0,
+      rotation_degrees: 0,
+      opacity_ratio: 1.0,
+    },
+    text_layer_data: {
+      raw_string: text,
+      font_name: 'system-ui',
+      font_size_pt: 48,
+      is_bold: true,
+      fill_color_hex: '#FFFFFF',
+      outline_color_hex: '#000000',
+      outline_thickness_px: 3,
+      text_align: 'center',
+      normalized_center: {
+        x_ratio: 0.5,
+        y_ratio: 0.5,
+      },
+    },
+  };
+}
+
+/**
  * Détermine le type de piste cible recommandé pour un type de média.
  */
 export function getRecommendedLaneType(mediaKind: MediaAsset['media_kind']): LaneType {

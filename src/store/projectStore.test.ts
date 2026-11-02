@@ -88,4 +88,57 @@ describe('useProjectStore', () => {
     expect(state.selectedItemId).toBeNull();
     expect(state.project.sequence.total_length_us).toBe(0);
   });
+
+  describe('calques texte', () => {
+    it('addTextItem — ajoute un item texte sur la piste text_overlay et le sélectionne', () => {
+      useProjectStore.getState().addTextItem('Hello Kroma', 1_000_000);
+
+      const state = useProjectStore.getState();
+      const textLane = state.project.sequence.lanes.find((l) => l.lane_type === 'text_overlay');
+      expect(textLane).toBeDefined();
+      expect(textLane!.items).toHaveLength(1);
+
+      const item = textLane!.items[0];
+      expect(item.text_layer_data!.raw_string).toBe('Hello Kroma');
+      expect(item.placement_time_us).toBe(1_000_000);
+      expect(item.play_duration_us).toBe(4_000_000);
+
+      // Le nouvel item doit être sélectionné
+      expect(state.selectedItemId).toBe(item.item_id);
+    });
+
+    it('updateTextLayerData — met à jour le contenu et la police du calque texte', () => {
+      useProjectStore.getState().addTextItem('Initial');
+      const itemId = useProjectStore.getState().selectedItemId!;
+
+      useProjectStore.getState().updateTextLayerData(itemId, {
+        raw_string: 'Modifié',
+        font_name: 'Georgia, serif',
+        fill_color_hex: '#FF0000',
+        is_bold: false,
+      });
+
+      const state = useProjectStore.getState();
+      const textLane = state.project.sequence.lanes.find((l) => l.lane_type === 'text_overlay');
+      const item = textLane!.items.find((i) => i.item_id === itemId);
+      expect(item!.text_layer_data!.raw_string).toBe('Modifié');
+      expect(item!.text_layer_data!.font_name).toBe('Georgia, serif');
+      expect(item!.text_layer_data!.fill_color_hex).toBe('#FF0000');
+      expect(item!.text_layer_data!.is_bold).toBe(false);
+      // Les champs non modifiés restent inchangés
+      expect(item!.text_layer_data!.text_align).toBe('center');
+    });
+
+    it('updateTextLayerData — sans effet si l\'itemId est invalide', () => {
+      useProjectStore.getState().addTextItem('Test');
+      const stateBefore = useProjectStore.getState().project;
+      useProjectStore.getState().updateTextLayerData('item_inexistant', { raw_string: 'Hack' });
+      const stateAfter = useProjectStore.getState().project;
+      // La séquence ne doit pas être modifiée
+      const textLane = stateAfter.sequence.lanes.find((l) => l.lane_type === 'text_overlay');
+      expect(textLane!.items[0].text_layer_data!.raw_string).toBe('Test');
+      // modified_timestamp peut changer (set() est appelé), on vérifie juste le contenu
+      expect(stateBefore.sequence.lanes.length).toBe(stateAfter.sequence.lanes.length);
+    });
+  });
 });

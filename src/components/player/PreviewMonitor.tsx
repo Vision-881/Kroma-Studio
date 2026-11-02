@@ -119,6 +119,15 @@ export function PreviewMonitor() {
         // Rendu Calque de Texte
         if (item.text_layer_data) {
           const textData = item.text_layer_data;
+
+          // Position normalisée → coordonnées canvas absolues
+          // normalized_center : 0.0 = bord gauche/haut, 1.0 = bord droit/bas
+          const nc = textData.normalized_center || { x_ratio: 0.5, y_ratio: 0.5 };
+          // On remet ctx en coordonnées canvas brutes (on a déjà fait ctx.translate au centre)
+          // → on compense la translation courante et on repositionne au ratio absolu
+          const textAbsX = nc.x_ratio * canvasWidth - canvasWidth / 2 - placement.offset_x_px;
+          const textAbsY = nc.y_ratio * canvasHeight - canvasHeight / 2 - placement.offset_y_px;
+
           ctx.font = `${textData.is_bold ? 'bold ' : ''}${textData.font_size_pt * 2}px ${textData.font_name || 'sans-serif'}`;
           ctx.textAlign = textData.text_align || 'center';
           ctx.textBaseline = 'middle';
@@ -126,11 +135,12 @@ export function PreviewMonitor() {
           if (textData.outline_thickness_px > 0) {
             ctx.strokeStyle = textData.outline_color_hex || '#000000';
             ctx.lineWidth = textData.outline_thickness_px * 2;
-            ctx.strokeText(textData.raw_string, 0, 0);
+            ctx.lineJoin = 'round';
+            ctx.strokeText(textData.raw_string, textAbsX, textAbsY);
           }
 
           ctx.fillStyle = textData.fill_color_hex || '#FFFFFF';
-          ctx.fillText(textData.raw_string, 0, 0);
+          ctx.fillText(textData.raw_string, textAbsX, textAbsY);
         }
 
         ctx.restore();

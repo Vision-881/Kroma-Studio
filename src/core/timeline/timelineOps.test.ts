@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createItemFromAsset,
+  createTextItem,
   addItemToLane,
   removeItemFromSequence,
   moveItemInSequence,
@@ -126,5 +127,34 @@ describe('Timeline Operations', () => {
     const removed = removeItemFromSequence(withItem, item.item_id);
     expect(removed.lanes[0].items).toHaveLength(0);
     expect(removed.total_length_us).toBe(0);
+  });
+
+  describe('createTextItem', () => {
+    it('crée un item texte avec les bonnes valeurs par défaut', () => {
+      const item = createTextItem('Bonjour', 2_000_000);
+      expect(item.item_id).toMatch(/^item_text_/);
+      expect(item.referenced_asset_id).toBeNull();
+      expect(item.placement_time_us).toBe(2_000_000);
+      expect(item.play_duration_us).toBe(4_000_000); // durée par défaut = 4s
+      expect(item.text_layer_data).toBeDefined();
+      expect(item.text_layer_data!.raw_string).toBe('Bonjour');
+      expect(item.text_layer_data!.font_name).toBe('system-ui');
+      expect(item.text_layer_data!.is_bold).toBe(true);
+      expect(item.text_layer_data!.fill_color_hex).toBe('#FFFFFF');
+      expect(item.text_layer_data!.text_align).toBe('center');
+      expect(item.text_layer_data!.normalized_center.x_ratio).toBe(0.5);
+      expect(item.text_layer_data!.normalized_center.y_ratio).toBe(0.5);
+    });
+
+    it('accepte une durée personnalisée', () => {
+      const item = createTextItem('Test', 0, 8_000_000);
+      expect(item.play_duration_us).toBe(8_000_000);
+      expect(item.source_duration_us).toBe(8_000_000);
+    });
+
+    it('utilise "Nouveau Titre" comme texte par défaut', () => {
+      const item = createTextItem();
+      expect(item.text_layer_data!.raw_string).toBe('Nouveau Titre');
+    });
   });
 });

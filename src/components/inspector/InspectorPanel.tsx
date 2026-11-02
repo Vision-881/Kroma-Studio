@@ -2,10 +2,12 @@
  * Panneau Inspecteur / Propriétés (style CapCut).
  * Situé à droite du lecteur d'aperçu, il permet de modifier le volume,
  * l'opacité, l'échelle et la position des clips sélectionnés.
+ * Lorsqu'un calque texte est sélectionné, affiche le TextEditor dédié.
  */
 import { Sliders, Volume2, Move, Trash2, Plus, Info, Layers } from 'lucide-react';
 import { useProjectStore } from '../../store/projectStore';
 import { formatDurationHuman, usToTimecode } from '../../core/time/timeUtils';
+import { TextEditor } from '../text/TextEditor';
 
 export function InspectorPanel() {
   const {
@@ -34,12 +36,45 @@ export function InspectorPanel() {
 
     if (!selectedItem || !parentLane) return null;
 
+    // ── Cas spécial : calque texte → afficher l'éditeur de texte dédié ───
+    if (selectedItem.text_layer_data) {
+      return (
+        <aside className="inspector-panel">
+          <div className="inspector-panel__header">
+            <Sliders size={16} />
+            <span>Propriétés du texte</span>
+          </div>
+          <div className="inspector-panel__body">
+            <TextEditor itemId={selectedItem.item_id} textData={selectedItem.text_layer_data} />
+
+            {/* Durée info + suppression */}
+            <div className="inspector-section" style={{ marginTop: 4 }}>
+              <div className="inspector-field">
+                <span className="inspector-field__label">Durée :</span>
+                <span className="inspector-field__value">
+                  {formatDurationHuman(selectedItem.play_duration_us)}
+                </span>
+              </div>
+              <button
+                className="kroma-btn kroma-btn-danger"
+                style={{ marginTop: 8 }}
+                onClick={() => removeTimelineItem(selectedItem!.item_id)}
+              >
+                <Trash2 size={14} />
+                <span>Supprimer</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+      );
+    }
+
     const sourceAsset = project.asset_catalog.find(
       (a) => a.asset_id === selectedItem?.referenced_asset_id,
     );
 
     const displayName =
-      selectedItem.text_layer_data?.raw_string ||
+      (selectedItem as import('../../core/types/timeline').TimelineItem).text_layer_data?.raw_string ||
       sourceAsset?.display_name ||
       'Segment de clip';
 

@@ -2,7 +2,7 @@
 
 Ce document consigne l'avancement du projet, la feuille de route du MVP, les étapes réalisées, en cours et à venir, ainsi que les décisions d'architecture prises au fil du développement.
 
-Dernière mise à jour : 02/11/2026 (Étape 3 du MVP)
+Dernière mise à jour : 02/11/2026 (Étape 4 du MVP)
 
 ---
 
@@ -14,7 +14,7 @@ Dernière mise à jour : 02/11/2026 (Étape 3 du MVP)
 | **Étape 1** | Import de médias & Médiathèque | ✅ Terminé | Panneau `MediaBin` avec drag & drop HTML5, sélecteur de fichiers, extraction de métadonnées et vignettes via le navigateur, store Zustand `projectStore`. |
 | **Étape 2** | Timeline multipiste & Ergonomie CapCut | ✅ Terminé | Disposition 4 quadrants style CapCut Desktop, réglette graduée dynamique, zoom temporel, déplacement de clips, découpe (outil Rasoir/Split), rognage (Trim handles), suppression, drag & drop depuis la médiathèque, panneau Inspecteur/Propriétés. |
 | **Étape 3** | Lecteur d'aperçu temps réel synchronisé | ✅ Terminé | Moteur de rendu `<canvas>` 16:9 haute performance alimenté par les flux réels (`<video>`, `<audio>`, `<img>`), synchronisation à la frame près sous la tête de lecture, registre de session multimédia `mediaSession`, lecture Play/Pause 60 FPS (raccourci Espace), 21 tests unitaires. |
-| **Étape 4** | Superposition de texte | ⬜ Prochaine | Piste de titres/textes enrichie, personnalisation typographique (police, taille, couleur, contour, alignement, animation/positionnement). |
+| **Étape 4** | Superposition de texte | ✅ Terminé | Calques textes riches sur piste `text_overlay` dédiée, éditeur complet (police, taille, gras, couleur remplissage/contour, alignement, position X/Y), rendu Canvas natif avec `normalized_center`, 27 tests unitaires. |
 | **Étape 5** | Mixage & Contrôle du volume | ⬜ À faire | Gestion fine du gain audio, automation/fondu, fonction mute / solo par piste. |
 | **Étape 6** | Historique Annuler / Rétablir & Persistance | ⬜ À faire | Pile Undo/Redo complète sur les actions de timeline, sauvegarde et ouverture de projets `.kproj` en JSON via dialogue de fichiers. |
 | **Étape 7** | Export MP4 via FFmpeg | ⬜ À faire | Génération de la commande de filtre complexe FFmpeg et exécution en sous-processus externe indépendant. |
@@ -43,6 +43,10 @@ Dernière mise à jour : 02/11/2026 (Étape 3 du MVP)
 - **Décision :** Lors de la lecture continue, `video.currentTime` n'est réajusté que si l'écart dépasse un seuil de 50 millisecondes (environ 1.5 frame à 30 fps).
 - **Justification :** Évite les micro-saccades causées par des appels répétitifs à la méthode de seek du décodeur natif du navigateur, tout en garantissant un calage rigoureux lors des sauts ou du scrubbing manuel.
 
+### 2.6 Positionnement normalisé des calques texte (`normalized_center`)
+- **Décision :** La position d'un calque texte est stockée sous forme de ratios `x_ratio` / `y_ratio` entre 0.0 et 1.0 relatifs aux dimensions du canevas, plutôt qu'en pixels absolus.
+- **Justification :** Le positionnement normalisé est indépendant de la résolution du canevas (1080p, 4K, 720p…). Un texte positionné à `{x: 0.5, y: 0.8}` sera toujours centré horizontalement à 80 % de la hauteur quelle que soit la résolution de sortie choisie.
+
 ---
 
 ## 3. Historique des étapes
@@ -64,3 +68,12 @@ Dernière mise à jour : 02/11/2026 (Étape 3 du MVP)
 - Tests unitaires `playbackEngine.test.ts` validés.
 - Implémentation du registre de session `src/core/media/mediaSession.ts`.
 - Intégration du composant de rendu vidéo complet `PreviewMonitor.tsx` avec `<canvas>` composite 16:9, gestion des transformations (échelle, rotation, opacité), synchro vidéo/audio native et raccourci universel Play/Pause (barre d'espace).
+
+### Étape 4 — Superposition de texte (02/11/2026)
+- **Logique métier :** `createTextItem()` dans `timelineOps.ts`, `addTextItem()` et `updateTextLayerData()` dans `projectStore.ts`.
+- **Composant :** `src/components/text/TextEditor.tsx` — éditeur texte complet style CapCut avec contrôles : contenu (textarea), police (select), taille (slider), gras (toggle), alignement (3 boutons), couleur de remplissage et de contour (color pickers), épaisseur du contour (slider), position X/Y normalisée (2 sliders), aperçu typographique live.
+- **Intégration :** `InspectorPanel.tsx` — détection automatique des calques texte et bascule vers `TextEditor` ; `TimelineToolbar.tsx` — bouton "Texte" (icône T) pour insérer un calque texte à la tête de lecture.
+- **Rendu Canvas :** `PreviewMonitor.tsx` — rendu texte tenant compte de `normalized_center` (position absolue sur canvas), contour `lineJoin: round`, police scalée ×2 pour la haute résolution.
+- **Styles :** `src/styles/text-editor.css` — 27 règles CSS dédiées au panneau TextEditor.
+- **Tests :** 27 tests unitaires (9 dans `timelineOps.test.ts`, 9 dans `projectStore.test.ts`), tous ✅.
+

@@ -1,0 +1,243 @@
+/* ============================================================
+   text-editor.css — Panneau d'édition texte CapCut-like
+   ============================================================ */
+
+/* Conteneur principal */
+.text-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* En-tête de l'éditeur */
+.text-editor__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0 10px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 10px;
+}
+
+/* Section regroupant un groupe de contrôles */
+.text-editor__section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+/* Étiquette de section */
+.text-editor__label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.text-editor__sublabel {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Ligne étiquette + badge valeur */
+.text-editor__label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Badge valeur numérique */
+.text-editor__badge {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  background: rgba(124, 106, 247, 0.12);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-weight: 600;
+}
+
+/* Textarea pour le contenu textuel */
+.text-editor__textarea {
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  padding: 6px 8px;
+  resize: vertical;
+  min-height: 56px;
+  line-height: 1.5;
+  transition: border-color 0.15s;
+}
+.text-editor__textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.text-editor__textarea::placeholder {
+  color: var(--text-muted);
+}
+
+/* Select police */
+.text-editor__select {
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  padding: 5px 6px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.text-editor__select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Rangée horizontale (taille + bold) */
+.text-editor__row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+/* Groupe de couleurs (2 colonnes) */
+.text-editor__row--colors {
+  gap: 10px;
+}
+
+.text-editor__control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* Bouton toggle (ex: Bold) */
+.text-editor__toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.text-editor__toggle-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+.text-editor__toggle-btn--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* Groupe alignement (3 boutons) */
+.text-editor__align-group {
+  display: flex;
+  gap: 4px;
+}
+
+.text-editor__align-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.text-editor__align-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+.text-editor__align-btn--active {
+  background: rgba(124, 106, 247, 0.18);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Groupe couleur (label + swatch + hex) */
+.text-editor__color-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.text-editor__color-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Input color natif stylisé */
+.text-editor__color-input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.text-editor__color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.text-editor__color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 2px;
+}
+
+/* Code hex de couleur */
+.text-editor__color-hex {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* Aperçu typographique */
+.text-editor__preview {
+  background: #1a1a26;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  word-break: break-word;
+  overflow: hidden;
+}
+
+/* Bouton "Texte" dans la toolbar CapCut-like */
+.timeline-tool-btn--text {
+  color: var(--clip-text-border, #f59e0b);
+}
+.timeline-tool-btn--text:hover {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+}
+

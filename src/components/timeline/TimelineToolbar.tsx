@@ -1,7 +1,7 @@
 /**
  * Barre d'outils supérieure de la Timeline (style CapCut).
  * Fournit les outils Sélection, Découpe (Rasoir), Suppression,
- * ainsi que le contrôle du zoom temporel.
+ * le bouton d'ajout de calque Texte, ainsi que le contrôle du zoom temporel.
  */
 import {
   MousePointer2,
@@ -11,6 +11,7 @@ import {
   ZoomOut,
   Maximize2,
   Split,
+  Type,
 } from 'lucide-react';
 import { useProjectStore, type TimelineTool } from '../../store/projectStore';
 import { usToTimecode } from '../../core/time/timeUtils';
@@ -25,6 +26,7 @@ export function TimelineToolbar() {
     selectedItemId,
     splitTimelineItemAtCurrentTime,
     removeTimelineItem,
+    addTextItem,
     project,
   } = useProjectStore();
 
@@ -60,6 +62,10 @@ export function TimelineToolbar() {
 
   const handleQuickSplit = () => {
     splitTimelineItemAtCurrentTime();
+  };
+
+  const handleAddText = () => {
+    addTextItem('Nouveau Titre');
   };
 
   return (
@@ -105,6 +111,18 @@ export function TimelineToolbar() {
         >
           <Trash2 size={15} />
           <span className="timeline-tool-btn__label">Supprimer</span>
+        </button>
+
+        <div className="timeline-toolbar__separator" />
+
+        {/* Bouton Ajouter un calque texte */}
+        <button
+          className="timeline-tool-btn timeline-tool-btn--text"
+          onClick={handleAddText}
+          title="Ajouter un calque texte à la position de la tête de lecture"
+        >
+          <Type size={15} />
+          <span className="timeline-tool-btn__label">Texte</span>
         </button>
       </div>
 

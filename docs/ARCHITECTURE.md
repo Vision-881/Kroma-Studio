@@ -2,7 +2,7 @@
 
 Ce document détaille l'organisation structurelle, le découpage en modules et le format de fichier projet de l'éditeur vidéo **Kroma Studio**.
 
-Dernière mise à jour : 02/11/2026 (Étape 3 du MVP)
+Dernière mise à jour : 02/11/2026 (Étape 4 du MVP)
 
 ---
 
@@ -15,12 +15,12 @@ L'application est conçue selon une séparation stricte des responsabilités ent
 │                                 HEADER (Branding, Nom du projet, Export)               │
 ├──────────────────────────┬─────────────────────────────────┬───────────────────────────┤
 │    MÉDIATHÈQUE (320px)   │     MONITEUR D'APERÇU (Player)   │    INSPECTEUR (290px)     │
-│  - Import & Catégories   │   - Canvas 16:9 composite      │  - Volume & Gain          │
-│  - Drag & Drop vers TL   │   - Rendu vidéo & audio réels   │  - Zoom, Rotation, Opacité│
-│  - mediaSession registre │   - Transport & Synchro 60 FPS  │  - Propriétés de projet   │
+│  - Import & Catégories   │   - Canvas 16:9 composite       │  - Clip : Volume, Zoom,   │
+│  - Drag & Drop vers TL   │   - Rendu vidéo & audio réels   │    Rotation, Opacité      │
+│  - mediaSession registre │   - Transport & Synchro 60 FPS  │  - Texte : TextEditor     │
 ├──────────────────────────┴─────────────────────────────────┴───────────────────────────┤
 │                                  TIMELINE MULTIPISTE                                   │
-│  - Barre d'outils : Outil Sélection (V), Outil Rasoir (B), Supprimer (Suppr), Zoom     │
+│  - Barre d'outils : Outil Sélection (V), Outil Rasoir (B), Supprimer, Texte, Zoom      │
 │  - Réglette temporelle graduée (Ruler) avec scrubbing                                  │
 │  - Tête de lecture (Playhead) rouge traversante synchronisée                           │
 │  - En-têtes de pistes (Mute, Lock) et corps de pistes récepteurs de drag & drop        │
@@ -43,7 +43,7 @@ L'application est conçue selon une séparation stricte des responsabilités ent
 │  - Microsecondes pure │   │  - addItemToLane            │   │  - getActiveItemsAtTime  │
 │  - Timecode SMPTE     │   │  - splitItemInSequence      │   │  - calculateSourceTimeUs │
 │  - formatDuration     │   │  - trimItemInSequence       │   │  - mediaSession registre │
-│                       │   │  - moveItemInSequence       │   │  - Canvas 2D composition │
+│                       │   │  - createTextItem (Ét.4)    │   │  - Canvas 2D composition │
 └───────────────────────┘   └─────────────────────────────┘   └──────────────────────────┘
 ```
 
@@ -64,14 +64,15 @@ Gestion et décodage multimédia :
 
 ### 1.4 `src/core/timeline`
 Module pur de manipulation des pistes et segments :
-- `timelineOps.ts` : fonctions d'adjonction, de déplacement temporel/inter-pistes, de scission (split) au temps de coupe exact et de rognage interactif (trim).
+- `timelineOps.ts` : fonctions d'adjonction, de déplacement temporel/inter-pistes, de scission (split) au temps de coupe exact, de rognage interactif (trim) et de création de calques texte (`createTextItem`).
 
 ### 1.5 `src/components`
 Composants React modulaires organisés selon l'agencement CapCut :
-- `components/player/PreviewMonitor.tsx` : écran `<canvas>` composite 16:9 haute performance dessinant en direct le flux vidéo, audio et titres, avec barre de transport, contrôle du son master et raccourci barre d'espace.
+- `components/player/PreviewMonitor.tsx` : écran `<canvas>` composite 16:9 haute performance dessinant en direct le flux vidéo, audio, titres (texte positionné via `normalized_center`), avec barre de transport et raccourci barre d'espace.
 - `components/media/MediaBin.tsx` : médiathèque avec onglets, recherche et drag & drop vers les pistes.
-- `components/inspector/InspectorPanel.tsx` : panneau de propriétés contextuel (volume, échelle, rotation, opacité).
-- `components/timeline/` : suite complète de timeline (barre d'outils, réglette graduée, tête de lecture, en-têtes et clips interactifs).
+- `components/inspector/InspectorPanel.tsx` : panneau de propriétés contextuel. Bascule automatiquement sur `TextEditor` si le clip sélectionné possède `text_layer_data`.
+- `components/text/TextEditor.tsx` *(Étape 4)* : éditeur texte complet (contenu, police, taille, gras, alignement, couleurs, contour, position X/Y normalisée, aperçu live).
+- `components/timeline/` : suite complète de timeline (barre d'outils avec bouton **Texte**, réglette graduée, tête de lecture, en-têtes et clips interactifs).
 
 ---
 
@@ -85,6 +86,9 @@ Composants React modulaires organisés selon l'agencement CapCut :
 
 3. **Composition multi-couches sur Canvas 2D :**
    L'affichage en temps réel combine les calques vidéo, les rotations, les facteurs d'échelle et l'opacité sans ré-encodage, offrant une prévisualisation instantanée identique au rendu final.
+
+4. **Positionnement normalisé des calques texte :**
+   La position (`normalized_center`) est stockée en ratios 0.0–1.0 indépendants de la résolution, permettant à un texte positionné à `{x: 0.5, y: 0.85}` de rester toujours centré à 85 % de la hauteur quelle que soit la résolution (1080p, 4K, etc.).
 
 ---
 
@@ -151,6 +155,42 @@ Les fichiers de sauvegarde de Kroma Studio utilisent l'extension `.kproj` et son
               "zoom_factor_y": 1.0,
               "rotation_degrees": 0.0,
               "opacity_ratio": 1.0
+            }
+          }
+        ]
+      },
+      {
+        "lane_id": "lane_text_1",
+        "lane_title": "Titres & Textes",
+        "lane_type": "text_overlay",
+        "stack_index": 2,
+        "is_muted": false,
+        "is_locked": false,
+        "gain_level": 1.0,
+        "items": [
+          {
+            "item_id": "item_text_abc123",
+            "referenced_asset_id": null,
+            "placement_time_us": 1000000,
+            "play_duration_us": 4000000,
+            "source_in_point_us": 0,
+            "source_duration_us": 4000000,
+            "item_gain": 0,
+            "spatial_placement": {
+              "offset_x_px": 0, "offset_y_px": 0,
+              "zoom_factor_x": 1.0, "zoom_factor_y": 1.0,
+              "rotation_degrees": 0.0, "opacity_ratio": 1.0
+            },
+            "text_layer_data": {
+              "raw_string": "Islande 2026",
+              "font_name": "system-ui",
+              "font_size_pt": 72,
+              "is_bold": true,
+              "fill_color_hex": "#FFFFFF",
+              "outline_color_hex": "#000000",
+              "outline_thickness_px": 4,
+              "text_align": "center",
+              "normalized_center": { "x_ratio": 0.5, "y_ratio": 0.85 }
             }
           }
         ]

@@ -6,9 +6,10 @@
 import { create } from 'zustand';
 import type { MediaAsset } from '../core/types/asset';
 import { type KromaProject, createDefaultProject } from '../core/types/project';
-import type { SpatialPlacement } from '../core/types/timeline';
+import type { SpatialPlacement, TextLayerData } from '../core/types/timeline';
 import {
   createItemFromAsset,
+  createTextItem,
   addItemToLane,
   removeItemFromSequence,
   moveItemInSequence,
@@ -56,6 +57,8 @@ interface ProjectState {
   toggleLaneLock: (laneId: string) => void;
   updateClipPlacement: (itemId: string, updates: Partial<SpatialPlacement>) => void;
   updateClipGain: (itemId: string, gain: number) => void;
+  addTextItem: (text?: string, placementTimeUs?: number) => void;
+  updateTextLayerData: (itemId: string, updates: Partial<TextLayerData>) => void;
 
   // --- Gestion du Projet ---
   resetProject: () => void;
@@ -346,6 +349,56 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           return {
             ...item,
             item_gain: Math.max(0, Math.min(2.0, gain)),
+          };
+        }),
+      }));
+
+      return {
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  addTextItem: (text?: string, placementTimeUs?: number) => {
+    const state = get();
+    // Trouver la piste dédiée aux titres/textes (ou la première piste text_overlay)
+    let textLane = state.project.sequence.lanes.find((l) => l.lane_type === 'text_overlay');
+    if (!textLane) {
+      textLane = state.project.sequence.lanes[0];
+    }
+
+    const posUs = placementTimeUs !== undefined ? placementTimeUs : state.currentTimeUs;
+    const newItem = createTextItem(text || 'Nouveau Titre', posUs);
+    const updatedSequence = addItemToLane(state.project.sequence, textLane.lane_id, newItem);
+
+    set({
+      project: {
+        ...state.project,
+        sequence: updatedSequence,
+        modified_timestamp_utc: Date.now() * 1000,
+      },
+      selectedItemId: newItem.item_id,
+      selectedAssetId: null,
+      isDirty: true,
+    });
+  },
+
+  updateTextLayerData: (itemId: string, updates: Partial<TextLayerData>) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId || !item.text_layer_data) return item;
+          return {
+            ...item,
+            text_layer_data: {
+              ...item.text_layer_data,
+              ...updates,
+            },
           };
         }),
       }));
