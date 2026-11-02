@@ -116,13 +116,18 @@ L'espace de travail est structuré en 4 zones complémentaires :
 
 | Action | Raccourci / Manipulation |
 |---|---|
-| **Lecture / Pause** | Barre d'espace ou clic sur le bouton Play |
+| **Lecture / Pause** | `Espace` ou clic sur le bouton Play |
+| **Reculer / Avancer d'une seconde** | `Flèche Gauche` / `Flèche Droite` |
+| **Saut rapide de 5 secondes** | `Maj + Flèche Gauche` / `Maj + Flèche Droite` |
+| **Revenir au début (00:00:00:00)** | Touche `Début` (Home) ou bouton `RotateCcw` |
+| **Supprimer le clip sélectionné** | Touche `Suppr` (Delete) ou `Retour arrière` (Backspace) |
+| **Outil Sélection** | Touche `V` |
+| **Outil Rasoir / Découpe** | Touche `B` |
+| **Diviser le clip à la tête de lecture** | `Ctrl + B` ou `Ctrl + K` |
+| **Couper / Réactiver le son master** | Touche `M` ou icône de haut-parleur sous la vidéo |
 | **Naviguer dans le temps (Scrubbing)** | Cliquez ou glissez sur la réglette graduée au-dessus des pistes |
-| **Reculer / Avancer de 1s** | Boutons `SkipBack` et `SkipForward` sous l'écran d'aperçu |
-| **Revenir au début** | Bouton `RotateCcw` sous l'écran d'aperçu |
 | **Zoomer sur la timeline** | Glissez le curseur de zoom à droite de la barre d'outils, ou utilisez les boutons `+` et `-` |
 | **Ajuster la vue globale** | Cliquez sur l'icône carrée **Ajuster** pour embrasser l'ensemble du montage |
-| **Couper le son général (Master)** | Cliquez sur l'icône de haut-parleur dans la barre de transport sous la vidéo |
 
 ---
 

@@ -97,3 +97,4 @@ npx -y rea-agents doctor --client antigravity --json
 ```
 
 Si le diagnostic indique que Ghidra et Java sont détectés, le serveur REA est prêt à répondre aux requêtes de l'agent.
+

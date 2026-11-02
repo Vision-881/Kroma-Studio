@@ -12,6 +12,8 @@ export interface ActiveVisualItem {
   laneId: string;
   stackIndex: number;
   sourceTimeUs: number;
+  effectiveGain: number;
+  isMuted: boolean;
 }
 
 export interface ActiveAudioItem {
@@ -20,6 +22,7 @@ export interface ActiveAudioItem {
   laneId: string;
   sourceTimeUs: number;
   effectiveGain: number;
+  isMuted: boolean;
 }
 
 export interface ActivePlaybackState {
@@ -59,27 +62,28 @@ export function getActiveItemsAtTime(
           ? assetCatalog.find((a) => a.asset_id === item.referenced_asset_id) || null
           : null;
 
-        if (lane.lane_type === 'visual' || lane.lane_type === 'text_overlay') {
-          if (!lane.is_muted) {
-            visualItems.push({
-              item,
-              asset,
-              laneId: lane.lane_id,
-              stackIndex: lane.stack_index,
-              sourceTimeUs,
-            });
-          }
-        } else if (lane.lane_type === 'audio') {
-          const effectiveGain = lane.is_muted
-            ? 0
-            : (item.item_gain ?? 1.0) * (lane.gain_level ?? 1.0);
+        const effectiveGain = lane.is_muted
+          ? 0
+          : (item.item_gain ?? 1.0) * (lane.gain_level ?? 1.0);
 
+        if (lane.lane_type === 'visual' || lane.lane_type === 'text_overlay') {
+          visualItems.push({
+            item,
+            asset,
+            laneId: lane.lane_id,
+            stackIndex: lane.stack_index,
+            sourceTimeUs,
+            effectiveGain,
+            isMuted: lane.is_muted,
+          });
+        } else if (lane.lane_type === 'audio') {
           audioItems.push({
             item,
             asset,
             laneId: lane.lane_id,
             sourceTimeUs,
             effectiveGain,
+            isMuted: lane.is_muted,
           });
         }
       }

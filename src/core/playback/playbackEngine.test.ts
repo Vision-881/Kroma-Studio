@@ -88,3 +88,4 @@ describe('Playback Engine', () => {
     expect(after.visualItems).toHaveLength(0);
   });
 });
+

@@ -31,7 +31,7 @@ class MediaSessionManager {
       const video = document.createElement('video');
       video.src = objectUrl;
       video.preload = 'auto';
-      video.muted = true; // Rendu visuel muet, audio géré séparément ou synchro
+      video.muted = false; // Audio géré dynamiquement par le player
       video.playsInline = true;
       entry.videoElement = video;
     } else if (kind === 'audio') {
@@ -95,3 +95,4 @@ class MediaSessionManager {
 }
 
 export const mediaSession = new MediaSessionManager();
+

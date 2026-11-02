@@ -1,7 +1,7 @@
 /**
  * Moniteur de prévisualisation vidéo haute performance (style CapCut).
- * Effectue un rendu temps réel multi-couches sur un <canvas> HTML5 à partir
- * des flux vidéo, audio et images synchronisés sous la tête de lecture.
+ * Synchronisation fluide du son et de l'image vidéo sans clignotement,
+ * rendu Canvas 2D multi-couches et support complet des raccourcis clavier.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Pause, SkipBack, SkipForward, RotateCcw, Volume2, VolumeX } from 'lucide-react';
@@ -15,6 +15,10 @@ export function PreviewMonitor() {
     project,
     currentTimeUs,
     setCurrentTimeUs,
+    selectedItemId,
+    removeTimelineItem,
+    setActiveTool,
+    splitTimelineItemAtCurrentTime,
   } = useProjectStore();
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -22,7 +26,7 @@ export function PreviewMonitor() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const animationFrameRef = useRef<number | null>(null);
-  const lastTickTimeRef = useRef<number | null>(null);
+  const lastWallTimeRef = useRef<number | null>(null);
 
   const canvasWidth = project.timeline_canvas.viewport_width || 1920;
   const canvasHeight = project.timeline_canvas.viewport_height || 1080;
@@ -39,18 +43,20 @@ export function PreviewMonitor() {
       ctx.fillStyle = project.timeline_canvas.background_color_hex || '#000000';
       ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-      // Si aucun média actif, afficher une grille discrète de repère
+      // Si aucun média actif, afficher repère discret
       if (visualItems.length === 0) {
-        ctx.fillStyle = '#161622';
+        ctx.fillStyle = '#14141d';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        ctx.strokeStyle = '#252538';
+        ctx.strokeStyle = '#272738';
         ctx.lineWidth = 2;
-        ctx.strokeRect(40, 40, canvasWidth - 80, canvasHeight - 80);
+        ctx.strokeRect(30, 30, canvasWidth - 60, canvasHeight - 60);
         return;
       }
 
       // 2. Dessiner chaque couche visuelle (du bas vers le haut)
       for (const active of visualItems) {
+        if (active.isMuted) continue;
+
         const item = active.item;
         const asset = active.asset;
         const placement = item.spatial_placement || {
@@ -64,7 +70,7 @@ export function PreviewMonitor() {
 
         ctx.save();
 
-        // Positionnement au centre + offset
+        // Positionnement au centre + décalage X/Y
         const centerX = canvasWidth / 2 + placement.offset_x_px;
         const centerY = canvasHeight / 2 + placement.offset_y_px;
         ctx.translate(centerX, centerY);
@@ -86,6 +92,7 @@ export function PreviewMonitor() {
 
           if (asset.media_kind === 'video') {
             const video = mediaSession.getVideoElement(asset.asset_id);
+            // On vérifie que la vidéo a des frames disponibles (readyState >= 2)
             if (video && video.readyState >= 2) {
               sourceElement = video;
             }
@@ -96,24 +103,16 @@ export function PreviewMonitor() {
             }
           }
 
-          // Dessin avec centrage
+          // Dessin avec ratio 'contain' centré
           if (sourceElement) {
             const srcWidth = asset.native_width || canvasWidth;
             const srcHeight = asset.native_height || canvasHeight;
 
-            // Calcul du ratio 'contain' pour s'adapter élégamment au viewport
             const scale = Math.min(canvasWidth / srcWidth, canvasHeight / srcHeight);
             const drawW = srcWidth * scale;
             const drawH = srcHeight * scale;
 
             ctx.drawImage(sourceElement, -drawW / 2, -drawH / 2, drawW, drawH);
-          } else if (asset.thumbnail_url) {
-            // Fallback vignette si le média natif se charge
-            const thumbImg = new Image();
-            thumbImg.src = asset.thumbnail_url;
-            if (thumbImg.complete) {
-              ctx.drawImage(thumbImg, -canvasWidth / 4, -canvasHeight / 4, canvasWidth / 2, canvasHeight / 2);
-            }
           }
         }
 
@@ -140,45 +139,65 @@ export function PreviewMonitor() {
     [canvasWidth, canvasHeight, project.timeline_canvas.background_color_hex],
   );
 
-  // ── Synchronisation des éléments vidéo et audio natifs ────────────────────
-  const syncMediaElements = useCallback(
+  // ── Synchronisation des médias et gestion du son ──────────────────────────
+  const syncMedia = useCallback(
     (visualItems: ActiveVisualItem[], audioItems: ActiveAudioItem[], playing: boolean) => {
-      // 1. Synchroniser les vidéos
+      // 1. Vidéos actives (Image + Son intégré de la vidéo)
       for (const vis of visualItems) {
         if (vis.asset?.media_kind === 'video') {
           const video = mediaSession.getVideoElement(vis.asset.asset_id);
           if (video) {
-            const targetSec = vis.sourceTimeUs / 1_000_000;
-            // Ne seek que si le décalage est supérieur à 1 frame (33ms) pour éviter les micro-saccades
-            if (Math.abs(video.currentTime - targetSec) > 0.05) {
-              video.currentTime = targetSec;
-            }
+            // Gestion du son de la vidéo
+            video.muted = isMasterMuted || vis.isMuted;
+            video.volume = isMasterMuted ? 0 : Math.max(0, Math.min(1, vis.effectiveGain));
 
-            if (playing && video.paused) {
-              video.play().catch(() => {});
-            } else if (!playing && !video.paused) {
-              video.pause();
+            const targetSec = vis.sourceTimeUs / 1_000_000;
+
+            if (playing) {
+              // Pendant la lecture : ne seek QUE si le décalage dépasse 250ms (évite saccades/clignotement)
+              if (Math.abs(video.currentTime - targetSec) > 0.25) {
+                video.currentTime = targetSec;
+              }
+              if (video.paused) {
+                video.play().catch(() => {});
+              }
+            } else {
+              // En pause : synchronisation immédiate à la frame
+              if (Math.abs(video.currentTime - targetSec) > 0.03) {
+                video.currentTime = targetSec;
+              }
+              if (!video.paused) {
+                video.pause();
+              }
             }
           }
         }
       }
 
-      // 2. Synchroniser les audios
+      // 2. Pistes audio dédiées
       for (const aud of audioItems) {
         if (aud.asset?.media_kind === 'audio') {
           const audio = mediaSession.getAudioElement(aud.asset.asset_id);
           if (audio) {
-            const targetSec = aud.sourceTimeUs / 1_000_000;
-            if (Math.abs(audio.currentTime - targetSec) > 0.06) {
-              audio.currentTime = targetSec;
-            }
-
+            audio.muted = isMasterMuted || aud.isMuted;
             audio.volume = isMasterMuted ? 0 : Math.max(0, Math.min(1, aud.effectiveGain));
 
-            if (playing && audio.paused) {
-              audio.play().catch(() => {});
-            } else if (!playing && !audio.paused) {
-              audio.pause();
+            const targetSec = aud.sourceTimeUs / 1_000_000;
+
+            if (playing) {
+              if (Math.abs(audio.currentTime - targetSec) > 0.25) {
+                audio.currentTime = targetSec;
+              }
+              if (audio.paused) {
+                audio.play().catch(() => {});
+              }
+            } else {
+              if (Math.abs(audio.currentTime - targetSec) > 0.03) {
+                audio.currentTime = targetSec;
+              }
+              if (!audio.paused) {
+                audio.pause();
+              }
             }
           }
         }
@@ -187,7 +206,7 @@ export function PreviewMonitor() {
     [isMasterMuted],
   );
 
-  // Mettre à jour l'image à chaque frame ou seek
+  // Mise à jour de l'affichage à chaque changement de position ou d'état
   useEffect(() => {
     const { visualItems, audioItems } = getActiveItemsAtTime(
       project.sequence,
@@ -195,54 +214,74 @@ export function PreviewMonitor() {
       currentTimeUs,
     );
 
-    syncMediaElements(visualItems, audioItems, isPlaying);
+    syncMedia(visualItems, audioItems, isPlaying);
     renderCanvasFrame(visualItems);
   }, [
     currentTimeUs,
     isPlaying,
     project.sequence,
     project.asset_catalog,
-    syncMediaElements,
+    syncMedia,
     renderCanvasFrame,
   ]);
 
-  // ── Boucle de lecture Play/Pause (60 FPS haute précision) ─────────────────
+  // ── Boucle de lecture fluide (Clock maîtresse adaptative) ──────────────────
   useEffect(() => {
     if (!isPlaying) {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = null;
       }
-      lastTickTimeRef.current = null;
+      lastWallTimeRef.current = null;
 
-      // Pause de sécurité sur tous les médias
+      // Stopper tous les flux en cours
       const { visualItems, audioItems } = getActiveItemsAtTime(
         project.sequence,
         project.asset_catalog,
-        currentTimeUs,
+        useProjectStore.getState().currentTimeUs,
       );
-      syncMediaElements(visualItems, audioItems, false);
+      syncMedia(visualItems, audioItems, false);
       return;
     }
 
     const tick = (nowMs: number) => {
-      if (lastTickTimeRef.current !== null) {
-        const deltaMs = nowMs - lastTickTimeRef.current;
-        const deltaUs = Math.round(deltaMs * 1000);
-        const maxDurationUs = project.sequence.total_length_us;
+      const state = useProjectStore.getState();
+      const maxDurationUs = state.project.sequence.total_length_us;
 
-        const nextTimeUs = useProjectStore.getState().currentTimeUs + deltaUs;
+      // Détecter si une vidéo principale est active et en cours de lecture
+      const { visualItems } = getActiveItemsAtTime(
+        state.project.sequence,
+        state.project.asset_catalog,
+        state.currentTimeUs,
+      );
+      const activeVideoItem = visualItems.find((v) => v.asset?.media_kind === 'video');
+      const videoEl = activeVideoItem?.asset
+        ? mediaSession.getVideoElement(activeVideoItem.asset.asset_id)
+        : null;
 
-        if (maxDurationUs > 0 && nextTimeUs >= maxDurationUs) {
-          setCurrentTimeUs(maxDurationUs);
-          setIsPlaying(false);
-          return;
-        } else {
-          setCurrentTimeUs(nextTimeUs);
-        }
+      let nextTimeUs: number;
+
+      if (videoEl && !videoEl.paused && videoEl.readyState >= 2) {
+        // Horloge vidéo matérielle exacte : élimine 100% des saccades et clignotements
+        const videoCurrentUs = Math.round(videoEl.currentTime * 1_000_000);
+        const elapsedSinceInPoint = videoCurrentUs - activeVideoItem!.item.source_in_point_us;
+        nextTimeUs = activeVideoItem!.item.placement_time_us + elapsedSinceInPoint;
+      } else {
+        // Horloge murale basée sur performance.now
+        const deltaMs = lastWallTimeRef.current !== null ? nowMs - lastWallTimeRef.current : 16;
+        nextTimeUs = state.currentTimeUs + Math.round(deltaMs * 1000);
       }
 
-      lastTickTimeRef.current = nowMs;
+      lastWallTimeRef.current = nowMs;
+
+      // Fin de lecture atteinte
+      if (maxDurationUs > 0 && nextTimeUs >= maxDurationUs) {
+        setCurrentTimeUs(maxDurationUs);
+        setIsPlaying(false);
+        return;
+      }
+
+      setCurrentTimeUs(Math.max(0, nextTimeUs));
       animationFrameRef.current = requestAnimationFrame(tick);
     };
 
@@ -253,12 +292,12 @@ export function PreviewMonitor() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isPlaying, project.sequence.total_length_us, setCurrentTimeUs, syncMediaElements]);
+  }, [isPlaying, setCurrentTimeUs, syncMedia]);
 
-  // ── Raccourci clavier universel : Barre d'espace pour Play/Pause ──────────
+  // ── Gestionnaire complet des Raccourcis Clavier ───────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Éviter de déclencher si l'utilisateur est en train d'écrire dans un input
+      // Ignorer si l'utilisateur saisit du texte dans un champ de formulaire
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
@@ -266,25 +305,95 @@ export function PreviewMonitor() {
         return;
       }
 
+      // 1. Barre d'espace : Lecture / Pause
       if (e.code === 'Space') {
         e.preventDefault();
-        setIsPlaying((prev) => !prev);
+        setIsPlaying((prev) => {
+          const state = useProjectStore.getState();
+          if (!prev && state.currentTimeUs >= state.project.sequence.total_length_us && state.project.sequence.total_length_us > 0) {
+            state.setCurrentTimeUs(0);
+          }
+          return !prev;
+        });
+        return;
+      }
+
+      // 2. Flèche Gauche : Reculer de 1 seconde (ou 5s avec Shift)
+      if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        const stepUs = e.shiftKey ? 5_000_000 : 1_000_000;
+        setCurrentTimeUs(Math.max(0, useProjectStore.getState().currentTimeUs - stepUs));
+        return;
+      }
+
+      // 3. Flèche Droite : Avancer de 1 seconde (ou 5s avec Shift)
+      if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        const stepUs = e.shiftKey ? 5_000_000 : 1_000_000;
+        setCurrentTimeUs(useProjectStore.getState().currentTimeUs + stepUs);
+        return;
+      }
+
+      // 4. Touche Début (Home) : Revenir au tout début (00:00:00:00)
+      if (e.code === 'Home') {
+        e.preventDefault();
+        setCurrentTimeUs(0);
+        return;
+      }
+
+      // 5. Touche Suppr ou Retour Arrière : Supprimer le clip sélectionné
+      if (e.code === 'Delete' || e.code === 'Backspace') {
+        if (selectedItemId) {
+          e.preventDefault();
+          removeTimelineItem(selectedItemId);
+        }
+        return;
+      }
+
+      // 6. Raccourcis d'outils CapCut : V (Sélection) et B (Rasoir / Split)
+      if (e.code === 'KeyV' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setActiveTool('select');
+        return;
+      }
+      if (e.code === 'KeyB' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setActiveTool('split');
+        return;
+      }
+
+      // 7. Scission rapide : Ctrl+B ou Ctrl+K
+      if ((e.code === 'KeyB' || e.code === 'KeyK') && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        splitTimelineItemAtCurrentTime();
+        return;
+      }
+
+      // 8. Touche M : Mute / Démute Master
+      if (e.code === 'KeyM' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setIsMasterMuted((prev) => !prev);
+        return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [
+    selectedItemId,
+    setCurrentTimeUs,
+    removeTimelineItem,
+    setActiveTool,
+    splitTimelineItemAtCurrentTime,
+  ]);
 
   const togglePlay = () => {
-    if (isPlaying) {
-      setIsPlaying(false);
-    } else {
-      if (currentTimeUs >= project.sequence.total_length_us && project.sequence.total_length_us > 0) {
+    setIsPlaying((prev) => {
+      if (!prev && currentTimeUs >= project.sequence.total_length_us && project.sequence.total_length_us > 0) {
         setCurrentTimeUs(0);
       }
-      setIsPlaying(true);
-    }
+      return !prev;
+    });
   };
 
   const handleSkipBack = () => {
@@ -315,7 +424,7 @@ export function PreviewMonitor() {
             className="preview-monitor__canvas"
           />
 
-          {/* Badge de résolution et ratio */}
+          {/* Badge format et ratio */}
           <div className="preview-monitor__ratio-badge">16:9 · 1080p</div>
         </div>
       </div>
@@ -327,7 +436,7 @@ export function PreviewMonitor() {
           <button
             className="kroma-icon-btn"
             onClick={handleResetToStart}
-            title="Revenir au début (Début)"
+            title="Revenir au début (Touche Début)"
           >
             <RotateCcw size={15} />
           </button>
@@ -335,7 +444,7 @@ export function PreviewMonitor() {
           <button
             className="kroma-icon-btn"
             onClick={handleSkipBack}
-            title="Reculer de 1 seconde (Flèche gauche)"
+            title="Reculer de 1s (Flèche gauche / Maj+Gauche pour 5s)"
           >
             <SkipBack size={16} />
           </button>
@@ -351,7 +460,7 @@ export function PreviewMonitor() {
           <button
             className="kroma-icon-btn"
             onClick={handleSkipForward}
-            title="Avancer de 1 seconde (Flèche droite)"
+            title="Avancer de 1s (Flèche droite / Maj+Droite pour 5s)"
           >
             <SkipForward size={16} />
           </button>
@@ -359,7 +468,7 @@ export function PreviewMonitor() {
           <button
             className={`kroma-icon-btn${isMasterMuted ? ' kroma-icon-btn--active' : ''}`}
             onClick={() => setIsMasterMuted(!isMasterMuted)}
-            title={isMasterMuted ? 'Réactiver le son master' : 'Couper le son master'}
+            title={isMasterMuted ? 'Réactiver le son master (M)' : 'Couper le son master (M)'}
           >
             {isMasterMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
           </button>
