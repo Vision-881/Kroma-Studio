@@ -7,6 +7,7 @@ import React, { useRef, useState, useCallback, useMemo } from 'react';
 import { Film, Music, Image, Upload, Loader2, X, Plus, Search } from 'lucide-react';
 
 import { probeGenericFile } from '../../core/media/mediaProbe';
+import { mediaSession } from '../../core/media/mediaSession';
 import { formatDurationHuman } from '../../core/time/timeUtils';
 import type { MediaAsset, MediaKind } from '../../core/types/asset';
 import { useProjectStore } from '../../store/projectStore';
@@ -148,6 +149,7 @@ export function MediaBin() {
 
         try {
           const asset = await probeGenericFile(file);
+          mediaSession.registerFile(asset.asset_id, file, asset.media_kind);
           addAsset(asset);
         } catch (err) {
           console.error(`Impossible d'importer ${file.name} :`, err);

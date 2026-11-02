@@ -1,13 +1,14 @@
 /**
- * Moniteur de prévisualisation vidéo (style CapCut).
- * Affiche l'image ou la vidéo active à la position temporelle courante,
- * et intègre une barre de transport complète avec timecode et contrôle de lecture.
+ * Moniteur de prévisualisation vidéo haute performance (style CapCut).
+ * Effectue un rendu temps réel multi-couches sur un <canvas> HTML5 à partir
+ * des flux vidéo, audio et images synchronisés sous la tête de lecture.
  */
-import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipBack, SkipForward, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Play, Pause, SkipBack, SkipForward, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import { useProjectStore } from '../../store/projectStore';
 import { usToTimecode } from '../../core/time/timeUtils';
-import type { TimelineItem } from '../../core/types/timeline';
+import { getActiveItemsAtTime, type ActiveVisualItem, type ActiveAudioItem } from '../../core/playback/playbackEngine';
+import { mediaSession } from '../../core/media/mediaSession';
 
 export function PreviewMonitor() {
   const {
@@ -17,33 +18,195 @@ export function PreviewMonitor() {
   } = useProjectStore();
 
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isMasterMuted, setIsMasterMuted] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
   const animationFrameRef = useRef<number | null>(null);
   const lastTickTimeRef = useRef<number | null>(null);
 
-  // Recherche du clip visuel actif sous la tête de lecture
-  let activeVisualItem: TimelineItem | null = null;
-  const visualLanes = project.sequence.lanes
-    .filter((l) => l.lane_type === 'visual')
-    .sort((a, b) => b.stack_index - a.stack_index); // Pistes supérieures au-dessus
+  const canvasWidth = project.timeline_canvas.viewport_width || 1920;
+  const canvasHeight = project.timeline_canvas.viewport_height || 1080;
 
-  for (const lane of visualLanes) {
-    if (lane.is_muted) continue;
-    const found = lane.items.find(
-      (item) =>
-        currentTimeUs >= item.placement_time_us &&
-        currentTimeUs <= item.placement_time_us + item.play_duration_us,
+  // ── Rendu graphique sur le Canvas ─────────────────────────────────────────
+  const renderCanvasFrame = useCallback(
+    (visualItems: ActiveVisualItem[]) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // 1. Fond du canevas
+      ctx.fillStyle = project.timeline_canvas.background_color_hex || '#000000';
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+      // Si aucun média actif, afficher une grille discrète de repère
+      if (visualItems.length === 0) {
+        ctx.fillStyle = '#161622';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        ctx.strokeStyle = '#252538';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(40, 40, canvasWidth - 80, canvasHeight - 80);
+        return;
+      }
+
+      // 2. Dessiner chaque couche visuelle (du bas vers le haut)
+      for (const active of visualItems) {
+        const item = active.item;
+        const asset = active.asset;
+        const placement = item.spatial_placement || {
+          offset_x_px: 0,
+          offset_y_px: 0,
+          zoom_factor_x: 1.0,
+          zoom_factor_y: 1.0,
+          rotation_degrees: 0,
+          opacity_ratio: 1.0,
+        };
+
+        ctx.save();
+
+        // Positionnement au centre + offset
+        const centerX = canvasWidth / 2 + placement.offset_x_px;
+        const centerY = canvasHeight / 2 + placement.offset_y_px;
+        ctx.translate(centerX, centerY);
+
+        // Rotation
+        if (placement.rotation_degrees !== 0) {
+          ctx.rotate((placement.rotation_degrees * Math.PI) / 180);
+        }
+
+        // Échelle / Zoom
+        ctx.scale(placement.zoom_factor_x, placement.zoom_factor_y);
+
+        // Opacité
+        ctx.globalAlpha = Math.max(0, Math.min(1, placement.opacity_ratio));
+
+        // Rendu Vidéo ou Image
+        if (asset) {
+          let sourceElement: CanvasImageSource | null = null;
+
+          if (asset.media_kind === 'video') {
+            const video = mediaSession.getVideoElement(asset.asset_id);
+            if (video && video.readyState >= 2) {
+              sourceElement = video;
+            }
+          } else if (asset.media_kind === 'image') {
+            const img = mediaSession.getImageElement(asset.asset_id);
+            if (img && img.complete && img.naturalWidth > 0) {
+              sourceElement = img;
+            }
+          }
+
+          // Dessin avec centrage
+          if (sourceElement) {
+            const srcWidth = asset.native_width || canvasWidth;
+            const srcHeight = asset.native_height || canvasHeight;
+
+            // Calcul du ratio 'contain' pour s'adapter élégamment au viewport
+            const scale = Math.min(canvasWidth / srcWidth, canvasHeight / srcHeight);
+            const drawW = srcWidth * scale;
+            const drawH = srcHeight * scale;
+
+            ctx.drawImage(sourceElement, -drawW / 2, -drawH / 2, drawW, drawH);
+          } else if (asset.thumbnail_url) {
+            // Fallback vignette si le média natif se charge
+            const thumbImg = new Image();
+            thumbImg.src = asset.thumbnail_url;
+            if (thumbImg.complete) {
+              ctx.drawImage(thumbImg, -canvasWidth / 4, -canvasHeight / 4, canvasWidth / 2, canvasHeight / 2);
+            }
+          }
+        }
+
+        // Rendu Calque de Texte
+        if (item.text_layer_data) {
+          const textData = item.text_layer_data;
+          ctx.font = `${textData.is_bold ? 'bold ' : ''}${textData.font_size_pt * 2}px ${textData.font_name || 'sans-serif'}`;
+          ctx.textAlign = textData.text_align || 'center';
+          ctx.textBaseline = 'middle';
+
+          if (textData.outline_thickness_px > 0) {
+            ctx.strokeStyle = textData.outline_color_hex || '#000000';
+            ctx.lineWidth = textData.outline_thickness_px * 2;
+            ctx.strokeText(textData.raw_string, 0, 0);
+          }
+
+          ctx.fillStyle = textData.fill_color_hex || '#FFFFFF';
+          ctx.fillText(textData.raw_string, 0, 0);
+        }
+
+        ctx.restore();
+      }
+    },
+    [canvasWidth, canvasHeight, project.timeline_canvas.background_color_hex],
+  );
+
+  // ── Synchronisation des éléments vidéo et audio natifs ────────────────────
+  const syncMediaElements = useCallback(
+    (visualItems: ActiveVisualItem[], audioItems: ActiveAudioItem[], playing: boolean) => {
+      // 1. Synchroniser les vidéos
+      for (const vis of visualItems) {
+        if (vis.asset?.media_kind === 'video') {
+          const video = mediaSession.getVideoElement(vis.asset.asset_id);
+          if (video) {
+            const targetSec = vis.sourceTimeUs / 1_000_000;
+            // Ne seek que si le décalage est supérieur à 1 frame (33ms) pour éviter les micro-saccades
+            if (Math.abs(video.currentTime - targetSec) > 0.05) {
+              video.currentTime = targetSec;
+            }
+
+            if (playing && video.paused) {
+              video.play().catch(() => {});
+            } else if (!playing && !video.paused) {
+              video.pause();
+            }
+          }
+        }
+      }
+
+      // 2. Synchroniser les audios
+      for (const aud of audioItems) {
+        if (aud.asset?.media_kind === 'audio') {
+          const audio = mediaSession.getAudioElement(aud.asset.asset_id);
+          if (audio) {
+            const targetSec = aud.sourceTimeUs / 1_000_000;
+            if (Math.abs(audio.currentTime - targetSec) > 0.06) {
+              audio.currentTime = targetSec;
+            }
+
+            audio.volume = isMasterMuted ? 0 : Math.max(0, Math.min(1, aud.effectiveGain));
+
+            if (playing && audio.paused) {
+              audio.play().catch(() => {});
+            } else if (!playing && !audio.paused) {
+              audio.pause();
+            }
+          }
+        }
+      }
+    },
+    [isMasterMuted],
+  );
+
+  // Mettre à jour l'image à chaque frame ou seek
+  useEffect(() => {
+    const { visualItems, audioItems } = getActiveItemsAtTime(
+      project.sequence,
+      project.asset_catalog,
+      currentTimeUs,
     );
-    if (found) {
-      activeVisualItem = found;
-      break;
-    }
-  }
 
-  const activeAsset = activeVisualItem
-    ? project.asset_catalog.find((a) => a.asset_id === activeVisualItem?.referenced_asset_id)
-    : null;
+    syncMediaElements(visualItems, audioItems, isPlaying);
+    renderCanvasFrame(visualItems);
+  }, [
+    currentTimeUs,
+    isPlaying,
+    project.sequence,
+    project.asset_catalog,
+    syncMediaElements,
+    renderCanvasFrame,
+  ]);
 
-  // Boucle de lecture Play/Pause
+  // ── Boucle de lecture Play/Pause (60 FPS haute précision) ─────────────────
   useEffect(() => {
     if (!isPlaying) {
       if (animationFrameRef.current) {
@@ -51,6 +214,14 @@ export function PreviewMonitor() {
         animationFrameRef.current = null;
       }
       lastTickTimeRef.current = null;
+
+      // Pause de sécurité sur tous les médias
+      const { visualItems, audioItems } = getActiveItemsAtTime(
+        project.sequence,
+        project.asset_catalog,
+        currentTimeUs,
+      );
+      syncMediaElements(visualItems, audioItems, false);
       return;
     }
 
@@ -60,7 +231,8 @@ export function PreviewMonitor() {
         const deltaUs = Math.round(deltaMs * 1000);
         const maxDurationUs = project.sequence.total_length_us;
 
-        const nextTimeUs = currentTimeUs + deltaUs;
+        const nextTimeUs = useProjectStore.getState().currentTimeUs + deltaUs;
+
         if (maxDurationUs > 0 && nextTimeUs >= maxDurationUs) {
           setCurrentTimeUs(maxDurationUs);
           setIsPlaying(false);
@@ -81,7 +253,28 @@ export function PreviewMonitor() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isPlaying, currentTimeUs, project.sequence.total_length_us, setCurrentTimeUs]);
+  }, [isPlaying, project.sequence.total_length_us, setCurrentTimeUs, syncMediaElements]);
+
+  // ── Raccourci clavier universel : Barre d'espace pour Play/Pause ──────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Éviter de déclencher si l'utilisateur est en train d'écrire dans un input
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setIsPlaying((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const togglePlay = () => {
     if (isPlaying) {
@@ -112,40 +305,24 @@ export function PreviewMonitor() {
 
   return (
     <div className="preview-monitor">
-      {/* Écran vidéo 16:9 */}
+      {/* Écran Canvas vidéo 16:9 */}
       <div className="preview-monitor__screen-container">
         <div className="preview-monitor__screen">
-          {activeAsset?.thumbnail_url ? (
-            <img
-              src={activeAsset.thumbnail_url}
-              alt="Aperçu vidéo"
-              className="preview-monitor__image"
-              style={{
-                opacity: activeVisualItem?.spatial_placement?.opacity_ratio ?? 1,
-                transform: `scale(${activeVisualItem?.spatial_placement?.zoom_factor_x ?? 1}) rotate(${activeVisualItem?.spatial_placement?.rotation_degrees ?? 0}deg)`,
-              }}
-            />
-          ) : (
-            <div className="preview-monitor__placeholder">
-              <span className="preview-monitor__canvas-info">
-                {project.timeline_canvas.viewport_width} × {project.timeline_canvas.viewport_height}
-              </span>
-              <p className="preview-monitor__hint">
-                {project.sequence.total_length_us === 0
-                  ? 'Glissez un clip sur la timeline pour commencer'
-                  : 'Aucun média actif à cet instant'}
-              </p>
-            </div>
-          )}
+          <canvas
+            ref={canvasRef}
+            width={canvasWidth}
+            height={canvasHeight}
+            className="preview-monitor__canvas"
+          />
 
-          {/* Badge format d'affichage */}
-          <div className="preview-monitor__ratio-badge">16:9</div>
+          {/* Badge de résolution et ratio */}
+          <div className="preview-monitor__ratio-badge">16:9 · 1080p</div>
         </div>
       </div>
 
       {/* Barre de transport inférieure */}
       <div className="preview-monitor__transport">
-        {/* Contrôles de saut et lecture */}
+        {/* Contrôles de lecture */}
         <div className="preview-monitor__controls">
           <button
             className="kroma-icon-btn"
@@ -178,9 +355,17 @@ export function PreviewMonitor() {
           >
             <SkipForward size={16} />
           </button>
+
+          <button
+            className={`kroma-icon-btn${isMasterMuted ? ' kroma-icon-btn--active' : ''}`}
+            onClick={() => setIsMasterMuted(!isMasterMuted)}
+            title={isMasterMuted ? 'Réactiver le son master' : 'Couper le son master'}
+          >
+            {isMasterMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+          </button>
         </div>
 
-        {/* Compteur temporel double */}
+        {/* Compteur temporel SMPTE double */}
         <div className="preview-monitor__timecode">
           <span className="timecode-current">{currentTimecode}</span>
           <span className="timecode-divider">/</span>
