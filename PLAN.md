@@ -2,7 +2,7 @@
 
 Ce document consigne l'avancement du projet, la feuille de route du MVP, les étapes réalisées, en cours et à venir, ainsi que les décisions d'architecture prises au fil du développement.
 
-Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 8 : Étalonnage & Filtres Visuels)
+Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 9 : Vitesse Variable & Speed Ramping)
 
 ---
 
@@ -19,6 +19,7 @@ Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 8 : Étalonnage & Filtre
 | **Étape 6** | Historique Annuler / Rétablir & Persistance | ✅ Terminé | Pile Undo/Redo complète (50 états, `Ctrl+Z` / `Ctrl+Y`), sérialisation et chargement de fichiers `.kproj` avec validation de schéma, 41 tests unitaires. |
 | **Étape 7** | Export MP4 via FFmpeg | ✅ Terminé | Génération de commande CLI FFmpeg, graphe filtre complexe (`trim`, `contain/pad`, `overlay`, `drawtext`, `adelay`, `afade`, `amix`), modal `ExportDialog`, scripts autonomes `.bat` et `.sh`, raccourci `Ctrl+E`, 52 tests unitaires. |
 | **Étape 8** | Étalonnage Couleur & Réglages Visuels | ✅ Terminé | Section Inspecteur (Luminosité, Contraste, Saturation, Teinte, Flou), aperçu Canvas 2D temps réel 60 FPS (`ctx.filter`), export FFmpeg (`eq`, `hue`, `gblur`), actions Zustand avec Undo/Redo, 53 tests unitaires. |
+| **Étape 9** | Vitesse Variable & Ralenti / Accéléré | ✅ Terminé | Vitesse de lecture par clip (0.25× à 4.0×), calcul temporel source exact, prévisualisation fluide via `video.playbackRate`/`audio.playbackRate`, adaptation d'horloge matérielle, filtres FFmpeg `setpts` et `atempo` chaîné, section Inspecteur, 57 tests unitaires. |
 
 ---
 
@@ -65,6 +66,10 @@ Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 8 : Étalonnage & Filtre
 ### 2.10 Rendu temps réel des filtres de couleur via Canvas 2D filter et équivalence FFmpeg
 - **Décision :** L'étalonnage et les filtres visuels (luminosité, contraste, saturation, teinte, flou) exploitent la propriété native `ctx.filter` du Canvas 2D pour l'aperçu temps réel à 60 FPS sans shader lourd, et se traduisent directement en filtres vidéo normalisés FFmpeg (`eq`, `hue`, `gblur`) lors de l'exportation.
 - **Justification :** Performance maximale dans le navigateur, absence totale de latence lors de la manipulation des curseurs et cohérence colorimétrique exacte entre la prévisualisation et le rendu MP4 final.
+
+### 2.11 Étalement temporel continu et chaînage de vitesse FFmpeg (setpts & atempo)
+- **Décision :** La vitesse variable d'un clip (`playback_speed`, de 0.25× à 4.0×) est appliquée de manière continue : la durée du segment sur la timeline (`play_duration_us`) reste la durée perçue par l'utilisateur, tandis que la quantité de média source consommée est proportionnelle à la vitesse ($\Delta t_{\text{source}} = \Delta t_{\text{timeline}} \times \text{speed}$). Côté export FFmpeg, la vitesse vidéo est ajustée via `trim` de durée source suivi de `setpts=(PTS-STARTPTS)/speed+offset/TB`, et l'audio est adapté via découpage source puis chaînage décomposé du filtre `atempo` (en bornant chaque palier entre 0.5 et 2.0).
+- **Justification :** Évite toute désynchronisation audio/vidéo lors de l'accélération ou du ralenti, conserve une granularité temporelle précise en microsecondes et surmonte la limitation stricte du filtre `atempo` de FFmpeg qui n'accepte nativement que les facteurs entre 0.5 et 2.0.
 
 ---
 
@@ -135,4 +140,13 @@ Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 8 : Étalonnage & Filtre
 - **Pipeline d'exportation FFmpeg :** Intégration transparente dans `ffmpegCommandBuilder.ts` avec filtres `eq` (brightness, contrast, saturation), `hue` (h=degrees) et `gblur` (sigma=blur).
 - **Interface Inspecteur CapCut :** Nouvelle section « Réglages & Étalonnage » dans `InspectorPanel.tsx` avec sliders interactifs et bouton de réinitialisation rapide.
 - **Tests unitaires :** Nouveaux tests ajoutés dans `projectStore.test.ts` et `ffmpegCommandBuilder.test.ts`. Suite complète portée à **53 tests unitaires validés (100% succès)**.
+
+### Étape 9 — Vitesse Variable & Ralenti / Accéléré (03/11/2026)
+- **Modèle de données :** Propriété `playback_speed?: number` sur `TimelineItem` dans `src/core/types/timeline.ts` (facteur flottant de 0.25× à 4.0×, 1.0 par défaut).
+- **Moteur temporel source :** Mise à jour de `calculateSourceTimeUs()` dans `src/core/playback/playbackEngine.ts` pour calculer la position de source proportionnellement au facteur de vitesse : $\text{SourceTime} = \text{InPoint} + \text{Offset} \times \text{speed}$.
+- **Store Zustand & Undo/Redo :** Action `updateClipSpeed(itemId, speed)` avec bornage automatique $[0.25, 4.0]$, push dans l'historique `past[]` et prise en charge intégrale de `Ctrl+Z` et `Ctrl+Y`.
+- **Prévisualisation temps réel fluide :** Synchronisation de `video.playbackRate` et `audio.playbackRate` dans `PreviewMonitor.tsx`, et adaptation de l'horloge matérielle vidéo (`elapsedSinceInPoint / speed`) pour éliminer tout clignotement ou décalage lors de la lecture.
+- **Pipeline d'exportation FFmpeg :** Calcul dynamique de la durée de source découpée (`durationSec * speed`), accélération/ralenti vidéo via `setpts=(PTS-STARTPTS)/speed+offset/TB`, et chaînage audio transparent via la nouvelle fonction utilitaire exportée `buildAtempoFilter()` (décomposition sécurisée en multi-passes `atempo=2.0` ou `atempo=0.5`).
+- **Panneau Inspecteur :** Nouvelle section « Vitesse de lecture » avec slider continu 0.25× à 4.0×, affichage dynamique de la vitesse avec mise en surbrillance ambre et bouton de réinitialisation instantanée « 1× » (icône `Gauge` + `RotateCcw`).
+- **Tests unitaires :** 4 nouveaux tests unitaires automatisés ajoutés dans `playbackEngine.test.ts`, `projectStore.test.ts` et `ffmpegCommandBuilder.test.ts`. Suite complète portée à **57 tests unitaires validés (100% succès)**.
 

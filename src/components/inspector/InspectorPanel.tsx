@@ -4,7 +4,7 @@
  * l'opacité, l'échelle et la position des clips sélectionnés.
  * Lorsqu'un calque texte est sélectionné, affiche le TextEditor dédié.
  */
-import { Sliders, Volume2, Move, Trash2, Plus, Info, Layers, Palette, RotateCcw } from 'lucide-react';
+import { Sliders, Volume2, Move, Trash2, Plus, Info, Layers, Palette, RotateCcw, Gauge } from 'lucide-react';
 import { useProjectStore } from '../../store/projectStore';
 import { formatDurationHuman, usToTimecode } from '../../core/time/timeUtils';
 import { TextEditor } from '../text/TextEditor';
@@ -20,6 +20,7 @@ export function InspectorPanel() {
     updateClipPlacement,
     updateClipColorAdjustments,
     resetClipColorAdjustments,
+    updateClipSpeed,
     addItemFromAsset,
   } = useProjectStore();
 
@@ -303,6 +304,74 @@ export function InspectorPanel() {
                   className="kroma-slider"
                 />
               </div>
+            </div>
+          )}
+
+          {/* Vitesse de lecture & Ralenti / Accéléré (Étape 9) */}
+          {parentLane.lane_type !== 'text_overlay' && (
+            <div className="inspector-section">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h4 className="inspector-section__title" style={{ margin: 0 }}>
+                  <Gauge size={14} />
+                  <span>Vitesse de lecture</span>
+                </h4>
+                {selectedItem.playback_speed !== undefined &&
+                  Math.abs((selectedItem.playback_speed || 1.0) - 1.0) > 0.01 && (
+                    <button
+                      className="kroma-icon-btn"
+                      style={{ padding: '2px 6px', fontSize: '0.7rem' }}
+                      onClick={() => updateClipSpeed(selectedItem!.item_id, 1.0)}
+                      title="Rétablir la vitesse normale (1.0×)"
+                    >
+                      <RotateCcw size={12} />
+                      <span style={{ marginLeft: 4 }}>1×</span>
+                    </button>
+                  )}
+              </div>
+
+              {(() => {
+                const speed = selectedItem!.playback_speed ?? 1.0;
+                const isModified = Math.abs(speed - 1.0) > 0.01;
+                return (
+                  <>
+                    <div className="inspector-control" style={{ marginTop: 10 }}>
+                      <div className="inspector-control__label-row">
+                        <span>Multiplicateur</span>
+                        <span
+                          className="inspector-control__value-badge"
+                          style={isModified ? { color: '#f59e0b', fontWeight: 700 } : {}}
+                        >
+                          {speed.toFixed(2)}×
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.25"
+                        max="4.0"
+                        step="0.05"
+                        value={speed}
+                        onChange={(e) =>
+                          updateClipSpeed(selectedItem!.item_id, Number(e.target.value))
+                        }
+                        className="kroma-slider"
+                      />
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: 10,
+                          color: '#888',
+                          marginTop: 4,
+                        }}
+                      >
+                        <span>0.25× (ralenti)</span>
+                        <span>1.0× (normal)</span>
+                        <span>4.0× (accéléré)</span>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
 

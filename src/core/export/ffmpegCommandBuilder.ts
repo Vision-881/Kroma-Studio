@@ -80,6 +80,27 @@ export function escapeDrawText(text: string): string {
 }
 
 /**
+ * Construit une chaîne de filtres atempo FFmpeg pour adapter la vitesse audio.
+ * Le filtre FFmpeg atempo accepte uniquement un multiplicateur entre 0.5 et 2.0.
+ * Pour les vitesses < 0.5 ou > 2.0, plusieurs filtres atempo sont chaînés.
+ */
+export function buildAtempoFilter(speed: number): string {
+  if (Math.abs(speed - 1.0) < 0.001) return '';
+  const filters: string[] = [];
+  let remaining = speed;
+  while (remaining > 2.0) {
+    filters.push('atempo=2.0');
+    remaining /= 2.0;
+  }
+  while (remaining < 0.5) {
+    filters.push('atempo=0.5');
+    remaining /= 0.5;
+  }
+  filters.push(`atempo=${Number(remaining.toFixed(4))}`);
+  return filters.join(',');
+}
+
+/**
  * Construit la commande complète FFmpeg et le graphe de filtre complexe
  * à partir de la structure d'un projet KromaProject.
  */
@@ -259,13 +280,22 @@ export function buildFFmpegCommand(
       const streamLabel = videoStreamPool.get(inputIdx)?.shift() || `[${inputIdx}:v]`;
       const isImg = inputDescriptors[inputIdx]?.isImage;
 
+      const speed = item.playback_speed ?? 1.0;
+      const isSpeedModified = Math.abs(speed - 1.0) > 0.001;
+
       const clipSubFilters: string[] = [];
       if (!isImg) {
-        clipSubFilters.push(`trim=start=${inSec.toFixed(3)}:duration=${durationSec.toFixed(3)}`);
+        const sourceDurationSec = isSpeedModified ? durationSec * speed : durationSec;
+        clipSubFilters.push(`trim=start=${inSec.toFixed(3)}:duration=${sourceDurationSec.toFixed(3)}`);
       } else {
         clipSubFilters.push(`trim=duration=${durationSec.toFixed(3)}`);
       }
-      clipSubFilters.push(`setpts=PTS-STARTPTS+${startSec.toFixed(3)}/TB`);
+
+      if (!isImg && isSpeedModified) {
+        clipSubFilters.push(`setpts=(PTS-STARTPTS)/${speed.toFixed(4)}+${startSec.toFixed(3)}/TB`);
+      } else {
+        clipSubFilters.push(`setpts=PTS-STARTPTS+${startSec.toFixed(3)}/TB`);
+      }
 
       // Contain & Pad vers la résolution cible
       clipSubFilters.push(
@@ -406,8 +436,17 @@ export function buildFFmpegCommand(
       const fadeInSec = usToSeconds(item.fade_in_duration_us || 0);
       const fadeOutSec = usToSeconds(item.fade_out_duration_us || 0);
 
+      const speed = item.playback_speed ?? 1.0;
+      const isSpeedModified = Math.abs(speed - 1.0) > 0.001;
+      const sourceDurationSec = isSpeedModified ? durationSec * speed : durationSec;
+
       const aSubFilters: string[] = [];
-      aSubFilters.push(`atrim=start=${inSec.toFixed(3)}:duration=${durationSec.toFixed(3)},asetpts=PTS-STARTPTS`);
+      aSubFilters.push(`atrim=start=${inSec.toFixed(3)}:duration=${sourceDurationSec.toFixed(3)},asetpts=PTS-STARTPTS`);
+
+      const atempoFilter = buildAtempoFilter(speed);
+      if (atempoFilter) {
+        aSubFilters.push(atempoFilter);
+      }
 
       if (effectiveGain !== 1.0) {
         aSubFilters.push(`volume=${effectiveGain.toFixed(3)}`);

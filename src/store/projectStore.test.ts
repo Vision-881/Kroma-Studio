@@ -346,5 +346,38 @@ describe('useProjectStore', () => {
       item = useProjectStore.getState().project.sequence.lanes[0].items[0];
       expect(item.color_adjustments?.brightness).toBe(0.2);
     });
+
+    it('updateClipSpeed() modifie la vitesse de lecture avec bornage et support Undo/Redo', () => {
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      const laneId = useProjectStore.getState().project.sequence.lanes[0].lane_id;
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, laneId, 0);
+
+      const itemId = useProjectStore.getState().project.sequence.lanes[0].items[0].item_id;
+
+      // Passage à 2.0x (accéléré)
+      useProjectStore.getState().updateClipSpeed(itemId, 2.0);
+      let item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.playback_speed).toBe(2.0);
+
+      // Bornage inférieur à 0.25x
+      useProjectStore.getState().updateClipSpeed(itemId, 0.1);
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.playback_speed).toBe(0.25);
+
+      // Bornage supérieur à 4.0x
+      useProjectStore.getState().updateClipSpeed(itemId, 10.0);
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.playback_speed).toBe(4.0);
+
+      // Annuler (Undo) revient à 0.25x
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.playback_speed).toBe(0.25);
+
+      // Rétablir (Redo) revient à 4.0x
+      useProjectStore.getState().redo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.playback_speed).toBe(4.0);
+    });
   });
 });

@@ -80,6 +80,8 @@ export interface TimelineItem {
   text_layer_data?: TextLayerData;
   /** Réglages d'étalonnage des couleurs et filtres d'image */
   color_adjustments?: ColorAdjustments;
+  /** Vitesse de lecture du clip (1.0 = normale, 0.5 = ralenti 2×, 2.0 = accéléré 2×). Valeur par défaut : 1.0 */
+  playback_speed?: number;
   /** Gain audio individuel du clip (1.0 = volume original) */
   item_gain: number;
   /** Durée du fondu audio d'entrée en microsecondes (0 = pas de fondu) */

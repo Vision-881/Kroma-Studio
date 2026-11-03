@@ -178,6 +178,12 @@ export function PreviewMonitor() {
             video.muted = isMasterMuted || vis.isMuted;
             video.volume = isMasterMuted ? 0 : Math.max(0, Math.min(1, vis.effectiveGain));
 
+            // Vitesse de lecture dynamique (Étape 9)
+            const speed = vis.item.playback_speed ?? 1.0;
+            if (video.playbackRate !== speed) {
+              video.playbackRate = speed;
+            }
+
             const targetSec = vis.sourceTimeUs / 1_000_000;
 
             if (playing) {
@@ -208,6 +214,12 @@ export function PreviewMonitor() {
           if (audio) {
             audio.muted = isMasterMuted || aud.isMuted;
             audio.volume = isMasterMuted ? 0 : Math.max(0, Math.min(1, aud.effectiveGain));
+
+            // Vitesse de lecture dynamique (Étape 9)
+            const speed = aud.item.playback_speed ?? 1.0;
+            if (audio.playbackRate !== speed) {
+              audio.playbackRate = speed;
+            }
 
             const targetSec = aud.sourceTimeUs / 1_000_000;
 
@@ -292,7 +304,8 @@ export function PreviewMonitor() {
         // Horloge vidéo matérielle exacte : élimine 100% des saccades et clignotements
         const videoCurrentUs = Math.round(videoEl.currentTime * 1_000_000);
         const elapsedSinceInPoint = videoCurrentUs - activeVideoItem!.item.source_in_point_us;
-        nextTimeUs = activeVideoItem!.item.placement_time_us + elapsedSinceInPoint;
+        const speed = activeVideoItem!.item.playback_speed ?? 1.0;
+        nextTimeUs = activeVideoItem!.item.placement_time_us + Math.round(elapsedSinceInPoint / speed);
       } else {
         // Horloge murale basée sur performance.now
         const deltaMs = lastWallTimeRef.current !== null ? nowMs - lastWallTimeRef.current : 16;

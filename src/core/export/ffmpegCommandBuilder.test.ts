@@ -3,6 +3,7 @@ import {
   usToSeconds,
   usToMs,
   escapeDrawText,
+  buildAtempoFilter,
   buildFFmpegCommand,
   generateWindowsBatch,
   generateBashScript,
@@ -32,6 +33,15 @@ describe('ffmpegCommandBuilder', () => {
       expect(escapeDrawText('Ratio: 16:9')).toBe('Ratio\\: 16\\:9');
       expect(escapeDrawText('100% Promo')).toBe('100%% Promo');
       expect(escapeDrawText('C:\\Footage')).toBe('C\\:\\\\Footage');
+    });
+
+    it('buildAtempoFilter construit la chaîne atempo appropriée selon le facteur de vitesse', () => {
+      expect(buildAtempoFilter(1.0)).toBe('');
+      expect(buildAtempoFilter(1.5)).toBe('atempo=1.5');
+      expect(buildAtempoFilter(2.0)).toBe('atempo=2');
+      expect(buildAtempoFilter(4.0)).toBe('atempo=2.0,atempo=2');
+      expect(buildAtempoFilter(0.5)).toBe('atempo=0.5');
+      expect(buildAtempoFilter(0.25)).toBe('atempo=0.5,atempo=0.5');
     });
   });
 
@@ -265,6 +275,48 @@ describe('ffmpegCommandBuilder', () => {
       expect(result.filterComplex).toContain('eq=brightness=0.100:contrast=1.200:saturation=1.300');
       expect(result.filterComplex).toContain('hue=h=25');
       expect(result.filterComplex).toContain('gblur=sigma=3');
+    });
+
+    it('génère les filtres de vitesse variable (setpts et atempo) pour l\'accéléré et le ralenti', () => {
+      const proj = createDefaultProject('Projet Speed');
+      const vidAsset: MediaAsset = {
+        asset_id: 'vid-speed',
+        display_name: 'clip.mp4',
+        media_kind: 'video',
+        source_path: 'C:/clip.mp4',
+        duration_us: 20_000_000,
+        native_width: 1920,
+        native_height: 1080,
+        detected_fps: 30,
+        audio_channels: 2,
+        audio_sample_rate_hz: 48000,
+      };
+      proj.asset_catalog = [vidAsset];
+
+      // Clip vidéo accéléré 2x : dure 3s sur timeline, donc consomme 6s de source
+      const fastItem: TimelineItem = {
+        item_id: 'item-fast',
+        referenced_asset_id: 'vid-speed',
+        placement_time_us: 1_000_000, // 1s
+        play_duration_us: 3_000_000,  // 3s
+        source_in_point_us: 0,
+        source_duration_us: 6_000_000,
+        item_gain: 1.0,
+        playback_speed: 2.0,
+      };
+
+      proj.sequence.lanes[0].items = [fastItem];
+      proj.sequence.total_length_us = 5_000_000;
+
+      const result = buildFFmpegCommand(proj);
+
+      // Vidéo : trim de 6s source, puis setpts divisé par 2
+      expect(result.filterComplex).toContain('trim=start=0.000:duration=6.000');
+      expect(result.filterComplex).toContain('setpts=(PTS-STARTPTS)/2.0000+1.000/TB');
+
+      // Audio : atrim de 6s source, puis atempo=2
+      expect(result.filterComplex).toContain('atrim=start=0.000:duration=6.000');
+      expect(result.filterComplex).toContain('atempo=2');
     });
   });
 

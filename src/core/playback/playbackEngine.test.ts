@@ -35,6 +35,18 @@ describe('Playback Engine', () => {
     expect(calculateSourceTimeUs(testItem, 8_000_000)).toBe(5_000_000);
   });
 
+  it('calcule correctement le temps source avec vitesse variable (playback_speed)', () => {
+    // Vitesse 2.0x (accéléré) : à +3s sur timeline, avance de 6s dans la source
+    const fastItem: TimelineItem = { ...testItem, playback_speed: 2.0 };
+    expect(calculateSourceTimeUs(fastItem, 5_000_000)).toBe(2_000_000);
+    expect(calculateSourceTimeUs(fastItem, 8_000_000)).toBe(8_000_000); // 2s + 3s*2 = 8s
+
+    // Vitesse 0.5x (ralenti) : à +2s sur timeline, avance de 1s dans la source
+    const slowItem: TimelineItem = { ...testItem, playback_speed: 0.5 };
+    expect(calculateSourceTimeUs(slowItem, 5_000_000)).toBe(2_000_000);
+    expect(calculateSourceTimeUs(slowItem, 7_000_000)).toBe(3_000_000); // 2s + 2s*0.5 = 3s
+  });
+
   it('détecte correctement les clips actifs et ignore les pistes muettes', () => {
     const sequence: TimelineSequence = {
       total_length_us: 20_000_000,

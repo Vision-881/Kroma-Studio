@@ -2,7 +2,7 @@
 
 Ce document détaille l'organisation structurelle, le découpage en modules et le format de fichier projet de l'éditeur vidéo **Kroma Studio**.
 
-Dernière mise à jour : 03/11/2026 (Étape 7 du MVP — MVP 100% achevé)
+Dernière mise à jour : 03/11/2026 (Étape 9 — Vitesse Variable & Speed Ramping)
 
 ---
 
@@ -75,7 +75,7 @@ Composants React modulaires organisés selon l'agencement CapCut :
 - `components/layout/Header.tsx` : barre supérieure avec boutons Nouveau, Ouvrir, Enregistrer (`.kproj`), Annuler / Rétablir, renommage du projet et bouton Export.
 - `components/player/PreviewMonitor.tsx` : écran `<canvas>` composite 16:9 haute performance avec contrôle du volume dynamique en temps réel et raccourcis claviers universels (`Espace`, `V`, `B`, `Ctrl+B`, `Ctrl+Z`, `Ctrl+Y`, `Ctrl+S`, `Ctrl+E`).
 - `components/media/MediaBin.tsx` : médiathèque avec onglets, recherche et drag & drop vers les pistes.
-- `components/inspector/InspectorPanel.tsx` : panneau de propriétés contextuel avec section Audio complète (volume, fondus Fade In/Out avec enveloppe) et section Réglages & Étalonnage Couleur (luminosité, contraste, saturation, teinte, flou).
+- `components/inspector/InspectorPanel.tsx` : panneau de propriétés contextuel avec section Audio complète (volume, fondus Fade In/Out avec enveloppe), section Vitesse de lecture (ralenti/accéléré 0.25× à 4.0× avec réinitialisation 1×) et section Réglages & Étalonnage Couleur (luminosité, contraste, saturation, teinte, flou).
 - `components/audio/AudioWaveform.tsx` : générateur vectoriel haute performance de formes d'ondes audio harmoniques.
 - `components/timeline/` : suite complète de timeline (barre d'outils avec Annuler/Rétablir et bouton **Texte**, réglette graduée, tête de lecture, en-têtes avec Solo [S] et volume de piste, et clips avec visualisations de fondus).
 - `components/export/ExportDialog.tsx` *(Étape 7)* : modal d'exportation avec préréglages (1080p, 720p, 4K, personnalisé), réglages fins d'encodage H.264/HEVC, aperçu de commandes CLI et téléchargement de scripts `.bat` et `.sh`.
@@ -115,6 +115,9 @@ Moteur d'exportation et compilation du graphe de filtrage FFmpeg :
 
 8. **Filtres d'étalonnage temps réel & Équivalence d'exportation :**
    Les réglages visuels (luminosité, contraste, saturation, teinte, flou) sont prévisualisés à 60 FPS sur le Canvas 2D via les filtres CSS (`ctx.filter`) et traduits sans perte dans le graphe d'exportation FFmpeg sous forme de filtres `eq`, `hue` et `gblur`.
+
+9. **Vitesse variable continue & Décomposition multi-passes FFmpeg :**
+   Le réglage de vitesse de lecture d'un clip (`playback_speed`, 0.25× à 4.0×) ajuste de manière continue le temps source sans modifier sa durée assignée sur la timeline. Pendant la lecture en temps réel, les éléments `<video>` et `<audio>` voient leur propriété `playbackRate` synchronisée instantanément avec compensation d'horloge matérielle. À l'exportation FFmpeg, la vitesse vidéo est redimensionnée par `trim` et `setpts=(PTS-STARTPTS)/speed+offset/TB`, et l'audio est étiré ou compressé via une décomposition multi-passes sécurisée du filtre `atempo` (en enchaînant des paliers bornés à $[0.5, 2.0]$).
 
 ---
 

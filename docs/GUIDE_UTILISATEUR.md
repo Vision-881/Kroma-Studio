@@ -4,7 +4,7 @@ Bienvenue dans le guide d'utilisation de **Kroma Studio**, un éditeur vidéo mo
 
 Ce guide est spécialement conçu pour les débutants. Chaque manipulation est décrite étape par étape, avec des instructions numérotées claires.
 
-> **Note de version :** Ce document correspond à la version **v0.8.0-alpha (Étape 8 : Étalonnage & Filtres Visuels)**. Il décrit l'ensemble des fonctionnalités du studio : l'importation de fichiers médias, l'agencement 4 quadrants, le montage sur la timeline (déplacement, scission au rasoir, rognage par poignées, suppression), l'ajout et l'édition complète de calques texte superposés, le **panneau d'étalonnage des couleurs en temps réel (luminosité, contraste, saturation, teinte, flou)**, le mixage audio complet (volume par clip et par piste, mode Solo/Mute, fondus Fade In/Fade Out avec courbe d'enveloppe, visualisations d'ondes Waveform sur clips), l'**historique Annuler / Rétablir illimité (`Ctrl+Z` / `Ctrl+Y`)**, la **sauvegarde et l'ouverture de projets au format ouvert `.kproj`**, le **moteur d'exportation MP4 via FFmpeg CLI (`Ctrl+E`)**, le moteur de prévisualisation vidéo en temps réel sur Canvas 16:9 avec synchronisation à la frame, la lecture Play/Pause avec la barre d'espace et l'ajustement dynamique des propriétés visuelles (zoom, rotation, opacité).
+> **Note de version :** Ce document correspond à la version **v0.9.0-alpha (Étape 9 : Vitesse Variable & Speed Ramping)**. Il décrit l'ensemble des fonctionnalités du studio : l'importation de fichiers médias, l'agencement 4 quadrants, le montage sur la timeline (déplacement, scission au rasoir, rognage par poignées, suppression), l'ajout et l'édition complète de calques texte superposés, le **panneau d'étalonnage des couleurs en temps réel (luminosité, contraste, saturation, teinte, flou)**, la **vitesse variable par clip (ralenti/accéléré de 0.25× à 4.0×)**, le mixage audio complet (volume par clip et par piste, mode Solo/Mute, fondus Fade In/Fade Out avec courbe d'enveloppe, visualisations d'ondes Waveform sur clips), l'**historique Annuler / Rétablir illimité (`Ctrl+Z` / `Ctrl+Y`)**, la **sauvegarde et l'ouverture de projets au format ouvert `.kproj`**, le **moteur d'exportation MP4 via FFmpeg CLI (`Ctrl+E`)**, le moteur de prévisualisation vidéo en temps réel sur Canvas 16:9 avec synchronisation à la frame, la lecture Play/Pause avec la barre d'espace et l'ajustement dynamique des propriétés visuelles (zoom, rotation, opacité).
 
 ---
 
@@ -149,7 +149,19 @@ L'espace de travail est structuré en 4 zones complémentaires :
 3. Le résultat s'affiche en direct sur le moniteur Canvas 2D 60 FPS sans le moindre ralentissement.
 4. Cliquez sur l'icône de réinitialisation circulaire à côté du titre pour réinitialiser les curseurs à tout moment, ou faites `Ctrl + Z`.
 
-### Étape 11 : Annuler, Rétablir et Sauvegarder/Ouvrir votre projet
+### Étape 11 : Ajuster la vitesse de lecture (Ralenti / Accéléré)
+1. Sélectionnez un clip vidéo ou audio sur la timeline.
+2. Dans le panneau **Inspecteur** à droite, repérez la section **« Vitesse de lecture »** (icône compteur de vitesse) :
+   - **Multiplicateur (0.25× à 4.0×) :**
+     - Glissez vers la gauche pour créer un **ralenti artistique** (jusqu'à 0.25× soit 4 fois plus lent).
+     - Laissez au centre (1.00×) pour la vitesse normale d'enregistrement.
+     - Glissez vers la droite pour créer un **accéléré dynamique** (jusqu'à 4.00× soit 4 fois plus rapide).
+   - Le badge de vitesse s'affiche en surbrillance ambre dès que la vitesse est modifiée.
+   - Un bouton **« 1× »** apparaît pour restaurer instantanément la vitesse originale en un seul clic.
+3. Pendant la lecture d'aperçu (`Espace`), le moteur adapte la fréquence de lecture native (`playbackRate`) en temps réel sans saccade.
+4. Lors de l'exportation MP4 (`Ctrl + E`), FFmpeg applique automatiquement les filtres temporels `setpts` pour la vidéo et le chaînage intelligent `atempo` pour conserver la cohérence sonore.
+
+### Étape 12 : Annuler, Rétablir et Sauvegarder/Ouvrir votre projet
 1. **Annuler une erreur (Undo) :**
    - Appuyez sur `Ctrl + Z` sur votre clavier (ou cliquez sur le bouton de flèche retour dans l'en-tête ou la timeline).
    - Vos clips découpés, déplacés ou modifiés reviennent instantanément à leur état antérieur.
@@ -163,7 +175,7 @@ L'espace de travail est structuré en 4 zones complémentaires :
 5. **Ouvrir un projet existant :**
    - Cliquez sur l'icône de dossier **Ouvrir** dans la barre supérieure et sélectionnez votre fichier `.kproj`. Votre montage complet, vos pistes, vos textes et vos réglages sont restaurés instantanément !
 
-### Étape 12 : Exporter la vidéo finale en MP4 via FFmpeg
+### Étape 13 : Exporter la vidéo finale en MP4 via FFmpeg
 1. Cliquez sur le bouton vert **« Exporter »** dans l'en-tête supérieur droit, ou appuyez sur `Ctrl + E`.
 2. La boîte de dialogue d'exportation professionnelle s'ouvre :
    - **Préréglage de résolution :** Choisissez entre **1080p Full HD (60 FPS)**, **720p HD**, **4K Ultra HD** ou **Personnalisé** (dimensions et cadence sur mesure).
@@ -231,7 +243,7 @@ Un flyer de présentation complet au format standard A4 (210×297 mm) prêt à i
 
 ## 8. Bilan du MVP & Perspectives
 
-Avec l'achèvement de l'**Étape 7**, les 7 étapes fondamentales du MVP de Kroma Studio sont désormais **100 % opérationnelles et validées par la suite de tests automatisés** :
+Avec l'achèvement de l'**Étape 7** et des extensions de la **Phase 2**, les 9 étapes de Kroma Studio sont désormais **100 % opérationnelles et validées par la suite de 57 tests automatisés** :
 - ✅ **Étape 0 :** Socle technique Vite + React 19 + TypeScript strict.
 - ✅ **Étape 1 :** Import de médias & Médiathèque avec drag & drop et vignettes.
 - ✅ **Étape 2 :** Timeline multipiste avec ergonomie 4 quadrants style CapCut.
@@ -240,5 +252,7 @@ Avec l'achèvement de l'**Étape 7**, les 7 étapes fondamentales du MVP de Krom
 - ✅ **Étape 5 :** Mixage audio hiérarchique, mode Solo/Mute, fondus d'entrée/sortie et formes d'ondes.
 - ✅ **Étape 6 :** Historique Annuler / Rétablir illimité et persistance de fichiers `.kproj`.
 - ✅ **Étape 7 :** Pipeline de transcodage et exportation MP4 via FFmpeg CLI.
+- ✅ **Étape 8 :** Étalonnage couleur & filtres d'image (Canvas 2D + FFmpeg eq/hue/gblur).
+- ✅ **Étape 9 :** Vitesse variable (ralenti/accéléré 0.25× à 4.0×, synchro playbackRate et FFmpeg setpts/atempo).
 
-Perspectives pour les versions ultérieures : transitions visuelles accélérées par shaders WebGL/GPU, gestion des images-clés (keyframes) d'animation de trajectoire, et intégration en application de bureau native via Tauri 2.
+Perspectives pour les versions ultérieures : transitions visuelles (fondu enchaîné / dissolve), gestion des images-clés (keyframes) d'animation, et intégration en application de bureau native via Tauri 2.

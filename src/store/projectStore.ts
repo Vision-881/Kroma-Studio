@@ -82,6 +82,7 @@ interface ProjectState {
   updateClipFade: (itemId: string, fadeInUs: number, fadeOutUs: number) => void;
   updateClipColorAdjustments: (itemId: string, updates: Partial<ColorAdjustments>) => void;
   resetClipColorAdjustments: (itemId: string) => void;
+  updateClipSpeed: (itemId: string, speed: number) => void;
   addTextItem: (text?: string, placementTimeUs?: number) => void;
   updateTextLayerData: (itemId: string, updates: Partial<TextLayerData>) => void;
 
@@ -591,6 +592,32 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           const { color_adjustments: _, ...rest } = item;
           return rest as typeof item;
         }),
+      }));
+
+      return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  updateClipSpeed: (itemId: string, speed: number) =>
+    set((state) => {
+      const clampedSpeed = Math.max(0.25, Math.min(4.0, Number(speed) || 1.0));
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) =>
+          item.item_id === itemId
+            ? { ...item, playback_speed: clampedSpeed }
+            : item,
+        ),
       }));
 
       return {

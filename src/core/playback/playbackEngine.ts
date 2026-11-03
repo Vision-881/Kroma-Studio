@@ -66,11 +66,12 @@ export function calculateFadeGain(
 
 /**
  * Calcule le temps source en microsecondes à l'intérieur du fichier d'origine
- * pour un instant donné sur la timeline.
+ * pour un instant donné sur la timeline, en tenant compte de la vitesse de lecture.
  */
 export function calculateSourceTimeUs(item: TimelineItem, timelineTimeUs: number): number {
+  const speed = item.playback_speed ?? 1.0;
   const offsetFromStartUs = timelineTimeUs - item.placement_time_us;
-  return item.source_in_point_us + Math.max(0, offsetFromStartUs);
+  return item.source_in_point_us + Math.round(Math.max(0, offsetFromStartUs) * speed);
 }
 
 /**
