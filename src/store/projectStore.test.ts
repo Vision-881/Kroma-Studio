@@ -379,5 +379,29 @@ describe('useProjectStore', () => {
       item = useProjectStore.getState().project.sequence.lanes[0].items[0];
       expect(item.playback_speed).toBe(4.0);
     });
+
+    it('pushHistorySnapshot() permet de restaurer le réglage de slider précédent en un seul Undo sans pollution d\'historique', () => {
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      const laneId = useProjectStore.getState().project.sequence.lanes[0].lane_id;
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, laneId, 0);
+      const itemId = useProjectStore.getState().project.sequence.lanes[0].items[0].item_id;
+
+      // 1. Début d'interaction slider : capture de snapshot initial (vitesse = 1.0)
+      useProjectStore.getState().pushHistorySnapshot();
+
+      // 2. Glissement continu du slider (plusieurs micro-étapes avec commitHistory = false)
+      useProjectStore.getState().updateClipSpeed(itemId, 1.25, false);
+      useProjectStore.getState().updateClipSpeed(itemId, 1.5, false);
+      useProjectStore.getState().updateClipSpeed(itemId, 2.0, false);
+      useProjectStore.getState().updateClipSpeed(itemId, 2.75, false);
+
+      let item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.playback_speed).toBe(2.75);
+
+      // 3. Un seul Ctrl+Z (undo) doit restaurer DIRECTEMENT l'état initial avant le glisser
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.playback_speed).toBeUndefined(); // Vitesse originale par défaut (1.0x)
+    });
   });
 });

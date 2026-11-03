@@ -55,6 +55,7 @@ interface ProjectState {
   canRedo: boolean;
   undo: () => void;
   redo: () => void;
+  pushHistorySnapshot: () => void;
 
   // --- Actions Médiathèque ---
   addAsset: (asset: MediaAsset) => void;
@@ -77,12 +78,12 @@ interface ProjectState {
   toggleLaneSolo: (laneId: string) => void;
   toggleLaneLock: (laneId: string) => void;
   updateLaneGain: (laneId: string, gain: number) => void;
-  updateClipPlacement: (itemId: string, updates: Partial<SpatialPlacement>) => void;
-  updateClipGain: (itemId: string, gain: number) => void;
-  updateClipFade: (itemId: string, fadeInUs: number, fadeOutUs: number) => void;
-  updateClipColorAdjustments: (itemId: string, updates: Partial<ColorAdjustments>) => void;
+  updateClipPlacement: (itemId: string, updates: Partial<SpatialPlacement>, commitHistory?: boolean) => void;
+  updateClipGain: (itemId: string, gain: number, commitHistory?: boolean) => void;
+  updateClipFade: (itemId: string, fadeInUs: number, fadeOutUs: number, commitHistory?: boolean) => void;
+  updateClipColorAdjustments: (itemId: string, updates: Partial<ColorAdjustments>, commitHistory?: boolean) => void;
   resetClipColorAdjustments: (itemId: string) => void;
-  updateClipSpeed: (itemId: string, speed: number) => void;
+  updateClipSpeed: (itemId: string, speed: number, commitHistory?: boolean) => void;
   addTextItem: (text?: string, placementTimeUs?: number) => void;
   updateTextLayerData: (itemId: string, updates: Partial<TextLayerData>) => void;
 
@@ -149,6 +150,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         isDirty: true,
       };
     }),
+
+  pushHistorySnapshot: () =>
+    set((state) => ({
+      past: pushPast(state.past, state.project),
+      future: [],
+      canUndo: true,
+      canRedo: false,
+    })),
 
   // --- Actions Médiathèque ---
   addAsset: (asset: MediaAsset) =>
@@ -451,7 +460,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       };
     }),
 
-  updateClipPlacement: (itemId: string, updates: Partial<SpatialPlacement>) =>
+  updateClipPlacement: (itemId: string, updates: Partial<SpatialPlacement>, commitHistory: boolean = true) =>
     set((state) => {
       const updatedLanes = state.project.sequence.lanes.map((lane) => ({
         ...lane,
@@ -475,10 +484,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }));
 
       return {
-        past: pushPast(state.past, state.project),
-        future: [],
-        canUndo: true,
-        canRedo: false,
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
         project: {
           ...state.project,
           sequence: { ...state.project.sequence, lanes: updatedLanes },
@@ -488,7 +497,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       };
     }),
 
-  updateClipGain: (itemId: string, gain: number) =>
+  updateClipGain: (itemId: string, gain: number, commitHistory: boolean = true) =>
     set((state) => {
       const updatedLanes = state.project.sequence.lanes.map((lane) => ({
         ...lane,
@@ -502,10 +511,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }));
 
       return {
-        past: pushPast(state.past, state.project),
-        future: [],
-        canUndo: true,
-        canRedo: false,
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
         project: {
           ...state.project,
           sequence: { ...state.project.sequence, lanes: updatedLanes },
@@ -515,7 +524,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       };
     }),
 
-  updateClipFade: (itemId: string, fadeInUs: number, fadeOutUs: number) =>
+  updateClipFade: (itemId: string, fadeInUs: number, fadeOutUs: number, commitHistory: boolean = true) =>
     set((state) => {
       const updatedLanes = state.project.sequence.lanes.map((lane) => ({
         ...lane,
@@ -530,10 +539,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }));
 
       return {
-        past: pushPast(state.past, state.project),
-        future: [],
-        canUndo: true,
-        canRedo: false,
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
         project: {
           ...state.project,
           sequence: { ...state.project.sequence, lanes: updatedLanes },
@@ -543,7 +552,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       };
     }),
 
-  updateClipColorAdjustments: (itemId: string, updates: Partial<ColorAdjustments>) =>
+  updateClipColorAdjustments: (itemId: string, updates: Partial<ColorAdjustments>, commitHistory: boolean = true) =>
     set((state) => {
       const defaultAdjustments: ColorAdjustments = {
         brightness: 0,
@@ -570,10 +579,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }));
 
       return {
-        past: pushPast(state.past, state.project),
-        future: [],
-        canUndo: true,
-        canRedo: false,
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
         project: {
           ...state.project,
           sequence: { ...state.project.sequence, lanes: updatedLanes },
@@ -608,7 +617,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       };
     }),
 
-  updateClipSpeed: (itemId: string, speed: number) =>
+  updateClipSpeed: (itemId: string, speed: number, commitHistory: boolean = true) =>
     set((state) => {
       const clampedSpeed = Math.max(0.25, Math.min(4.0, Number(speed) || 1.0));
       const updatedLanes = state.project.sequence.lanes.map((lane) => ({
@@ -621,10 +630,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }));
 
       return {
-        past: pushPast(state.past, state.project),
-        future: [],
-        canUndo: true,
-        canRedo: false,
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
         project: {
           ...state.project,
           sequence: { ...state.project.sequence, lanes: updatedLanes },

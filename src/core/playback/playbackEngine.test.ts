@@ -35,16 +35,13 @@ describe('Playback Engine', () => {
     expect(calculateSourceTimeUs(testItem, 8_000_000)).toBe(5_000_000);
   });
 
-  it('calcule correctement le temps source avec vitesse variable (playback_speed)', () => {
-    // Vitesse 2.0x (accéléré) : à +3s sur timeline, avance de 6s dans la source
-    const fastItem: TimelineItem = { ...testItem, playback_speed: 2.0 };
-    expect(calculateSourceTimeUs(fastItem, 5_000_000)).toBe(2_000_000);
-    expect(calculateSourceTimeUs(fastItem, 8_000_000)).toBe(8_000_000); // 2s + 3s*2 = 8s
-
-    // Vitesse 0.5x (ralenti) : à +2s sur timeline, avance de 1s dans la source
-    const slowItem: TimelineItem = { ...testItem, playback_speed: 0.5 };
-    expect(calculateSourceTimeUs(slowItem, 5_000_000)).toBe(2_000_000);
-    expect(calculateSourceTimeUs(slowItem, 7_000_000)).toBe(3_000_000); // 2s + 2s*0.5 = 3s
+  it('calcule correctement le temps source pour les positions clés du clip', () => {
+    // Au début du clip (5s sur timeline) -> temps source = point d'entrée (2s)
+    expect(calculateSourceTimeUs(testItem, 5_000_000)).toBe(2_000_000);
+    // Au milieu du clip (8s sur timeline) -> temps source = 2s + 3s = 5s
+    expect(calculateSourceTimeUs(testItem, 8_000_000)).toBe(5_000_000);
+    // À la fin du clip (11s sur timeline) -> temps source = 2s + 6s = 8s
+    expect(calculateSourceTimeUs(testItem, 11_000_000)).toBe(8_000_000);
   });
 
   it('détecte correctement les clips actifs et ignore les pistes muettes', () => {

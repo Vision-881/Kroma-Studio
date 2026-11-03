@@ -15,6 +15,7 @@ export function InspectorPanel() {
     selectedItemId,
     selectedAssetId,
     removeTimelineItem,
+    pushHistorySnapshot,
     updateClipGain,
     updateClipFade,
     updateClipPlacement,
@@ -146,8 +147,9 @@ export function InspectorPanel() {
                 min="0"
                 max="200"
                 value={gainPercent}
+                onPointerDown={() => pushHistorySnapshot()}
                 onChange={(e) =>
-                  updateClipGain(selectedItem!.item_id, Number(e.target.value) / 100)
+                  updateClipGain(selectedItem!.item_id, Number(e.target.value) / 100, false)
                 }
                 className="kroma-slider"
               />
@@ -179,11 +181,13 @@ export function InspectorPanel() {
                       max={maxFade}
                       step="0.1"
                       value={fadeInSec}
+                      onPointerDown={() => pushHistorySnapshot()}
                       onChange={(e) =>
                         updateClipFade(
                           selectedItem!.item_id,
                           Math.round(Number(e.target.value) * 1_000_000),
                           selectedItem!.fade_out_duration_us ?? 0,
+                          false,
                         )
                       }
                       className="kroma-slider"
@@ -202,11 +206,13 @@ export function InspectorPanel() {
                       max={maxFade}
                       step="0.1"
                       value={fadeOutSec}
+                      onPointerDown={() => pushHistorySnapshot()}
                       onChange={(e) =>
                         updateClipFade(
                           selectedItem!.item_id,
                           selectedItem!.fade_in_duration_us ?? 0,
                           Math.round(Number(e.target.value) * 1_000_000),
+                          false,
                         )
                       }
                       className="kroma-slider"
@@ -254,12 +260,17 @@ export function InspectorPanel() {
                   min="20"
                   max="300"
                   value={scalePercent}
+                  onPointerDown={() => pushHistorySnapshot()}
                   onChange={(e) => {
                     const factor = Number(e.target.value) / 100;
-                    updateClipPlacement(selectedItem!.item_id, {
-                      zoom_factor_x: factor,
-                      zoom_factor_y: factor,
-                    });
+                    updateClipPlacement(
+                      selectedItem!.item_id,
+                      {
+                        zoom_factor_x: factor,
+                        zoom_factor_y: factor,
+                      },
+                      false,
+                    );
                   }}
                   className="kroma-slider"
                 />
@@ -276,10 +287,15 @@ export function InspectorPanel() {
                   min="0"
                   max="100"
                   value={opacityPercent}
+                  onPointerDown={() => pushHistorySnapshot()}
                   onChange={(e) =>
-                    updateClipPlacement(selectedItem!.item_id, {
-                      opacity_ratio: Number(e.target.value) / 100,
-                    })
+                    updateClipPlacement(
+                      selectedItem!.item_id,
+                      {
+                        opacity_ratio: Number(e.target.value) / 100,
+                      },
+                      false,
+                    )
                   }
                   className="kroma-slider"
                 />
@@ -296,10 +312,15 @@ export function InspectorPanel() {
                   min="-180"
                   max="180"
                   value={rotationDeg}
+                  onPointerDown={() => pushHistorySnapshot()}
                   onChange={(e) =>
-                    updateClipPlacement(selectedItem!.item_id, {
-                      rotation_degrees: Number(e.target.value),
-                    })
+                    updateClipPlacement(
+                      selectedItem!.item_id,
+                      {
+                        rotation_degrees: Number(e.target.value),
+                      },
+                      false,
+                    )
                   }
                   className="kroma-slider"
                 />
@@ -320,7 +341,7 @@ export function InspectorPanel() {
                     <button
                       className="kroma-icon-btn"
                       style={{ padding: '2px 6px', fontSize: '0.7rem' }}
-                      onClick={() => updateClipSpeed(selectedItem!.item_id, 1.0)}
+                      onClick={() => updateClipSpeed(selectedItem!.item_id, 1.0, true)}
                       title="Rétablir la vitesse normale (1.0×)"
                     >
                       <RotateCcw size={12} />
@@ -350,8 +371,9 @@ export function InspectorPanel() {
                         max="4.0"
                         step="0.05"
                         value={speed}
+                        onPointerDown={() => pushHistorySnapshot()}
                         onChange={(e) =>
-                          updateClipSpeed(selectedItem!.item_id, Number(e.target.value))
+                          updateClipSpeed(selectedItem!.item_id, Number(e.target.value), false)
                         }
                         className="kroma-slider"
                       />
@@ -425,10 +447,15 @@ export function InspectorPanel() {
                         min="-100"
                         max="100"
                         value={brightnessPct}
+                        onPointerDown={() => pushHistorySnapshot()}
                         onChange={(e) =>
-                          updateClipColorAdjustments(selectedItem!.item_id, {
-                            brightness: Number(e.target.value) / 100,
-                          })
+                          updateClipColorAdjustments(
+                            selectedItem!.item_id,
+                            {
+                              brightness: Number(e.target.value) / 100,
+                            },
+                            false,
+                          )
                         }
                         className="kroma-slider"
                       />
@@ -446,10 +473,15 @@ export function InspectorPanel() {
                         min="-100"
                         max="100"
                         value={contrastPct}
+                        onPointerDown={() => pushHistorySnapshot()}
                         onChange={(e) =>
-                          updateClipColorAdjustments(selectedItem!.item_id, {
-                            contrast: Number(e.target.value) / 100,
-                          })
+                          updateClipColorAdjustments(
+                            selectedItem!.item_id,
+                            {
+                              contrast: Number(e.target.value) / 100,
+                            },
+                            false,
+                          )
                         }
                         className="kroma-slider"
                       />
@@ -467,10 +499,15 @@ export function InspectorPanel() {
                         min="-100"
                         max="100"
                         value={saturationPct}
+                        onPointerDown={() => pushHistorySnapshot()}
                         onChange={(e) =>
-                          updateClipColorAdjustments(selectedItem!.item_id, {
-                            saturation: Number(e.target.value) / 100,
-                          })
+                          updateClipColorAdjustments(
+                            selectedItem!.item_id,
+                            {
+                              saturation: Number(e.target.value) / 100,
+                            },
+                            false,
+                          )
                         }
                         className="kroma-slider"
                       />
@@ -486,10 +523,15 @@ export function InspectorPanel() {
                         min="-180"
                         max="180"
                         value={hueDeg}
+                        onPointerDown={() => pushHistorySnapshot()}
                         onChange={(e) =>
-                          updateClipColorAdjustments(selectedItem!.item_id, {
-                            hue_degrees: Number(e.target.value),
-                          })
+                          updateClipColorAdjustments(
+                            selectedItem!.item_id,
+                            {
+                              hue_degrees: Number(e.target.value),
+                            },
+                            false,
+                          )
                         }
                         className="kroma-slider"
                       />
@@ -505,10 +547,15 @@ export function InspectorPanel() {
                         min="0"
                         max="20"
                         value={blurPx}
+                        onPointerDown={() => pushHistorySnapshot()}
                         onChange={(e) =>
-                          updateClipColorAdjustments(selectedItem!.item_id, {
-                            blur_px: Number(e.target.value),
-                          })
+                          updateClipColorAdjustments(
+                            selectedItem!.item_id,
+                            {
+                              blur_px: Number(e.target.value),
+                            },
+                            false,
+                          )
                         }
                         className="kroma-slider"
                       />

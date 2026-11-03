@@ -287,29 +287,33 @@ export function PreviewMonitor() {
       const state = useProjectStore.getState();
       const maxDurationUs = state.project.sequence.total_length_us;
 
-      // Détecter si une vidéo principale est active et en cours de lecture
-      const { visualItems } = getActiveItemsAtTime(
+      // Détecter si un média avec vitesse modifiée est actif sous la tête de lecture
+      const { visualItems, audioItems } = getActiveItemsAtTime(
         state.project.sequence,
         state.project.asset_catalog,
         state.currentTimeUs,
       );
       const activeVideoItem = visualItems.find((v) => v.asset?.media_kind === 'video');
+      const activeAudioItem = audioItems.find((a) => a.asset?.media_kind === 'audio');
       const videoEl = activeVideoItem?.asset
         ? mediaSession.getVideoElement(activeVideoItem.asset.asset_id)
         : null;
 
+      const activeSpeed = activeVideoItem?.item.playback_speed ?? activeAudioItem?.item.playback_speed ?? 1.0;
+
       let nextTimeUs: number;
 
       if (videoEl && !videoEl.paused && videoEl.readyState >= 2) {
-        // Horloge vidéo matérielle exacte : élimine 100% des saccades et clignotements
+        // Horloge vidéo matérielle exacte : videoEl.currentTime avance au rythme accéléré/ralenti (playbackRate)
+        // Donc elapsedSinceInPoint avance au rythme réel * activeSpeed
+        // La jauge de progression de la timeline avance directement au rythme accéléré de la vidéo !
         const videoCurrentUs = Math.round(videoEl.currentTime * 1_000_000);
         const elapsedSinceInPoint = videoCurrentUs - activeVideoItem!.item.source_in_point_us;
-        const speed = activeVideoItem!.item.playback_speed ?? 1.0;
-        nextTimeUs = activeVideoItem!.item.placement_time_us + Math.round(elapsedSinceInPoint / speed);
+        nextTimeUs = activeVideoItem!.item.placement_time_us + elapsedSinceInPoint;
       } else {
-        // Horloge murale basée sur performance.now
+        // Horloge murale basée sur performance.now pondérée par la vitesse active
         const deltaMs = lastWallTimeRef.current !== null ? nowMs - lastWallTimeRef.current : 16;
-        nextTimeUs = state.currentTimeUs + Math.round(deltaMs * 1000);
+        nextTimeUs = state.currentTimeUs + Math.round(deltaMs * 1000 * activeSpeed);
       }
 
       lastWallTimeRef.current = nowMs;
@@ -337,11 +341,12 @@ export function PreviewMonitor() {
   // ── Gestionnaire complet des Raccourcis Clavier ───────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignorer si l'utilisateur saisit du texte dans un champ de formulaire
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
+      // Ignorer si l'utilisateur saisit du texte dans un champ de saisie texte
+      const isTextInput =
+        (e.target instanceof HTMLInputElement && e.target.type !== 'range') ||
+        e.target instanceof HTMLTextAreaElement;
+
+      if (isTextInput) {
         return;
       }
 
