@@ -318,8 +318,11 @@ export function PreviewMonitor() {
         return;
       }
 
+      // On utilise e.key (en minuscule) pour respecter la disposition réelle du clavier (QWERTZ, AZERTY, QWERTY)
+      const keyLower = e.key ? e.key.toLowerCase() : '';
+
       // 1. Barre d'espace : Lecture / Pause
-      if (e.code === 'Space') {
+      if (e.code === 'Space' || e.key === ' ') {
         e.preventDefault();
         setIsPlaying((prev) => {
           const state = useProjectStore.getState();
@@ -332,7 +335,7 @@ export function PreviewMonitor() {
       }
 
       // 2. Flèche Gauche : Reculer de 1 seconde (ou 5s avec Shift)
-      if (e.code === 'ArrowLeft') {
+      if (e.key === 'ArrowLeft' || e.code === 'ArrowLeft') {
         e.preventDefault();
         const stepUs = e.shiftKey ? 5_000_000 : 1_000_000;
         setCurrentTimeUs(Math.max(0, useProjectStore.getState().currentTimeUs - stepUs));
@@ -340,7 +343,7 @@ export function PreviewMonitor() {
       }
 
       // 3. Flèche Droite : Avancer de 1 seconde (ou 5s avec Shift)
-      if (e.code === 'ArrowRight') {
+      if (e.key === 'ArrowRight' || e.code === 'ArrowRight') {
         e.preventDefault();
         const stepUs = e.shiftKey ? 5_000_000 : 1_000_000;
         setCurrentTimeUs(useProjectStore.getState().currentTimeUs + stepUs);
@@ -348,14 +351,14 @@ export function PreviewMonitor() {
       }
 
       // 4. Touche Début (Home) : Revenir au tout début (00:00:00:00)
-      if (e.code === 'Home') {
+      if (e.key === 'Home' || e.code === 'Home') {
         e.preventDefault();
         setCurrentTimeUs(0);
         return;
       }
 
       // 5. Touche Suppr ou Retour Arrière : Supprimer le clip sélectionné
-      if (e.code === 'Delete' || e.code === 'Backspace') {
+      if (e.key === 'Delete' || e.key === 'Backspace' || e.code === 'Delete' || e.code === 'Backspace') {
         if (selectedItemId) {
           e.preventDefault();
           removeTimelineItem(selectedItemId);
@@ -364,47 +367,47 @@ export function PreviewMonitor() {
       }
 
       // 6. Raccourcis d'outils CapCut : V (Sélection) et B (Rasoir / Split)
-      if (e.code === 'KeyV' && !e.ctrlKey && !e.metaKey) {
+      if (keyLower === 'v' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         setActiveTool('select');
         return;
       }
-      if (e.code === 'KeyB' && !e.ctrlKey && !e.metaKey) {
+      if (keyLower === 'b' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         setActiveTool('split');
         return;
       }
 
       // 7. Scission rapide : Ctrl+B ou Ctrl+K
-      if ((e.code === 'KeyB' || e.code === 'KeyK') && (e.ctrlKey || e.metaKey)) {
+      if ((keyLower === 'b' || keyLower === 'k') && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         splitTimelineItemAtCurrentTime();
         return;
       }
 
-      // 8. Annuler : Ctrl+Z / Cmd+Z
-      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.shiftKey) {
+      // 8. Annuler : Ctrl+Z / Cmd+Z (adapté QWERTZ, AZERTY et QWERTY via e.key)
+      if ((e.ctrlKey || e.metaKey) && keyLower === 'z' && !e.shiftKey) {
         e.preventDefault();
         undo();
         return;
       }
 
-      // 9. Rétablir : Ctrl+Y ou Ctrl+Maj+Z
-      if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey))) {
+      // 9. Rétablir : Ctrl+Y ou Ctrl+Maj+Z (adapté QWERTZ, AZERTY et QWERTY via e.key)
+      if ((e.ctrlKey || e.metaKey) && (keyLower === 'y' || (keyLower === 'z' && e.shiftKey))) {
         e.preventDefault();
         redo();
         return;
       }
 
       // 10. Enregistrer : Ctrl+S
-      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS') {
+      if ((e.ctrlKey || e.metaKey) && keyLower === 's') {
         e.preventDefault();
         saveProjectToFile();
         return;
       }
 
       // 11. Touche M : Mute / Démute Master
-      if (e.code === 'KeyM' && !e.ctrlKey && !e.metaKey) {
+      if (keyLower === 'm' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         setIsMasterMuted((prev) => !prev);
         return;
