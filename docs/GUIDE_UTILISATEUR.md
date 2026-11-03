@@ -4,7 +4,7 @@ Bienvenue dans le guide d'utilisation de **Kroma Studio**, un éditeur vidéo mo
 
 Ce guide est spécialement conçu pour les débutants. Chaque manipulation est décrite étape par étape, avec des instructions numérotées claires.
 
-> **Note de version :** Ce document correspond à la version **v0.3.0-alpha (Étape 3 du MVP)**. Il décrit les fonctionnalités actuellement actives : l'importation de fichiers médias, l'agencement 4 quadrants, le montage sur la timeline (déplacement, scission au rasoir, rognage par poignées, suppression), le **moteur de prévisualisation vidéo en temps réel sur Canvas 16:9** avec synchronisation à la frame, la lecture Play/Pause avec la barre d'espace et l'ajustement dynamique des propriétés (volume, zoom, rotation, opacité).
+> **Note de version :** Ce document correspond à la version **v0.4.0-alpha (Étape 4 du MVP)**. Il décrit les fonctionnalités actuellement actives : l'importation de fichiers médias, l'agencement 4 quadrants, le montage sur la timeline (déplacement, scission au rasoir, rognage par poignées, suppression), l'ajout et l'édition complète de **calques texte superposés (titres, typographie, couleurs, contours, alignement et positionnement normalisé)**, le **moteur de prévisualisation vidéo en temps réel sur Canvas 16:9** avec synchronisation à la frame, la lecture Play/Pause avec la barre d'espace et l'ajustement dynamique des propriétés (volume, zoom, rotation, opacité).
 
 ---
 
@@ -110,6 +110,19 @@ L'espace de travail est structuré en 4 zones complémentaires :
    - Déplacez le curseur **Rotation** : faites pivoter l'image selon l'angle souhaité.
    - Ajustez le **Volume du clip** pour doser l'intensité sonore.
 
+### Étape 8 : Ajouter et personnaliser un calque de texte
+1. Positionnez la tête de lecture à l'instant où vous souhaitez faire apparaître le texte.
+2. Cliquez sur le bouton orange **« Texte »** (icône T) dans la barre d'outils de la timeline.
+3. Un nouveau segment de texte de 4 secondes est automatiquement ajouté sur la piste dédiée **Titres & Textes** et sélectionné.
+4. Dans le panneau **Inspecteur** à droite, le panneau d'édition typographique s'ouvre :
+   - **Contenu :** Saisissez directement votre texte dans la zone de texte.
+   - **Police :** Choisissez parmi les polices disponibles (Système, Impact, Georgia, Arial, Trebuchet MS, etc.).
+   - **Taille & Graisse :** Réglez la taille de 12 à 200 pt et activez le bouton **B** (Gras).
+   - **Alignement :** Choisissez entre alignement à gauche, centré ou à droite.
+   - **Couleurs & Contours :** Sélectionnez la couleur du texte et la couleur du contour via les sélecteurs de couleur natifs, et ajustez l'épaisseur du contour (0 à 20 px).
+   - **Position sur le canevas :** Ajustez les curseurs horizontaux (X) et verticaux (Y) pour positionner le texte avec précision sur la vidéo.
+   - Observez le résultat en direct sur le lecteur vidéo et dans l'aperçu du panneau !
+
 ---
 
 ## 5. Raccourcis et astuces de navigation
@@ -147,6 +160,6 @@ L'espace de travail est structuré en 4 zones complémentaires :
 ## 7. Prochaines étapes
 
 Ce qui arrive dans les prochaines versions de Kroma Studio :
-- **Étape 4 :** Outil de texte avancé : ajout de titres et sous-titres superposés directement sur la vidéo avec choix des polices, couleurs et contours.
-- **Étape 5 & 6 :** Historique Annuler / Rétablir (`Ctrl+Z` / `Ctrl+Y`) et sauvegarde de projets au format `.kproj`.
+- **Étape 5 :** Mixage & Contrôle du volume : réglage du gain par piste, fondus audio enchaînés (Fade In / Fade Out), fonctions Solo / Mute avancées et visualisation des formes d'onde audio.
+- **Étape 6 :** Historique Annuler / Rétablir (`Ctrl+Z` / `Ctrl+Y`) et sauvegarde / chargement de projets au format `.kproj`.
 - **Étape 7 :** Export vidéo final MP4 haute définition accéléré par FFmpeg.

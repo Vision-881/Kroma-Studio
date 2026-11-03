@@ -2,7 +2,7 @@
 
 Ce document répertorie l'ensemble des bibliothèques et logiciels tiers utilisés par le projet Kroma Studio, leurs licences respectives et les implications juridiques associées.
 
-Dernière mise à jour : 02/11/2026 (Étape 3 du MVP)
+Dernière mise à jour : 03/11/2026 (Étape 4 du MVP)
 
 ---
 
