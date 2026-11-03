@@ -65,7 +65,19 @@ export interface ColorAdjustments {
   blur_px: number;
 }
 
-export type TransitionType = 'none' | 'crossfade' | 'fade_to_black' | 'dip_to_white' | 'wipe_left';
+export type TransitionType =
+  | 'none'
+  | 'crossfade'
+  | 'fade_to_black'
+  | 'dip_to_white'
+  | 'wipe_left'
+  | 'wipe_right'
+  | 'wipe_up'
+  | 'wipe_down'
+  | 'zoom_in'
+  | 'zoom_out'
+  | 'spin'
+  | 'strobe';
 
 export interface TransitionData {
   /** Type d'effet de transition */
@@ -76,6 +88,12 @@ export interface TransitionData {
 
 export type VideoEffectPreset =
   | 'none'
+  | 'x_shake'         // Secousse horizontale CapCut
+  | 'y_shake'         // Secousse verticale CapCut
+  | 'camera_shake'    // Vibration omnidirectionnelle 2D
+  | 'tremor_strobe'   // Tremblement violent + Flash stroboscopique CapCut
+  | 'strobe_white'    // Flash stroboscopique blanc pur
+  | 'strobe_black'    // Clignotement stroboscopique noir
   | 'monochrome'
   | 'sepia'
   | 'vintage'
@@ -83,10 +101,14 @@ export type VideoEffectPreset =
   | 'vignette';
 
 export interface VideoEffects {
-  /** Préréglage de filtre artistique/créatif */
+  /** Préréglage de filtre ou effet dynamique */
   preset?: VideoEffectPreset;
   /** Intensité du vignettage de 0.0 (aucun) à 1.0 (sombre) */
   vignette_amount?: number;
+  /** Multiplicateur d'intensité de la secousse/effet (0.2 à 3.0, défaut 1.0) */
+  intensity?: number;
+  /** Vitesse/fréquence d'oscillation (0.5 à 3.0, défaut 1.0) */
+  speed?: number;
 }
 
 export interface TimelineItem {

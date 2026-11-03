@@ -2,7 +2,7 @@
 
 Ce document consigne l'avancement du projet, la feuille de route du MVP, les étapes réalisées, en cours et à venir, ainsi que les décisions d'architecture prises au fil du développement.
 
-Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 11 : Effets Vidéo, Filtres FX & Miroir H/V)
+Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 12 : Effets dynamiques & Transitions CapCut — reporté)
 
 ---
 
@@ -22,6 +22,8 @@ Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 11 : Effets Vidéo, Filt
 | **Étape 9** | Vitesse Variable & Ralenti / Accéléré | ✅ Terminé | Vitesse de lecture par clip (0.25× à 4.0×), calcul temporel source exact, prévisualisation fluide via `video.playbackRate`/`audio.playbackRate`, adaptation d'horloge matérielle, filtres FFmpeg `setpts` et `atempo` chaîné, section Inspecteur, 57 tests unitaires. |
 | **Étape 10** | Transitions Visuelles entre clips | ✅ Terminé | Transitions d'entrée vidéo (Fondu enchaîné / crossfade, Fondu au noir / fade_to_black, Flash blanc / dip_to_white, Balayage gauche / wipe_left), durée réglable (0.1s à 5.0s), badge violet sur la timeline, rendu Canvas 2D temps réel 60 FPS, export FFmpeg avec filtre `fade` et alpha overlay, 60 tests unitaires. |
 | **Étape 11** | Effets Vidéo, Filtres FX & Miroir H/V | ✅ Terminé | Inversion miroir horizontale/verticale (`hflip`, `vflip`), filtres artistiques (Monochrome, Sépia, Argentique vintage, Négatif, Vignetage cinéma réglable), Canvas 2D 60 FPS, export FFmpeg, section Inspecteur, badge rose sur la timeline, 63 tests unitaires. |
+| **Étape 12** | Ratios de Canevas Multi-formats | 🔜 À venir | Sélecteur de ratio sous le moniteur (16:9 YouTube, 9:16 TikTok/Reels/Shorts, 1:1 Carré, 4:5 Portrait), recadrage automatique du Canvas, repositionnement dynamique des clips, exportation FFmpeg calibrée aux dimensions cibles (ex : 1080×1920 mobile, 1080×1080 feed). |
+| **Étape 13** | Effets dynamiques & Transitions CapCut | ⏸️ Reporté | Effets `x_shake`, `y_shake`, `camera_shake`, `tremor_strobe`, `strobe_white/black` et nouvelles transitions (`wipe_right`, `wipe_up`, `wipe_down`, `zoom_in`, `zoom_out`, `spin`, `strobe`) déjà définis dans le système de types et partiellement implémentés. Finalisation (badges, Undo/Redo, tests, doc) à venir après l'étape 12. |
 
 ---
 
@@ -187,3 +189,23 @@ Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 11 : Effets Vidéo, Filt
 - **Visualisation Timeline :** Badge informatif distinctif rose (`🪞 Miroir`, `↕️ Flip V`, `🪄 N&B`, `🪄 Sépia`, `🪄 Rétro`, `🪄 Négatif`, `🪄 Vignet.`) sur les clips concernés.
 - **Tests unitaires :** Nouveaux tests automatisés dans `projectStore.test.ts` et `ffmpegCommandBuilder.test.ts`. Suite complète portée à **63 tests unitaires validés (100% succès)**.
 
+### Étape 12 — Ratios de Canevas Multi-formats (🔜 À venir)
+
+**Objectif :** Permettre de basculer instantanément le format de la vidéo selon la destination (YouTube 16:9, TikTok/Instagram Reels/Shorts 9:16, post carré 1:1, portrait 4:5).
+
+**Ce qui est prévu :**
+- Sélecteur de ratio affiché sous le moniteur vidéo.
+- Recadrage automatique et repositionnement dynamique du Canvas lors du changement de ratio.
+- Exportation FFmpeg calibrée directement aux dimensions choisies (ex : 1080×1920 pour mobile, 1080×1080 pour feed carré).
+
+### En Plus — Effets dynamiques & Transitions CapCut (⏸️ Reporté — à reprendre plus tard)
+
+> **Note :** Les types et préréglages de cette étape ont déjà été définis dans `src/core/types/timeline.ts` (`VideoEffectPreset` étendu, nouveaux `TransitionType`). Une implémentation partielle existe dans `PreviewMonitor.tsx`, `ffmpegCommandBuilder.ts` et `InspectorPanel.tsx`. La finalisation complète (polish UI, couverture de tests, badge timeline, support Ctrl+Z) est **intentionnellement mise de côté** et sera reprise à la prochaine session de développement. 
+
+**Ce qui reste à compléter :**
+- Badge distinctif sur la timeline pour les effets dynamiques (`x_shake`, `tremor_strobe`, etc.).
+- Sliders Intensité / Vitesse intégrés à l'Undo/Redo.
+- Tests unitaires dédiés aux nouveaux effets et transitions.
+- Documentation utilisateur des nouveaux effets dans `GUIDE_UTILISATEUR.md`.
+
+"Ici Oscar, je rajoute que cette etape "En Plus" à été crée suite a des questions de ma part sur la recreations des effets capcut et des transitions etc. Si cela pose un quelquonque probleme pour la suite des etapes je tautorise a supprimer les parties concernant cette section. Mais garde une trace quelque part te permettant de les reprendre après avoir terminé toutes les étapes"

@@ -492,7 +492,14 @@ export function InspectorPanel() {
                         case 'crossfade': return 'Fondu enchaîné';
                         case 'fade_to_black': return 'Fondu au noir';
                         case 'dip_to_white': return 'Flash blanc';
-                        case 'wipe_left': return 'Balayage';
+                        case 'strobe': return 'Strobe Cut';
+                        case 'zoom_in': return 'Zoom Avant';
+                        case 'zoom_out': return 'Zoom Arrière';
+                        case 'spin': return 'Tournoiement';
+                        case 'wipe_left': return 'Wipe Gauche';
+                        case 'wipe_right': return 'Wipe Droite';
+                        case 'wipe_up': return 'Wipe Haut';
+                        case 'wipe_down': return 'Wipe Bas';
                         default: return 'Aucun (Cut)';
                       }
                     })()}
@@ -527,10 +534,23 @@ export function InspectorPanel() {
                   }}
                 >
                   <option value="none">Aucun (Cut direct)</option>
-                  <option value="crossfade">✨ Fondu enchaîné (Crossfade)</option>
-                  <option value="fade_to_black">🌑 Fondu au noir (Dip to Black)</option>
-                  <option value="dip_to_white">⚡ Flash blanc (Dip to White)</option>
-                  <option value="wipe_left">👉 Balayage horizontal (Wipe Left)</option>
+                  <optgroup label="Transitions Classiques">
+                    <option value="crossfade">✨ Fondu enchaîné (Crossfade)</option>
+                    <option value="fade_to_black">🌑 Fondu au noir (Dip to Black)</option>
+                    <option value="dip_to_white">⚡ Flash blanc (Dip to White)</option>
+                    <option value="strobe">⚡ Strobe Cut (Rafale de flashs)</option>
+                  </optgroup>
+                  <optgroup label="Zoom & Mouvement (CapCut)">
+                    <option value="zoom_in">🔍 Zoom Avant (Zoom In)</option>
+                    <option value="zoom_out">🔎 Zoom Arrière (Zoom Out)</option>
+                    <option value="spin">🌀 Tournoiement (Spin)</option>
+                  </optgroup>
+                  <optgroup label="Balayages (Wipes)">
+                    <option value="wipe_left">👈 Balayage Gauche</option>
+                    <option value="wipe_right">👉 Balayage Droite</option>
+                    <option value="wipe_up">👆 Balayage Haut</option>
+                    <option value="wipe_down">👇 Balayage Bas</option>
+                  </optgroup>
                 </select>
               </div>
 
@@ -795,13 +815,100 @@ export function InspectorPanel() {
                   }}
                 >
                   <option value="none">Aucun effet (Normal)</option>
-                  <option value="monochrome">🖤 Noir & Blanc (Monochrome)</option>
-                  <option value="sepia">📜 Sépia (Rétro / Vintage)</option>
-                  <option value="vintage">🎞️ Argentique (Cinéma 70s)</option>
-                  <option value="invert">🔮 Négatif (Inversion des couleurs)</option>
-                  <option value="vignette">🎬 Vignetage sombre (Focus cinéma)</option>
+                  <optgroup label="⚡ Effets Dynamiques CapCut">
+                    <option value="x_shake">💥 X Shake (Secousse horizontale)</option>
+                    <option value="y_shake">↕️ Y Shake (Secousse verticale)</option>
+                    <option value="camera_shake">📳 Caméra Shake (Vibration 2D)</option>
+                    <option value="tremor_strobe">⚡ Tremor Strobe (Secousse + Flash)</option>
+                    <option value="strobe_white">⚡ Strobe Blanc (Flashs rythmés)</option>
+                    <option value="strobe_black">🖤 Strobe Noir (Clignotement sombre)</option>
+                  </optgroup>
+                  <optgroup label="🎨 Filtres Stylistiques">
+                    <option value="monochrome">🖤 Noir & Blanc (Monochrome)</option>
+                    <option value="sepia">📜 Sépia (Rétro / Vintage)</option>
+                    <option value="vintage">🎞️ Argentique (Cinéma 70s)</option>
+                    <option value="invert">🔮 Négatif (Inversion des couleurs)</option>
+                    <option value="vignette">🎬 Vignetage sombre (Focus cinéma)</option>
+                  </optgroup>
                 </select>
               </div>
+
+              {/* Contrôles de secousse / flash si effet dynamique actif */}
+              {(() => {
+                const p = selectedItem.video_effects?.preset;
+                const isDynamic =
+                  p === 'x_shake' ||
+                  p === 'y_shake' ||
+                  p === 'camera_shake' ||
+                  p === 'tremor_strobe' ||
+                  p === 'strobe_white' ||
+                  p === 'strobe_black';
+
+                if (!isDynamic) return null;
+
+                const curIntensity = selectedItem.video_effects?.intensity ?? 1.0;
+                const curSpeed = selectedItem.video_effects?.speed ?? 1.0;
+
+                return (
+                  <>
+                    <div className="inspector-control" style={{ marginTop: 10 }}>
+                      <div className="inspector-control__label-row">
+                        <span>Intensité de l'effet</span>
+                        <span className="inspector-control__value-badge">
+                          {Math.round(curIntensity * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.2"
+                        max="2.5"
+                        step="0.05"
+                        value={curIntensity}
+                        onPointerDown={() => pushHistorySnapshot()}
+                        onChange={(e) =>
+                          updateClipEffects(
+                            selectedItem!.item_id,
+                            {
+                              preset: p,
+                              intensity: Number(e.target.value),
+                            },
+                            false,
+                          )
+                        }
+                        className="kroma-slider"
+                      />
+                    </div>
+
+                    <div className="inspector-control" style={{ marginTop: 10 }}>
+                      <div className="inspector-control__label-row">
+                        <span>Vitesse / Fréquence</span>
+                        <span className="inspector-control__value-badge">
+                          {curSpeed.toFixed(2)}×
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="2.5"
+                        step="0.05"
+                        value={curSpeed}
+                        onPointerDown={() => pushHistorySnapshot()}
+                        onChange={(e) =>
+                          updateClipEffects(
+                            selectedItem!.item_id,
+                            {
+                              preset: p,
+                              speed: Number(e.target.value),
+                            },
+                            false,
+                          )
+                        }
+                        className="kroma-slider"
+                      />
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* Slider intensité vignetage si actif */}
               {(selectedItem.video_effects?.preset === 'vignette' || (selectedItem.video_effects?.vignette_amount && selectedItem.video_effects.vignette_amount > 0)) && (

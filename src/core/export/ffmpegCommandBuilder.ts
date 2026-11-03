@@ -350,9 +350,12 @@ export function buildFFmpegCommand(
         }
       }
 
-      // Effets vidéo artistiques et créatifs (Étape 11)
+      // Effets vidéo artistiques et créatifs (Étape 11 & 12)
       const fx = item.video_effects;
       if (fx) {
+        const fxSpeed = fx.speed ?? 1.0;
+        const fxIntensity = fx.intensity ?? 1.0;
+
         if (fx.preset === 'monochrome') {
           clipSubFilters.push('hue=s=0');
         } else if (fx.preset === 'sepia') {
@@ -361,18 +364,64 @@ export function buildFFmpegCommand(
           clipSubFilters.push('negate');
         } else if (fx.preset === 'vintage') {
           clipSubFilters.push('curves=vintage');
+        } else if (fx.preset === 'x_shake') {
+          const amp = Math.round(18 * fxIntensity);
+          const freq = (28 * fxSpeed).toFixed(1);
+          clipSubFilters.push(
+            `crop=w=in_w*0.92:h=in_h:x='(in_w-out_w)/2+sin(t*${freq})*${amp}':y='(in_h-out_h)/2',scale=${width}:${height}`,
+          );
+        } else if (fx.preset === 'y_shake') {
+          const amp = Math.round(16 * fxIntensity);
+          const freq = (28 * fxSpeed).toFixed(1);
+          clipSubFilters.push(
+            `crop=w=in_w:h=in_h*0.92:x='(in_w-out_w)/2':y='(in_h-out_h)/2+sin(t*${freq})*${amp}',scale=${width}:${height}`,
+          );
+        } else if (fx.preset === 'camera_shake') {
+          const ampX = Math.round(14 * fxIntensity);
+          const ampY = Math.round(12 * fxIntensity);
+          const freq1 = (23 * fxSpeed).toFixed(1);
+          const freq2 = (29 * fxSpeed).toFixed(1);
+          clipSubFilters.push(
+            `crop=w=in_w*0.90:h=in_h*0.90:x='(in_w-out_w)/2+sin(t*${freq1})*${ampX}':y='(in_h-out_h)/2+cos(t*${freq2})*${ampY}',scale=${width}:${height}`,
+          );
+        } else if (fx.preset === 'tremor_strobe') {
+          const ampX = Math.round(18 * fxIntensity);
+          const ampY = Math.round(14 * fxIntensity);
+          const freq1 = (35 * fxSpeed).toFixed(1);
+          const freq2 = (42 * fxSpeed).toFixed(1);
+          const strobeFreq = (45 * fxSpeed).toFixed(1);
+          clipSubFilters.push(
+            `crop=w=in_w*0.88:h=in_h*0.88:x='(in_w-out_w)/2+sin(t*${freq1})*${ampX}':y='(in_h-out_h)/2+cos(t*${freq2})*${ampY}',scale=${width}:${height}`,
+          );
+          clipSubFilters.push(`drawbox=t=fill:c=white@0.65:enable='gt(sin(t*${strobeFreq}),0.35)'`);
+        } else if (fx.preset === 'strobe_white') {
+          const strobeFreq = (35 * fxSpeed).toFixed(1);
+          clipSubFilters.push(`drawbox=t=fill:c=white@0.70:enable='gt(sin(t*${strobeFreq}),0.35)'`);
+        } else if (fx.preset === 'strobe_black') {
+          const strobeFreq = (35 * fxSpeed).toFixed(1);
+          clipSubFilters.push(`drawbox=t=fill:c=black@0.75:enable='gt(sin(t*${strobeFreq}),0.35)'`);
         }
+
         if (fx.preset === 'vignette' || (fx.vignette_amount && fx.vignette_amount > 0)) {
           const angle = fx.vignette_amount ? ((fx.vignette_amount * Math.PI) / 2).toFixed(4) : 'PI/4';
           clipSubFilters.push(`vignette=${angle}`);
         }
       }
 
-      // Transition d'entrée (Étape 10)
+      // Transition d'entrée (Étape 10 & 12)
       if (item.transition_in && item.transition_in.transition_type !== 'none') {
         const transSec = usToSeconds(item.transition_in.duration_us || 1_000_000);
         const transType = item.transition_in.transition_type;
-        if (transType === 'crossfade' || transType === 'wipe_left') {
+        if (
+          transType === 'crossfade' ||
+          transType === 'wipe_left' ||
+          transType === 'wipe_right' ||
+          transType === 'wipe_up' ||
+          transType === 'wipe_down' ||
+          transType === 'zoom_in' ||
+          transType === 'zoom_out' ||
+          transType === 'spin'
+        ) {
           clipSubFilters.push(
             `format=rgba,fade=t=in:st=${startSec.toFixed(3)}:d=${transSec.toFixed(3)}:alpha=1`,
           );
@@ -383,6 +432,10 @@ export function buildFFmpegCommand(
         } else if (transType === 'dip_to_white') {
           clipSubFilters.push(
             `fade=t=in:st=${startSec.toFixed(3)}:d=${transSec.toFixed(3)}:color=white`,
+          );
+        } else if (transType === 'strobe') {
+          clipSubFilters.push(
+            `format=rgba,fade=t=in:st=${startSec.toFixed(3)}:d=${transSec.toFixed(3)}:alpha=1,drawbox=t=fill:c=white@0.75:enable='between(t,${startSec.toFixed(3)},${(startSec + transSec).toFixed(3)})*gt(sin((t-${startSec.toFixed(3)})/${transSec.toFixed(3)}*PI*6),0.3)'`,
           );
         }
       }

@@ -79,6 +79,41 @@ export function PreviewMonitor() {
         const centerY = canvasHeight / 2 + placement.offset_y_px;
         ctx.translate(centerX, centerY);
 
+        const tSec = currentTimeUs / 1_000_000;
+        const fx = item.video_effects;
+        const fxPreset = fx?.preset;
+        const fxIntensity = fx?.intensity ?? 1.0;
+        const fxSpeed = fx?.speed ?? 1.0;
+
+        // Effets dynamiques de secousse / Shake CapCut (Étape 12)
+        if (fxPreset === 'x_shake') {
+          const freq = 28 * fxSpeed;
+          const amp = 22 * fxIntensity;
+          const dx = (Math.sin(tSec * freq) * 0.6 + Math.sin(tSec * freq * 1.7) * 0.4) * amp;
+          ctx.translate(dx, 0);
+          ctx.scale(1.08, 1.0);
+        } else if (fxPreset === 'y_shake') {
+          const freq = 28 * fxSpeed;
+          const amp = 18 * fxIntensity;
+          const dy = (Math.cos(tSec * freq) * 0.6 + Math.cos(tSec * freq * 1.7) * 0.4) * amp;
+          ctx.translate(0, dy);
+          ctx.scale(1.0, 1.08);
+        } else if (fxPreset === 'camera_shake') {
+          const dx = (Math.sin(tSec * 23 * fxSpeed) * 16 + Math.cos(tSec * 47 * fxSpeed) * 8) * fxIntensity;
+          const dy = (Math.cos(tSec * 29 * fxSpeed) * 14 + Math.sin(tSec * 53 * fxSpeed) * 7) * fxIntensity;
+          const drot = Math.sin(tSec * 19 * fxSpeed) * 1.2 * fxIntensity;
+          ctx.translate(dx, dy);
+          ctx.rotate((drot * Math.PI) / 180);
+          ctx.scale(1.10, 1.10);
+        } else if (fxPreset === 'tremor_strobe') {
+          const dx = (Math.sin(tSec * 35 * fxSpeed) * 20 + Math.cos(tSec * 61 * fxSpeed) * 10) * fxIntensity;
+          const dy = (Math.cos(tSec * 42 * fxSpeed) * 16 + Math.sin(tSec * 71 * fxSpeed) * 8) * fxIntensity;
+          const drot = Math.sin(tSec * 27 * fxSpeed) * 1.8 * fxIntensity;
+          ctx.translate(dx, dy);
+          ctx.rotate((drot * Math.PI) / 180);
+          ctx.scale(1.12, 1.12);
+        }
+
         // Rotation
         if (placement.rotation_degrees !== 0) {
           ctx.rotate((placement.rotation_degrees * Math.PI) / 180);
@@ -92,7 +127,7 @@ export function PreviewMonitor() {
         // Opacité de base combinée avec la transition
         let baseAlpha = Math.max(0, Math.min(1, placement.opacity_ratio));
 
-        // Transition visuelle d'entrée (Étape 10)
+        // Transition visuelle d'entrée (Étape 10 & 12)
         let transitionProgress = 1.0;
         let transitionType = 'none';
         if (item.transition_in && item.transition_in.transition_type !== 'none') {
@@ -106,6 +141,20 @@ export function PreviewMonitor() {
 
         if (transitionType === 'crossfade') {
           baseAlpha *= transitionProgress;
+        } else if (transitionType === 'zoom_in') {
+          const zoomScale = 0.35 + 0.65 * transitionProgress;
+          ctx.scale(zoomScale, zoomScale);
+          baseAlpha *= Math.min(1.0, transitionProgress * 1.5);
+        } else if (transitionType === 'zoom_out') {
+          const zoomScale = 2.0 - 1.0 * transitionProgress;
+          ctx.scale(zoomScale, zoomScale);
+          baseAlpha *= Math.min(1.0, transitionProgress * 1.5);
+        } else if (transitionType === 'spin') {
+          const spinRot = (1.0 - transitionProgress) * -Math.PI;
+          ctx.rotate(spinRot);
+          const spinScale = 0.5 + 0.5 * transitionProgress;
+          ctx.scale(spinScale, spinScale);
+          baseAlpha *= Math.min(1.0, transitionProgress * 1.5);
         }
 
         ctx.globalAlpha = baseAlpha;
@@ -163,21 +212,50 @@ export function PreviewMonitor() {
             const drawW = srcWidth * scale;
             const drawH = srcHeight * scale;
 
-            // Masque de balayage (Wipe)
-            if (transitionType === 'wipe_left' && transitionProgress < 1.0) {
-              ctx.beginPath();
-              ctx.rect(
-                -drawW / 2 + drawW * (1.0 - transitionProgress),
-                -drawH / 2,
-                drawW * transitionProgress,
-                drawH,
-              );
-              ctx.clip();
+            // Masques de balayage multidirectionnels (Wipe - Étape 10 & 12)
+            if (transitionProgress < 1.0) {
+              if (transitionType === 'wipe_left') {
+                ctx.beginPath();
+                ctx.rect(
+                  -drawW / 2 + drawW * (1.0 - transitionProgress),
+                  -drawH / 2,
+                  drawW * transitionProgress,
+                  drawH,
+                );
+                ctx.clip();
+              } else if (transitionType === 'wipe_right') {
+                ctx.beginPath();
+                ctx.rect(
+                  -drawW / 2,
+                  -drawH / 2,
+                  drawW * transitionProgress,
+                  drawH,
+                );
+                ctx.clip();
+              } else if (transitionType === 'wipe_up') {
+                ctx.beginPath();
+                ctx.rect(
+                  -drawW / 2,
+                  -drawH / 2 + drawH * (1.0 - transitionProgress),
+                  drawW,
+                  drawH * transitionProgress,
+                );
+                ctx.clip();
+              } else if (transitionType === 'wipe_down') {
+                ctx.beginPath();
+                ctx.rect(
+                  -drawW / 2,
+                  -drawH / 2,
+                  drawW,
+                  drawH * transitionProgress,
+                );
+                ctx.clip();
+              }
             }
 
             ctx.drawImage(sourceElement, -drawW / 2, -drawH / 2, drawW, drawH);
 
-            // Voiles pour fondu au noir et flash blanc
+            // Voiles pour fondus et flashs de transition (Étape 10 & 12)
             if (transitionType === 'fade_to_black' && transitionProgress < 1.0) {
               const blackAlpha = 1.0 - transitionProgress;
               ctx.fillStyle = `rgba(0, 0, 0, ${blackAlpha.toFixed(3)})`;
@@ -186,6 +264,29 @@ export function PreviewMonitor() {
               const whiteAlpha = 1.0 - transitionProgress;
               ctx.fillStyle = `rgba(255, 255, 255, ${whiteAlpha.toFixed(3)})`;
               ctx.fillRect(-drawW / 2, -drawH / 2, drawW, drawH);
+            } else if (transitionType === 'strobe' && transitionProgress < 1.0) {
+              const strobeBurst = Math.sin(transitionProgress * Math.PI * 6);
+              if (strobeBurst > 0.3) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+                ctx.fillRect(-drawW / 2, -drawH / 2, drawW, drawH);
+              }
+            }
+
+            // Effets stroboscopiques dynamiques CapCut (Tremor Strobe, Strobe Blanc, Strobe Noir - Étape 12)
+            if (fxPreset === 'tremor_strobe' || fxPreset === 'strobe_white') {
+              const strobePulse = Math.sin(tSec * 45 * fxSpeed);
+              if (strobePulse > 0.35) {
+                const flashAlpha = Math.min(0.85, 0.65 * fxIntensity);
+                ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha.toFixed(3)})`;
+                ctx.fillRect(-drawW / 2, -drawH / 2, drawW, drawH);
+              }
+            } else if (fxPreset === 'strobe_black') {
+              const strobePulse = Math.sin(tSec * 45 * fxSpeed);
+              if (strobePulse > 0.35) {
+                const flashAlpha = Math.min(0.9, 0.75 * fxIntensity);
+                ctx.fillStyle = `rgba(0, 0, 0, ${flashAlpha.toFixed(3)})`;
+                ctx.fillRect(-drawW / 2, -drawH / 2, drawW, drawH);
+              }
             }
 
             // Effet Vignettage cinéma (Étape 11)
