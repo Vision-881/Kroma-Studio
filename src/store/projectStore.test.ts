@@ -301,5 +301,15 @@ describe('useProjectStore', () => {
       expect(state.canRedo).toBe(false);
       expect(state.isDirty).toBe(false);
     });
+
+    it('openExportDialog() et closeExportDialog() gèrent l\'affichage de la boîte d\'export', () => {
+      expect(useProjectStore.getState().isExportDialogOpen).toBe(false);
+
+      useProjectStore.getState().openExportDialog();
+      expect(useProjectStore.getState().isExportDialogOpen).toBe(true);
+
+      useProjectStore.getState().closeExportDialog();
+      expect(useProjectStore.getState().isExportDialogOpen).toBe(false);
+    });
   });
 });

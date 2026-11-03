@@ -4,7 +4,7 @@ Bienvenue dans le guide d'utilisation de **Kroma Studio**, un éditeur vidéo mo
 
 Ce guide est spécialement conçu pour les débutants. Chaque manipulation est décrite étape par étape, avec des instructions numérotées claires.
 
-> **Note de version :** Ce document correspond à la version **v0.6.0-alpha (Étape 6 du MVP)**. Il décrit les fonctionnalités actuellement actives : l'importation de fichiers médias, l'agencement 4 quadrants, le montage sur la timeline (déplacement, scission au rasoir, rognage par poignées, suppression), l'ajout et l'édition complète de calques texte superposés, le mixage audio complet (volume par clip et par piste, mode Solo/Mute, fondus Fade In/Fade Out avec courbe d'enveloppe, visualisations d'ondes Waveform sur clips), l'**historique Annuler / Rétablir illimité (`Ctrl+Z` / `Ctrl+Y`)**, la **sauvegarde et l'ouverture de projets au format ouvert `.kproj`**, le moteur de prévisualisation vidéo en temps réel sur Canvas 16:9 avec synchronisation à la frame, la lecture Play/Pause avec la barre d'espace et l'ajustement dynamique des propriétés visuelles (zoom, rotation, opacité).
+> **Note de version :** Ce document correspond à la version **v0.7.0-alpha (Étape 7 du MVP — MVP Complet !)**. Il décrit l'ensemble des fonctionnalités du socle Kroma Studio : l'importation de fichiers médias, l'agencement 4 quadrants, le montage sur la timeline (déplacement, scission au rasoir, rognage par poignées, suppression), l'ajout et l'édition complète de calques texte superposés, le mixage audio complet (volume par clip et par piste, mode Solo/Mute, fondus Fade In/Fade Out avec courbe d'enveloppe, visualisations d'ondes Waveform sur clips), l'**historique Annuler / Rétablir illimité (`Ctrl+Z` / `Ctrl+Y`)**, la **sauvegarde et l'ouverture de projets au format ouvert `.kproj`**, le **moteur d'exportation MP4 via FFmpeg CLI (`Ctrl+E`)**, le moteur de prévisualisation vidéo en temps réel sur Canvas 16:9 avec synchronisation à la frame, la lecture Play/Pause avec la barre d'espace et l'ajustement dynamique des propriétés visuelles (zoom, rotation, opacité).
 
 ---
 
@@ -152,6 +152,21 @@ L'espace de travail est structuré en 4 zones complémentaires :
 5. **Ouvrir un projet existant :**
    - Cliquez sur l'icône de dossier **Ouvrir** dans la barre supérieure et sélectionnez votre fichier `.kproj`. Votre montage complet, vos pistes, vos textes et vos réglages sont restaurés instantanément !
 
+### Étape 11 : Exporter la vidéo finale en MP4 via FFmpeg
+1. Cliquez sur le bouton vert **« Exporter »** dans l'en-tête supérieur droit, ou appuyez sur `Ctrl + E`.
+2. La boîte de dialogue d'exportation professionnelle s'ouvre :
+   - **Préréglage de résolution :** Choisissez entre **1080p Full HD (60 FPS)**, **720p HD**, **4K Ultra HD** ou **Personnalisé** (dimensions et cadence sur mesure).
+   - **Nom du fichier cible :** Modifiez si besoin le nom du fichier `.mp4`.
+   - **Codec vidéo & Profil :** H.264 (`libx264`) universel ou H.265 (`libx265`) haute efficacité, avec profil de vitesse (Très rapide, Rapide, Équilibré ou Haute qualité).
+   - **Qualité constante (CRF) :** Ajustez le curseur entre 16 (quasi sans perte) et 30 (fichier léger), 23 étant la valeur équilibrée recommandée.
+   - **Débit audio AAC :** 128 kbps, 192 kbps (recommandé), 256 kbps ou 320 kbps (studio).
+3. Consultez la **fiche technique** à droite : durée SMPTE exacte, résolution, nombre de clips et sources requises.
+4. Téléchargez le script de rendu prêt à l'emploi :
+   - Cliquez sur **« Script .bat (Windows) »** pour obtenir un script double-cliquable sous Windows.
+   - Ou cliquez sur **« Script .sh (Unix) »** pour Linux/macOS.
+   - Ou cliquez sur **« Copier la Commande »** pour exécuter directement la ligne de commande dans votre terminal (PowerShell ou Bash).
+5. Lancez le script : FFmpeg traite l'intégralité des calques vidéo, des titres `drawtext` et du mixage sonore multipiste en pleine accélération matérielle. Votre fichier MP4 final est généré en quelques instants !
+
 ---
 
 ## 5. Raccourcis et astuces de navigation
@@ -162,6 +177,7 @@ L'espace de travail est structuré en 4 zones complémentaires :
 | **Annuler la dernière action** | `Ctrl + Z` ou bouton Annuler |
 | **Rétablir l'action** | `Ctrl + Y` ou `Ctrl + Maj + Z` ou bouton Rétablir |
 | **Enregistrer le projet (.kproj)** | `Ctrl + S` ou bouton Enregistrer |
+| **Exporter la vidéo (FFmpeg MP4)** | `Ctrl + E` ou bouton Exporter |
 | **Reculer / Avancer d'une seconde** | `Flèche Gauche` / `Flèche Droite` |
 | **Saut rapide de 5 secondes** | `Maj + Flèche Gauche` / `Maj + Flèche Droite` |
 | **Revenir au début (00:00:00:00)** | Touche `Début` (Home) ou bouton `RotateCcw` |
@@ -188,6 +204,10 @@ L'espace de travail est structuré en 4 zones complémentaires :
   3. Vérifiez que le haut-parleur Master sous l'écran n'est pas coupé.
   4. Vérifiez le curseur **Volume du clip** dans le panneau Inspecteur à droite.
 
+### 3. Le script d'exportation .bat indique que FFmpeg n'a pas été trouvé
+* **Cause :** FFmpeg n'est pas présent dans votre variable d'environnement PATH système.
+* **Résolution :** Téléchargez FFmpeg (depuis ffmpeg.org) et ajoutez le dossier `bin` contenant `ffmpeg.exe` à votre variable d'environnement PATH, ou placez simplement `ffmpeg.exe` dans le même dossier que votre script exporté.
+
 ---
 
 ## 7. Flyer officiel A4 imprimable
@@ -198,7 +218,16 @@ Un flyer de présentation complet au format standard A4 (210×297 mm) prêt à i
 
 ---
 
-## 8. Prochaines étapes
+## 8. Bilan du MVP & Perspectives
 
-Ce qui arrive dans la prochaine version de Kroma Studio :
-- **Étape 7 :** Export vidéo final MP4 haute définition accéléré par sous-processus externe indépendant FFmpeg.
+Avec l'achèvement de l'**Étape 7**, les 7 étapes fondamentales du MVP de Kroma Studio sont désormais **100 % opérationnelles et validées par la suite de tests automatisés** :
+- ✅ **Étape 0 :** Socle technique Vite + React 19 + TypeScript strict.
+- ✅ **Étape 1 :** Import de médias & Médiathèque avec drag & drop et vignettes.
+- ✅ **Étape 2 :** Timeline multipiste avec ergonomie 4 quadrants style CapCut.
+- ✅ **Étape 3 :** Moniteur de lecture temps réel synchronisé sur Canvas composite 16:9.
+- ✅ **Étape 4 :** Superposition de texte avec éditeur typographique complet.
+- ✅ **Étape 5 :** Mixage audio hiérarchique, mode Solo/Mute, fondus d'entrée/sortie et formes d'ondes.
+- ✅ **Étape 6 :** Historique Annuler / Rétablir illimité et persistance de fichiers `.kproj`.
+- ✅ **Étape 7 :** Pipeline de transcodage et exportation MP4 via FFmpeg CLI.
+
+Perspectives pour les versions ultérieures : transitions visuelles accélérées par shaders WebGL/GPU, gestion des images-clés (keyframes) d'animation de trajectoire, et intégration en application de bureau native via Tauri 2.

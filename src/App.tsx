@@ -12,6 +12,7 @@ import { MediaBin } from './components/media/MediaBin';
 import { PreviewMonitor } from './components/player/PreviewMonitor';
 import { InspectorPanel } from './components/inspector/InspectorPanel';
 import { Timeline } from './components/timeline/Timeline';
+import { ExportDialog } from './components/export/ExportDialog';
 
 function App() {
   return (
@@ -44,6 +45,9 @@ function App() {
       <div className="kroma-workspace-bottom">
         <Timeline />
       </div>
+
+      {/* ── Fenêtre modale d'exportation FFmpeg MP4 ── */}
+      <ExportDialog />
     </div>
   );
 }

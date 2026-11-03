@@ -1,0 +1,396 @@
+/**
+ * export-dialog.css — Styles pour la boîte de dialogue d'exportation FFmpeg MP4
+ * Design sombre et épuré inspiré de CapCut Desktop.
+ */
+
+.kroma-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1.5rem;
+  animation: kromaFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes kromaFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.kroma-export-dialog {
+  background-color: #1a1a1e;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 960px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  color: #f3f4f6;
+  font-family: inherit;
+}
+
+/* ── En-tête du modal ─────────────────────────────────────────────── */
+.kroma-export-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: #161619;
+}
+
+.kroma-export-header__title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.kroma-export-header__badge {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.kroma-export-header__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.kroma-export-header__close {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 0.4rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.kroma-export-header__close:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+/* ── Corps du modal (2 colonnes) ──────────────────────────────────── */
+.kroma-export-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.kroma-export-col {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.kroma-export-col--left {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: #1a1a1e;
+}
+
+.kroma-export-col--right {
+  background-color: #141417;
+}
+
+/* ── Groupes de paramètres ────────────────────────────────────────── */
+.kroma-export-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.kroma-export-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #d1d5db;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kroma-export-label__hint {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  font-weight: normal;
+}
+
+/* Sélecteur de préréglages de résolution */
+.kroma-export-presets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.kroma-preset-btn {
+  background-color: #242429;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 0.6rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: #9ca3af;
+  text-align: center;
+}
+
+.kroma-preset-btn:hover {
+  background-color: #2c2c33;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.kroma-preset-btn--active {
+  background-color: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #60a5fa;
+}
+
+.kroma-preset-btn__title {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.kroma-preset-btn__sub {
+  font-size: 0.68rem;
+  opacity: 0.8;
+  margin-top: 2px;
+}
+
+/* Grille 2 colonnes pour contrôles fins */
+.kroma-export-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.kroma-export-select,
+.kroma-export-input {
+  background-color: #242429;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f3f4f6;
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.82rem;
+  width: 100%;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.kroma-export-select:focus,
+.kroma-export-input:focus {
+  border-color: #3b82f6;
+}
+
+/* Slider CRF */
+.kroma-export-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.kroma-export-range {
+  flex: 1;
+  accent-color: #3b82f6;
+  cursor: pointer;
+}
+
+.kroma-export-value-badge {
+  background-color: #242429;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 2.5rem;
+  text-align: center;
+}
+
+/* ── Colonne droite : Fiche technique & Commande FFmpeg ───────────── */
+.kroma-export-summary-box {
+  background-color: #1a1a1f;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
+}
+
+.kroma-export-summary-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.kroma-export-summary-item__label {
+  font-size: 0.68rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.kroma-export-summary-item__value {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-top: 2px;
+}
+
+/* Onglets de visualisation de la commande */
+.kroma-export-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 0.4rem;
+}
+
+.kroma-export-tab {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.35rem 0.65rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.kroma-export-tab:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.kroma-export-tab--active {
+  color: #60a5fa;
+  background-color: rgba(59, 130, 246, 0.12);
+  font-weight: 600;
+}
+
+/* Boîte d'affichage du code de la commande */
+.kroma-export-code-box {
+  background-color: #0d0d10;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 0.75rem 0.85rem;
+  font-family: 'Fira Code', 'Cascadia Code', Consolas, Monaco, monospace;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #38bdf8;
+  overflow-x: auto;
+  max-height: 160px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: all;
+}
+
+/* Instructions étape par étape */
+.kroma-export-steps {
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.76rem;
+  color: #d1d5db;
+  line-height: 1.4;
+}
+
+.kroma-export-steps ol {
+  margin: 0.35rem 0 0 1.1rem;
+  padding: 0;
+}
+
+.kroma-export-steps li {
+  margin-bottom: 0.25rem;
+}
+
+/* ── Pied de page du modal ────────────────────────────────────────── */
+.kroma-export-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: #161619;
+}
+
+.kroma-export-footer__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.kroma-btn-secondary {
+  background-color: #242429;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f3f4f6;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.55rem 0.9rem;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.kroma-btn-secondary:hover {
+  background-color: #2c2c33;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.kroma-btn-primary {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.55rem 1.1rem;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+  transition: all 0.15s ease;
+}
+
+.kroma-btn-primary:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+}
+
+.kroma-btn-primary--copied {
+  background: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}

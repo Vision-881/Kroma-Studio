@@ -26,6 +26,7 @@ export function Header() {
     saveProjectToFile,
     loadProjectFromJson,
     createNewProject,
+    openExportDialog,
   } = useProjectStore();
 
   const [localName, setLocalName] = useState(project.project_name);
@@ -185,11 +186,11 @@ export function Header() {
 
       {/* 4. Actions supérieures (Version + Export) */}
       <div className="kroma-header__actions">
-        <div className="kroma-header__version-pill">v0.6.0-alpha</div>
+        <div className="kroma-header__version-pill">v0.7.0-alpha</div>
 
         <button
           className="kroma-btn kroma-btn-export"
-          onClick={() => alert("L'export vidéo final via FFmpeg sera disponible à l'Étape 7 du MVP !")}
+          onClick={openExportDialog}
           title="Exporter la vidéo finale en MP4 via FFmpeg"
         >
           <Download size={14} />

@@ -2,7 +2,7 @@
 
 Ce document consigne l'avancement du projet, la feuille de route du MVP, les étapes réalisées, en cours et à venir, ainsi que les décisions d'architecture prises au fil du développement.
 
-Dernière mise à jour : 03/11/2026 (Étape 6 du MVP)
+Dernière mise à jour : 03/11/2026 (Étape 7 du MVP — MVP 100% achevé !)
 
 ---
 
@@ -17,7 +17,7 @@ Dernière mise à jour : 03/11/2026 (Étape 6 du MVP)
 | **Étape 4** | Superposition de texte | ✅ Terminé | Calques textes riches sur piste `text_overlay` dédiée, éditeur complet (police, taille, gras, couleur remplissage/contour, alignement, position X/Y), rendu Canvas natif avec `normalized_center`, 27 tests unitaires. |
 | **Étape 5** | Mixage & Contrôle du volume | ✅ Terminé | Contrôle de gain par clip et par piste (0% à 200%), mode Solo / Mute avancé avec isolation, fondus d'entrée (Fade In) et de sortie (Fade Out) continus, formes d'ondes audio (Waveforms) sur clips, 36 tests unitaires. |
 | **Étape 6** | Historique Annuler / Rétablir & Persistance | ✅ Terminé | Pile Undo/Redo complète (50 états, `Ctrl+Z` / `Ctrl+Y`), sérialisation et chargement de fichiers `.kproj` avec validation de schéma, 41 tests unitaires. |
-| **Étape 7** | Export MP4 via FFmpeg | ⬜ Prochaine | Génération de la commande de filtre complexe FFmpeg et exécution en sous-processus externe indépendant. |
+| **Étape 7** | Export MP4 via FFmpeg | ✅ Terminé | Génération de commande CLI FFmpeg, graphe filtre complexe (`trim`, `contain/pad`, `overlay`, `drawtext`, `adelay`, `afade`, `amix`), modal `ExportDialog`, scripts autonomes `.bat` et `.sh`, raccourci `Ctrl+E`, 52 tests unitaires. |
 
 ---
 
@@ -56,6 +56,10 @@ Dernière mise à jour : 03/11/2026 (Étape 6 du MVP)
 ### 2.8 Historique immuable découplé de la navigation temporelle
 - **Décision :** Seules les modifications structurelles du projet (ajouts/découpes/déplacements de clips, mixage, titrage, renommage) alimentent la pile `past[]` bornée à 50 états. Le scrubbing temporel, la sélection d'outils et le zoom n'enregistrent aucun état d'historique.
 - **Justification :** Évite de saturer la mémoire et permet à `Ctrl+Z` de revenir fidèlement à l'action de montage précédente sans polluer la pile par des centaines d'états de simple consultation.
+
+### 2.9 Pipeline d'exportation externe indépendant FFmpeg & Isolation Copyleft
+- **Décision :** Kroma Studio compile l'ensemble de la timeline en un graphe déclaratif de filtres FFmpeg complexes (`-filter_complex`) et génère des commandes CLI / scripts exécutables autonomes (`.bat` pour Windows, `.sh` pour Linux/macOS) plutôt que de lier des bibliothèques C/C++ ou DLLs GPL en mémoire.
+- **Justification :** Respect strict des obligations de la licence GPL v2+/v3 de FFmpeg (`libx264`/`libx265`). L'isolation via sous-processus (« fork and exec ») protège la liberté et la propriété intellectuelle du code source de Kroma tout en exploitant la pleine accélération matérielle native de la machine hôte.
 
 ---
 
@@ -103,4 +107,19 @@ Dernière mise à jour : 03/11/2026 (Étape 6 du MVP)
 - **Interface utilisateur :** Boutons Nouveau, Ouvrir, Enregistrer, Annuler et Rétablir intégrés dans `Header.tsx` et dans `TimelineToolbar.tsx`.
 - **Support imprimable :** Conception du flyer A4 officiel imprimable `docs/FLYER_A4.html` (dimensions exactes 210×297mm, stylisme 4 quadrants et fiche technique).
 - **Tests :** 41 tests unitaires validés (5 tests complets ajoutés pour l'historique et la persistance).
+
+### Étape 7 — Export MP4 via FFmpeg (03/11/2026)
+- **Générateur de commandes FFmpeg :** Implémentation complète de `src/core/export/ffmpegCommandBuilder.ts`.
+  - Analyse du catalogue de médias et détection des réutilisations multiples avec allocation automatique de filtres `split` et `asplit`.
+  - Construction du canevas de base à cadence nominale (`color=c=0x...:s=...:r=...:d=...`).
+  - Découpe (`trim`), calage temporel de présentation (`setpts=PTS-STARTPTS+T/TB`), adaptation de ratio d'aspect (`contain/pad`) et composition d'overlays multi-couches ordonnés par `stack_index`.
+  - Prise en charge des transformations spatiales 2D : zoom (`scale=iw*...`), rotation angulaire (`rotate=...`) et transparence (`colorchannelmixer=aa=...`).
+  - Rendu typographique `drawtext` avec positionnement normalisé (`normalized_center`), contours d'accentuation (`borderw`/`bordercolor`) et échappement sécurisé des caractères sensibles.
+  - Mixage audio DSP complet : découpe temporelle (`atrim`), mise à l'échelle du gain effectif (`volume`), rampes de fondu (`afade in/out`), retard temporel multipiste (`adelay`) et multiplexage `amix` (ou génération de silence `anullsrc`).
+  - Assemblage de commande CLI optimisée avec `-c:v libx264`, `-preset`, `-crf`, `-pix_fmt yuv420p` et conteneur MP4 `-movflags +faststart`.
+- **Générateurs de scripts autonomes :** Fonctions `generateWindowsBatch()` (`.bat` avec encodage UTF-8 et vérification de `where ffmpeg`) et `generateBashScript()` (`.sh` avec `command -v ffmpeg`).
+- **Composant IHM :** `src/components/export/ExportDialog.tsx` avec sélecteurs de préréglages (1080p, 720p, 4K, personnalisé avec largeur/hauteur/FPS sur mesure), réglages fins d'encodage (H.264/HEVC, profils de vitesse, CRF, débit audio AAC), fiche technique SMPTE, prévisualisation interactive de la commande (PowerShell, Bash, filtre complexe), copie en un clic et téléchargement instantané des scripts `.bat` et `.sh`.
+- **Intégration globale :** Bouton vert **« Exporter »** dans `Header.tsx`, raccourci universel `Ctrl+E` dans `PreviewMonitor.tsx`, gestion d'état dans `projectStore.ts`.
+- **Tests unitaires :** 10 nouveaux tests unitaires automatisés validés dans `ffmpegCommandBuilder.test.ts` et 1 test dans `projectStore.test.ts`. Suite complète portée à **52 tests unitaires validés (100% succès)**.
+- **Statut MVP :** Les 7 étapes du MVP sont désormais **100 % terminées**.
 

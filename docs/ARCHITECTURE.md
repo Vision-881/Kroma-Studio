@@ -2,13 +2,13 @@
 
 Ce document détaille l'organisation structurelle, le découpage en modules et le format de fichier projet de l'éditeur vidéo **Kroma Studio**.
 
-Dernière mise à jour : 03/11/2026 (Étape 6 du MVP)
+Dernière mise à jour : 03/11/2026 (Étape 7 du MVP — MVP 100% achevé)
 
 ---
 
 ## 1. Vue d'ensemble des modules
 
-L'application est conçue selon une séparation stricte des responsabilités entre la représentation de données pures, la logique métier temporelle, le moteur de rendu d'aperçu multi-couches, la gestion d'état et l'interface utilisateur inspirée de CapCut Desktop.
+L'application est conçue selon une séparation stricte des responsabilités entre la représentation de données pures, la logique métier temporelle, le moteur de rendu d'aperçu multi-couches, la gestion d'état, l'exportation externe FFmpeg et l'interface utilisateur inspirée de CapCut Desktop.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -34,21 +34,21 @@ L'application est conçue selon une séparation stricte des responsabilités ent
 │  - project: KromaProject                                                               │
 │  - past[] / future[] (Pile Undo/Redo bornée à 50 états, Ctrl+Z / Ctrl+Y)              │
 │  - saveProjectToFile() / loadProjectFromJson() (Format .kproj JSON standard)           │
+│  - isExportDialogOpen / openExportDialog() / closeExportDialog() (Étape 7)             │
 │  - currentTimeUs: number (position tête de lecture)                                    │
 │  - selectedItemId / selectedAssetId: string | null                                     │
 │  - zoomPixelsPerSecond: number (10 à 300 px/s)                                         │
 │  - activeTool: 'select' | 'split' | 'delete'                                           │
-└──────────────────┬───────────────────────┬───────────────────────────┬─────────────────┘
-                   │                       │                           │
-                   ▼                       ▼                           ▼
-┌───────────────────────┐   ┌─────────────────────────────┐   ┌──────────────────────────┐
-│      CORE : TEMPS     │   │  CORE : OPÉRATIONS TIMELINE │   │ CORE : MOTEUR DE LECTURE │
-│  - Microsecondes pure │   │  - addItemToLane            │   │  - getActiveItemsAtTime  │
-│  - Timecode SMPTE     │   │  - splitItemInSequence      │   │  - calculateSourceTimeUs │
-│  - formatDuration     │   │  - trimItemInSequence       │   │  - calculateFadeGain (É5)│
-│                       │   │  - createTextItem (Ét.4)    │   │  - mediaSession registre │
-│                       │   │                             │   │  - Canvas 2D composition │
-└───────────────────────┘   └─────────────────────────────┘   └──────────────────────────┘
+└──────┬───────────────────────┬───────────────────────────┬─────────────────────────────┘
+       │                       │                           │                             │
+       ▼                       ▼                           ▼                             ▼
+┌──────────────┐   ┌─────────────────────────────┐   ┌──────────────────────────┐  ┌───────────────────────────┐
+│ CORE : TEMPS │   │  CORE : OPÉRATIONS TIMELINE │   │ CORE : MOTEUR DE LECTURE │  │   CORE : EXPORT FFMPEG    │
+│ - Microsec   │   │  - addItemToLane            │   │  - getActiveItemsAtTime  │  │  - buildFFmpegCommand     │
+│ - Timecode   │   │  - splitItemInSequence      │   │  - calculateSourceTimeUs │  │  - filter_complex graph   │
+│ - Durations  │   │  - trimItemInSequence       │   │  - calculateFadeGain     │  │  - generateWindowsBatch   │
+│              │   │  - createTextItem           │   │  - Canvas 2D composition │  │  - generateBashScript     │
+└──────────────┘   └─────────────────────────────┘   └──────────────────────────┘  └───────────────────────────┘
 ```
 
 ### 1.1 `src/core/types`
@@ -73,11 +73,16 @@ Module pur de manipulation des pistes et segments :
 ### 1.5 `src/components`
 Composants React modulaires organisés selon l'agencement CapCut :
 - `components/layout/Header.tsx` : barre supérieure avec boutons Nouveau, Ouvrir, Enregistrer (`.kproj`), Annuler / Rétablir, renommage du projet et bouton Export.
-- `components/player/PreviewMonitor.tsx` : écran `<canvas>` composite 16:9 haute performance avec contrôle du volume dynamique en temps réel et raccourcis claviers universels (`Espace`, `V`, `B`, `Ctrl+B`, `Ctrl+Z`, `Ctrl+Y`, `Ctrl+S`).
+- `components/player/PreviewMonitor.tsx` : écran `<canvas>` composite 16:9 haute performance avec contrôle du volume dynamique en temps réel et raccourcis claviers universels (`Espace`, `V`, `B`, `Ctrl+B`, `Ctrl+Z`, `Ctrl+Y`, `Ctrl+S`, `Ctrl+E`).
 - `components/media/MediaBin.tsx` : médiathèque avec onglets, recherche et drag & drop vers les pistes.
 - `components/inspector/InspectorPanel.tsx` : panneau de propriétés contextuel avec section Audio complète (volume du clip, réglages fins des fondus Fade In / Fade Out et visualisation de la courbe d'enveloppe).
-- `components/audio/AudioWaveform.tsx` *(Étape 5)* : générateur vectoriel haute performance de formes d'ondes audio harmoniques.
+- `components/audio/AudioWaveform.tsx` : générateur vectoriel haute performance de formes d'ondes audio harmoniques.
 - `components/timeline/` : suite complète de timeline (barre d'outils avec Annuler/Rétablir et bouton **Texte**, réglette graduée, tête de lecture, en-têtes avec Solo [S] et volume de piste, et clips avec visualisations de fondus).
+- `components/export/ExportDialog.tsx` *(Étape 7)* : modal d'exportation avec préréglages (1080p, 720p, 4K, personnalisé), réglages fins d'encodage H.264/HEVC, aperçu de commandes CLI et téléchargement de scripts `.bat` et `.sh`.
+
+### 1.6 `src/core/export` *(Étape 7)*
+Moteur d'exportation et compilation du graphe de filtrage FFmpeg :
+- `ffmpegCommandBuilder.ts` : analyse la structure complète du projet (`KromaProject`), génère les filtres de trim, contain/pad, overlays multi-pistes, calques `drawtext`, mixage audio `amix` avec `adelay` et `afade`, assemble la commande CLI complète et produit des scripts exécutables Windows (`.bat`) et Unix (`.sh`).
 
 ---
 
@@ -104,6 +109,9 @@ Composants React modulaires organisés selon l'agencement CapCut :
 
 6. **Historique immuable et persistance standard (.kproj) :**
    La pile de modifications enregistre les états antérieurs complets (jusqu'à 50 étapes) pour permettre l'annulation (`Ctrl+Z`) et le rétablissement (`Ctrl+Y`) sans effet de bord. Les fichiers `.kproj` utilisent du JSON standard auto-documenté pouvant être partagé, sauvegardé et versionné sous Git.
+
+7. **Pipeline d'exportation externe indépendant FFmpeg & Isolation Copyleft :**
+   Pour respecter la licence GPL de FFmpeg et libx264, Kroma ne lie aucune bibliothèque binaire en mémoire. L'ensemble de la logique de composition est compilé sous forme d'un graphe déclaratif `-filter_complex` et exécuté via sous-processus indépendant CLI (`ffmpeg.exe`), garantissant la liberté du code source de Kroma Studio.
 
 ---
 

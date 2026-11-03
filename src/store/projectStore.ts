@@ -89,6 +89,11 @@ interface ProjectState {
   loadProjectFromJson: (jsonString: string) => boolean;
   createNewProject: (name?: string) => void;
   resetProject: () => void;
+
+  // --- Exportation FFmpeg ---
+  isExportDialogOpen: boolean;
+  openExportDialog: () => void;
+  closeExportDialog: () => void;
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
@@ -100,6 +105,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   currentTimeUs: 0,
   zoomPixelsPerSecond: 60, // 60 pixels = 1 seconde par défaut
   activeTool: 'select',
+  isExportDialogOpen: false,
+  openExportDialog: () => set({ isExportDialogOpen: true }),
+  closeExportDialog: () => set({ isExportDialogOpen: false }),
 
   // Historique
   past: [],

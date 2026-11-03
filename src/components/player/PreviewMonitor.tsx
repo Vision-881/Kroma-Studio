@@ -22,6 +22,7 @@ export function PreviewMonitor() {
     undo,
     redo,
     saveProjectToFile,
+    openExportDialog,
   } = useProjectStore();
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -406,7 +407,14 @@ export function PreviewMonitor() {
         return;
       }
 
-      // 11. Touche M : Mute / Démute Master
+      // 11. Exporter : Ctrl+E
+      if ((e.ctrlKey || e.metaKey) && keyLower === 'e') {
+        e.preventDefault();
+        openExportDialog();
+        return;
+      }
+
+      // 12. Touche M : Mute / Démute Master
       if (keyLower === 'm' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         setIsMasterMuted((prev) => !prev);
@@ -425,6 +433,7 @@ export function PreviewMonitor() {
     undo,
     redo,
     saveProjectToFile,
+    openExportDialog,
   ]);
 
   const togglePlay = () => {
