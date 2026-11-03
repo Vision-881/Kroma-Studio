@@ -4,7 +4,7 @@ Bienvenue dans le guide d'utilisation de **Kroma Studio**, un éditeur vidéo mo
 
 Ce guide est spécialement conçu pour les débutants. Chaque manipulation est décrite étape par étape, avec des instructions numérotées claires.
 
-> **Note de version :** Ce document correspond à la version **v0.5.0-alpha (Étape 5 du MVP)**. Il décrit les fonctionnalités actuellement actives : l'importation de fichiers médias, l'agencement 4 quadrants, le montage sur la timeline (déplacement, scission au rasoir, rognage par poignées, suppression), l'ajout et l'édition complète de calques texte superposés, le **mixage audio complet (volume par clip et par piste, mode Solo/Mute, fondus Fade In/Fade Out avec courbe d'enveloppe, visualisations d'ondes Waveform sur clips)**, le **moteur de prévisualisation vidéo en temps réel sur Canvas 16:9** avec synchronisation à la frame, la lecture Play/Pause avec la barre d'espace et l'ajustement dynamique des propriétés visuelles (zoom, rotation, opacité).
+> **Note de version :** Ce document correspond à la version **v0.6.0-alpha (Étape 6 du MVP)**. Il décrit les fonctionnalités actuellement actives : l'importation de fichiers médias, l'agencement 4 quadrants, le montage sur la timeline (déplacement, scission au rasoir, rognage par poignées, suppression), l'ajout et l'édition complète de calques texte superposés, le mixage audio complet (volume par clip et par piste, mode Solo/Mute, fondus Fade In/Fade Out avec courbe d'enveloppe, visualisations d'ondes Waveform sur clips), l'**historique Annuler / Rétablir illimité (`Ctrl+Z` / `Ctrl+Y`)**, la **sauvegarde et l'ouverture de projets au format ouvert `.kproj`**, le moteur de prévisualisation vidéo en temps réel sur Canvas 16:9 avec synchronisation à la frame, la lecture Play/Pause avec la barre d'espace et l'ajustement dynamique des propriétés visuelles (zoom, rotation, opacité).
 
 ---
 
@@ -138,6 +138,20 @@ L'espace de travail est structuré en 4 zones complémentaires :
      - Déplacez le curseur **Fondu de sortie (Fade Out)** (ex: 2.0 secondes) : le son diminuera en douceur à la fin.
      - Observez la courbe d'enveloppe sonore verte et les pentes diagonales qui apparaissent directement sur votre clip sur la timeline !
 
+### Étape 10 : Annuler, Rétablir et Sauvegarder/Ouvrir votre projet
+1. **Annuler une erreur (Undo) :**
+   - Appuyez sur `Ctrl + Z` sur votre clavier (ou cliquez sur le bouton de flèche retour dans l'en-tête ou la timeline).
+   - Vos clips découpés, déplacés ou modifiés reviennent instantanément à leur état antérieur.
+2. **Rétablir une action (Redo) :**
+   - Appuyez sur `Ctrl + Y` ou `Ctrl + Maj + Z` (ou cliquez sur la flèche avant) pour réappliquer l'action annulée.
+3. **Renommer votre projet :**
+   - Cliquez sur le titre du projet au centre de la barre supérieure, saisissez le nom de votre choix (ex: *Mon_Super_Montage*), puis appuyez sur `Entrée`.
+4. **Enregistrer votre projet sur votre disque dur (`.kproj`) :**
+   - Appuyez sur `Ctrl + S` ou cliquez sur l'icône de disquette **Enregistrer** dans la barre supérieure.
+   - Un fichier au format ouvert `.kproj` (JSON structuré) est automatiquement téléchargé dans votre dossier de téléchargements.
+5. **Ouvrir un projet existant :**
+   - Cliquez sur l'icône de dossier **Ouvrir** dans la barre supérieure et sélectionnez votre fichier `.kproj`. Votre montage complet, vos pistes, vos textes et vos réglages sont restaurés instantanément !
+
 ---
 
 ## 5. Raccourcis et astuces de navigation
@@ -145,6 +159,9 @@ L'espace de travail est structuré en 4 zones complémentaires :
 | Action | Raccourci / Manipulation |
 |---|---|
 | **Lecture / Pause** | `Espace` ou clic sur le bouton Play |
+| **Annuler la dernière action** | `Ctrl + Z` ou bouton Annuler |
+| **Rétablir l'action** | `Ctrl + Y` ou `Ctrl + Maj + Z` ou bouton Rétablir |
+| **Enregistrer le projet (.kproj)** | `Ctrl + S` ou bouton Enregistrer |
 | **Reculer / Avancer d'une seconde** | `Flèche Gauche` / `Flèche Droite` |
 | **Saut rapide de 5 secondes** | `Maj + Flèche Gauche` / `Maj + Flèche Droite` |
 | **Revenir au début (00:00:00:00)** | Touche `Début` (Home) ou bouton `RotateCcw` |
@@ -167,13 +184,21 @@ L'espace de travail est structuré en 4 zones complémentaires :
 ### 2. Une vidéo importée n'a pas de son
 * **Vérifications :**
   1. Vérifiez que la piste n'est pas en mode **Mute** (icône de volume barré dans l'en-tête de piste à gauche).
-  2. Vérifiez que le haut-parleur Master sous l'écran n'est pas coupé.
-  3. Vérifiez le curseur **Volume du clip** dans le panneau Inspecteur à droite.
+  2. Vérifiez qu'une autre piste n'est pas en mode **Solo [S]**.
+  3. Vérifiez que le haut-parleur Master sous l'écran n'est pas coupé.
+  4. Vérifiez le curseur **Volume du clip** dans le panneau Inspecteur à droite.
 
 ---
 
-## 7. Prochaines étapes
+## 7. Flyer officiel A4 imprimable
 
-Ce qui arrive dans les prochaines versions de Kroma Studio :
-- **Étape 6 :** Historique Annuler / Rétablir (`Ctrl+Z` / `Ctrl+Y`) et sauvegarde / chargement de projets au format `.kproj`.
-- **Étape 7 :** Export vidéo final MP4 haute définition accéléré par FFmpeg.
+Un flyer de présentation complet au format standard A4 (210×297 mm) prêt à imprimer ou à exporter en PDF est disponible dans le dossier de documentation :
+- **Fichier :** [`docs/FLYER_A4.html`](file:///D:/REA/mon-editeur/docs/FLYER_A4.html)
+- **Utilisation :** Ouvrez simplement ce fichier dans Google Chrome ou Edge, puis cliquez sur le bouton violet en haut à droite **« Imprimer en A4 / Enregistrer en PDF »** (ou faites `Ctrl+P`).
+
+---
+
+## 8. Prochaines étapes
+
+Ce qui arrive dans la prochaine version de Kroma Studio :
+- **Étape 7 :** Export vidéo final MP4 haute définition accéléré par sous-processus externe indépendant FFmpeg.

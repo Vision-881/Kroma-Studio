@@ -2,7 +2,7 @@
 
 Ce document détaille l'organisation structurelle, le découpage en modules et le format de fichier projet de l'éditeur vidéo **Kroma Studio**.
 
-Dernière mise à jour : 03/11/2026 (Étape 5 du MVP)
+Dernière mise à jour : 03/11/2026 (Étape 6 du MVP)
 
 ---
 
@@ -12,7 +12,7 @@ L'application est conçue selon une séparation stricte des responsabilités ent
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 HEADER (Branding, Nom du projet, Export)               │
+│               HEADER (Branding, Fichier: Nouveau/Ouvrir/Enregistrer, Undo/Redo, Export) │
 ├──────────────────────────┬─────────────────────────────────┬───────────────────────────┤
 │    MÉDIATHÈQUE (320px)   │     MONITEUR D'APERÇU (Player)   │    INSPECTEUR (290px)     │
 │  - Import & Catégories   │   - Canvas 16:9 composite       │  - Clip : Volume, Zoom,   │
@@ -21,7 +21,7 @@ L'application est conçue selon une séparation stricte des responsabilités ent
 │                          │                                 │  - Texte : TextEditor     │
 ├──────────────────────────┴─────────────────────────────────┴───────────────────────────┤
 │                                  TIMELINE MULTIPISTE                                   │
-│  - Barre d'outils : Outil Sélection (V), Outil Rasoir (B), Supprimer, Texte, Zoom      │
+│  - Barre d'outils : Annuler, Rétablir, Sélection (V), Rasoir (B), Suppr, Texte, Zoom    │
 │  - Réglette temporelle graduée (Ruler) avec scrubbing                                  │
 │  - Tête de lecture (Playhead) rouge traversante synchronisée                           │
 │  - En-têtes de pistes avec Mute, Solo [S], Lock et Curseur de volume de piste          │
@@ -32,6 +32,8 @@ L'application est conçue selon une séparation stricte des responsabilités ent
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                              STORE RÉACTIF ZUSTAND                                     │
 │  - project: KromaProject                                                               │
+│  - past[] / future[] (Pile Undo/Redo bornée à 50 états, Ctrl+Z / Ctrl+Y)              │
+│  - saveProjectToFile() / loadProjectFromJson() (Format .kproj JSON standard)           │
 │  - currentTimeUs: number (position tête de lecture)                                    │
 │  - selectedItemId / selectedAssetId: string | null                                     │
 │  - zoomPixelsPerSecond: number (10 à 300 px/s)                                         │
@@ -70,11 +72,12 @@ Module pur de manipulation des pistes et segments :
 
 ### 1.5 `src/components`
 Composants React modulaires organisés selon l'agencement CapCut :
-- `components/player/PreviewMonitor.tsx` : écran `<canvas>` composite 16:9 haute performance avec contrôle du volume dynamique en temps réel.
+- `components/layout/Header.tsx` : barre supérieure avec boutons Nouveau, Ouvrir, Enregistrer (`.kproj`), Annuler / Rétablir, renommage du projet et bouton Export.
+- `components/player/PreviewMonitor.tsx` : écran `<canvas>` composite 16:9 haute performance avec contrôle du volume dynamique en temps réel et raccourcis claviers universels (`Espace`, `V`, `B`, `Ctrl+B`, `Ctrl+Z`, `Ctrl+Y`, `Ctrl+S`).
 - `components/media/MediaBin.tsx` : médiathèque avec onglets, recherche et drag & drop vers les pistes.
 - `components/inspector/InspectorPanel.tsx` : panneau de propriétés contextuel avec section Audio complète (volume du clip, réglages fins des fondus Fade In / Fade Out et visualisation de la courbe d'enveloppe).
 - `components/audio/AudioWaveform.tsx` *(Étape 5)* : générateur vectoriel haute performance de formes d'ondes audio harmoniques.
-- `components/timeline/` : suite complète de timeline (barre d'outils, réglette graduée, tête de lecture, en-têtes avec Solo [S] et volume de piste, et clips avec visualisations de fondus).
+- `components/timeline/` : suite complète de timeline (barre d'outils avec Annuler/Rétablir et bouton **Texte**, réglette graduée, tête de lecture, en-têtes avec Solo [S] et volume de piste, et clips avec visualisations de fondus).
 
 ---
 
@@ -98,6 +101,9 @@ Composants React modulaires organisés selon l'agencement CapCut :
    - Étage 2 : Le gain général de la piste (`gain_level`), ajustable de 0% à 200% pour équilibrer les pistes entre elles.
    - Étage 3 : La rampe continue d'atténuation du fondu (`Fade In` / `Fade Out`), évitant les claquements et assurant des montées/descentes sonores progressives.
    - Étage 4 : La matrice d'acheminement Solo / Mute garantissant l'isolation instantanée des pistes d'écoute.
+
+6. **Historique immuable et persistance standard (.kproj) :**
+   La pile de modifications enregistre les états antérieurs complets (jusqu'à 50 étapes) pour permettre l'annulation (`Ctrl+Z`) et le rétablissement (`Ctrl+Y`) sans effet de bord. Les fichiers `.kproj` utilisent du JSON standard auto-documenté pouvant être partagé, sauvegardé et versionné sous Git.
 
 ---
 

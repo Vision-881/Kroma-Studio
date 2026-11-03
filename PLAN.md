@@ -2,7 +2,7 @@
 
 Ce document consigne l'avancement du projet, la feuille de route du MVP, les étapes réalisées, en cours et à venir, ainsi que les décisions d'architecture prises au fil du développement.
 
-Dernière mise à jour : 03/11/2026 (Étape 5 du MVP)
+Dernière mise à jour : 03/11/2026 (Étape 6 du MVP)
 
 ---
 
@@ -16,8 +16,8 @@ Dernière mise à jour : 03/11/2026 (Étape 5 du MVP)
 | **Étape 3** | Lecteur d'aperçu temps réel synchronisé | ✅ Terminé | Moteur de rendu `<canvas>` 16:9 haute performance alimenté par les flux réels (`<video>`, `<audio>`, `<img>`), synchronisation à la frame près sous la tête de lecture, registre de session multimédia `mediaSession`, lecture Play/Pause 60 FPS (raccourci Espace), 21 tests unitaires. |
 | **Étape 4** | Superposition de texte | ✅ Terminé | Calques textes riches sur piste `text_overlay` dédiée, éditeur complet (police, taille, gras, couleur remplissage/contour, alignement, position X/Y), rendu Canvas natif avec `normalized_center`, 27 tests unitaires. |
 | **Étape 5** | Mixage & Contrôle du volume | ✅ Terminé | Contrôle de gain par clip et par piste (0% à 200%), mode Solo / Mute avancé avec isolation, fondus d'entrée (Fade In) et de sortie (Fade Out) continus, formes d'ondes audio (Waveforms) sur clips, 36 tests unitaires. |
-| **Étape 6** | Historique Annuler / Rétablir & Persistance | ⬜ Prochaine | Pile Undo/Redo complète sur les actions de timeline, sauvegarde et ouverture de projets `.kproj` en JSON via dialogue de fichiers. |
-| **Étape 7** | Export MP4 via FFmpeg | ⬜ À faire | Génération de la commande de filtre complexe FFmpeg et exécution en sous-processus externe indépendant. |
+| **Étape 6** | Historique Annuler / Rétablir & Persistance | ✅ Terminé | Pile Undo/Redo complète (50 états, `Ctrl+Z` / `Ctrl+Y`), sérialisation et chargement de fichiers `.kproj` avec validation de schéma, 41 tests unitaires. |
+| **Étape 7** | Export MP4 via FFmpeg | ⬜ Prochaine | Génération de la commande de filtre complexe FFmpeg et exécution en sous-processus externe indépendant. |
 
 ---
 
@@ -52,6 +52,10 @@ Dernière mise à jour : 03/11/2026 (Étape 5 du MVP)
   $$\text{Gain}_{\text{effectif}}(t) = \text{Gain}_{\text{clip}} \times \text{Gain}_{\text{piste}} \times \text{FadeFactor}(t)$$
   où $\text{FadeFactor}(t)$ est évalué continûment selon les durées de fondu d'entrée (`fade_in_duration_us`) et de sortie (`fade_out_duration_us`).
 - **Justification :** Permet un contrôle hiérarchique intuitif (équilibrage global d'une piste entière + micro-ajustement d'un clip particulier) et des transitions d'entrée/sortie ultra-douces sans craquement sonore (pop/click).
+
+### 2.8 Historique immuable découplé de la navigation temporelle
+- **Décision :** Seules les modifications structurelles du projet (ajouts/découpes/déplacements de clips, mixage, titrage, renommage) alimentent la pile `past[]` bornée à 50 états. Le scrubbing temporel, la sélection d'outils et le zoom n'enregistrent aucun état d'historique.
+- **Justification :** Évite de saturer la mémoire et permet à `Ctrl+Z` de revenir fidèlement à l'action de montage précédente sans polluer la pile par des centaines d'états de simple consultation.
 
 ---
 
@@ -91,4 +95,12 @@ Dernière mise à jour : 03/11/2026 (Étape 5 du MVP)
 - **Formes d'onde & Pentes de fondu :** Composant `AudioWaveform.tsx` avec modélisation harmonique pour les clips audio et vidéo, et superpositions SVG de pentes de volume sur la timeline lors des fondus.
 - **Panneau Inspecteur :** Section Audio enrichie avec curseurs Fade In (0.0s à 5.0s), Fade Out (0.0s à 5.0s) et visualisation SVG de la courbe d'enveloppe sonore.
 - **Tests :** 36 tests unitaires automatisés (8 dans `playbackEngine.test.ts`, 12 dans `projectStore.test.ts`), tous ✅.
+
+### Étape 6 — Historique Annuler / Rétablir & Persistance (.kproj) (03/11/2026)
+- **Historique Undo / Redo :** Piles `past[]` et `future[]` avec plafond à 50 états. Actions `undo()`, `redo()`, indicateurs booléens `canUndo`, `canRedo`.
+- **Raccourcis clavier universels :** `Ctrl+Z` (Annuler), `Ctrl+Y` ou `Ctrl+Maj+Z` (Rétablir), `Ctrl+S` (Enregistrer).
+- **Gestion de fichiers `.kproj` :** Fonctions `saveProjectToFile()` (téléchargement JSON Blob formaté), `loadProjectFromJson()` (parseur et validateur de schéma KromaProject) et `createNewProject()`.
+- **Interface utilisateur :** Boutons Nouveau, Ouvrir, Enregistrer, Annuler et Rétablir intégrés dans `Header.tsx` et dans `TimelineToolbar.tsx`.
+- **Support imprimable :** Conception du flyer A4 officiel imprimable `docs/FLYER_A4.html` (dimensions exactes 210×297mm, stylisme 4 quadrants et fiche technique).
+- **Tests :** 41 tests unitaires validés (5 tests complets ajoutés pour l'historique et la persistance).
 

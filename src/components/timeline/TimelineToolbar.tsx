@@ -12,6 +12,8 @@ import {
   Maximize2,
   Split,
   Type,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 import { useProjectStore, type TimelineTool } from '../../store/projectStore';
 import { usToTimecode } from '../../core/time/timeUtils';
@@ -27,6 +29,10 @@ export function TimelineToolbar() {
     splitTimelineItemAtCurrentTime,
     removeTimelineItem,
     addTextItem,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
     project,
   } = useProjectStore();
 
@@ -72,6 +78,29 @@ export function TimelineToolbar() {
     <div className="timeline-toolbar">
       {/* Outils de gauche */}
       <div className="timeline-toolbar__tools">
+        {/* Annuler / Rétablir */}
+        <button
+          className="timeline-tool-btn"
+          onClick={undo}
+          disabled={!canUndo}
+          title="Annuler la dernière action (Ctrl+Z)"
+        >
+          <Undo2 size={15} />
+          <span className="timeline-tool-btn__label">Annuler</span>
+        </button>
+
+        <button
+          className="timeline-tool-btn"
+          onClick={redo}
+          disabled={!canRedo}
+          title="Rétablir l'action (Ctrl+Y)"
+        >
+          <Redo2 size={15} />
+          <span className="timeline-tool-btn__label">Rétablir</span>
+        </button>
+
+        <div className="timeline-toolbar__separator" />
+
         <button
           className={`timeline-tool-btn${activeTool === 'select' ? ' timeline-tool-btn--active' : ''}`}
           onClick={() => handleToolChange('select')}

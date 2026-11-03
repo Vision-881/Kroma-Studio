@@ -19,6 +19,18 @@ import {
 
 export type TimelineTool = 'select' | 'split' | 'delete';
 
+/**
+ * Empile l'état précédent dans l'historique en bornant la pile à 50 états.
+ */
+function pushPast(past: KromaProject[], current: KromaProject): KromaProject[] {
+  const maxHistory = 50;
+  const newPast = [...past, current];
+  if (newPast.length > maxHistory) {
+    return newPast.slice(newPast.length - maxHistory);
+  }
+  return newPast;
+}
+
 /** État complet du store projet */
 interface ProjectState {
   /** Projet actuellement ouvert */
@@ -35,6 +47,14 @@ interface ProjectState {
   zoomPixelsPerSecond: number;
   /** Outil actif dans la barre d'outils de timeline */
   activeTool: TimelineTool;
+
+  // --- Historique Annuler / Rétablir ---
+  past: KromaProject[];
+  future: KromaProject[];
+  canUndo: boolean;
+  canRedo: boolean;
+  undo: () => void;
+  redo: () => void;
 
   // --- Actions Médiathèque ---
   addAsset: (asset: MediaAsset) => void;
@@ -63,7 +83,11 @@ interface ProjectState {
   addTextItem: (text?: string, placementTimeUs?: number) => void;
   updateTextLayerData: (itemId: string, updates: Partial<TextLayerData>) => void;
 
-  // --- Gestion du Projet ---
+  // --- Gestion du Projet & Fichiers ---
+  setProjectName: (name: string) => void;
+  saveProjectToFile: () => void;
+  loadProjectFromJson: (jsonString: string) => boolean;
+  createNewProject: (name?: string) => void;
   resetProject: () => void;
 }
 
@@ -77,9 +101,51 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   zoomPixelsPerSecond: 60, // 60 pixels = 1 seconde par défaut
   activeTool: 'select',
 
+  // Historique
+  past: [],
+  future: [],
+  canUndo: false,
+  canRedo: false,
+
+  undo: () =>
+    set((state) => {
+      if (state.past.length === 0) return state;
+      const previous = state.past[state.past.length - 1];
+      const newPast = state.past.slice(0, state.past.length - 1);
+      const newFuture = [state.project, ...state.future];
+      return {
+        project: previous,
+        past: newPast,
+        future: newFuture,
+        canUndo: newPast.length > 0,
+        canRedo: true,
+        isDirty: true,
+      };
+    }),
+
+  redo: () =>
+    set((state) => {
+      if (state.future.length === 0) return state;
+      const next = state.future[0];
+      const newFuture = state.future.slice(1);
+      const newPast = pushPast(state.past, state.project);
+      return {
+        project: next,
+        past: newPast,
+        future: newFuture,
+        canUndo: true,
+        canRedo: newFuture.length > 0,
+        isDirty: true,
+      };
+    }),
+
   // --- Actions Médiathèque ---
   addAsset: (asset: MediaAsset) =>
     set((state) => ({
+      past: pushPast(state.past, state.project),
+      future: [],
+      canUndo: true,
+      canRedo: false,
       project: {
         ...state.project,
         asset_catalog: [...state.project.asset_catalog, asset],
@@ -90,13 +156,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   removeAsset: (assetId: string) =>
     set((state) => {
-      // Retirer aussi les clips de la timeline qui référencent cet asset
       const updatedLanes = state.project.sequence.lanes.map((lane) => ({
         ...lane,
         items: lane.items.filter((item) => item.referenced_asset_id !== assetId),
       }));
 
       return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
         project: {
           ...state.project,
           asset_catalog: state.project.asset_catalog.filter((a) => a.asset_id !== assetId),
@@ -114,14 +183,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setSelectedAsset: (id: string | null) =>
     set(() => ({
       selectedAssetId: id,
-      // Si on sélectionne un asset de la médiathèque, on désélectionne le clip de timeline
       ...(id ? { selectedItemId: null } : {}),
     })),
 
   // --- Actions Tête de lecture & Vue ---
   setCurrentTimeUs: (timeUs: number) =>
     set((state) => {
-      const maxUs = Math.max(state.project.sequence.total_length_us, 60_000_000); // Au moins 60s navigables
+      const maxUs = Math.max(state.project.sequence.total_length_us, 60_000_000);
       const clamped = Math.max(0, Math.min(timeUs, maxUs));
       return { currentTimeUs: clamped };
     }),
@@ -129,13 +197,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setSelectedItemId: (id: string | null) =>
     set(() => ({
       selectedItemId: id,
-      // Si on sélectionne un clip de timeline, on désélectionne l'asset de la médiathèque
       ...(id ? { selectedAssetId: null } : {}),
     })),
 
   setZoomPixelsPerSecond: (zoom: number) =>
     set(() => ({
-      // Zoom borné entre 10 px/s (très dézoomé) et 300 px/s (zoom fin à la frame)
       zoomPixelsPerSecond: Math.max(10, Math.min(300, zoom)),
     })),
 
@@ -147,7 +213,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   // --- Actions Timeline ---
   addItemFromAsset: (asset: MediaAsset, targetLaneId?: string, placementTimeUs?: number) => {
     const state = get();
-    // Déterminer la piste par défaut selon le type de média si non spécifié
     let laneId = targetLaneId;
     if (!laneId) {
       if (asset.media_kind === 'audio') {
@@ -164,6 +229,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const updatedSequence = addItemToLane(state.project.sequence, laneId, newItem);
 
     set({
+      past: pushPast(state.past, state.project),
+      future: [],
+      canUndo: true,
+      canRedo: false,
       project: {
         ...state.project,
         sequence: updatedSequence,
@@ -184,6 +253,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         newPlacementTimeUs,
       );
       return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
         project: {
           ...state.project,
           sequence: updatedSequence,
@@ -198,7 +271,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const splitTimeUs = state.currentTimeUs;
       let itemIdToSplit = targetItemId || state.selectedItemId;
 
-      // Si aucun item spécifié ou sélectionné, chercher l'item situé sous la tête de lecture
       if (!itemIdToSplit) {
         for (const lane of state.project.sequence.lanes) {
           const underPlayhead = lane.items.find(
@@ -222,6 +294,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       );
 
       return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
         project: {
           ...state.project,
           sequence: updatedSequence,
@@ -233,7 +309,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   trimTimelineItem: (itemId: string, handle: 'start' | 'end', deltaUs: number) =>
     set((state) => {
-      // Trouver l'asset référencé pour borner la durée source max
       let maxSourceUs: number | undefined = undefined;
       for (const lane of state.project.sequence.lanes) {
         const item = lane.items.find((i) => i.item_id === itemId);
@@ -257,6 +332,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       );
 
       return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
         project: {
           ...state.project,
           sequence: updatedSequence,
@@ -270,6 +349,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     set((state) => {
       const updatedSequence = removeItemFromSequence(state.project.sequence, itemId);
       return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
         project: {
           ...state.project,
           sequence: updatedSequence,
@@ -286,6 +369,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         l.lane_id === laneId ? { ...l, is_muted: !l.is_muted } : l,
       );
       return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
         project: {
           ...state.project,
           sequence: { ...state.project.sequence, lanes: updatedLanes },
@@ -301,6 +388,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         l.lane_id === laneId ? { ...l, is_solo: !l.is_solo } : l,
       );
       return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
         project: {
           ...state.project,
           sequence: { ...state.project.sequence, lanes: updatedLanes },
@@ -316,6 +407,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         l.lane_id === laneId ? { ...l, is_locked: !l.is_locked } : l,
       );
       return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
         project: {
           ...state.project,
           sequence: { ...state.project.sequence, lanes: updatedLanes },
@@ -332,6 +427,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         l.lane_id === laneId ? { ...l, gain_level: clampedGain } : l,
       );
       return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
         project: {
           ...state.project,
           sequence: { ...state.project.sequence, lanes: updatedLanes },
@@ -365,6 +464,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }));
 
       return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
         project: {
           ...state.project,
           sequence: { ...state.project.sequence, lanes: updatedLanes },
@@ -388,6 +491,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }));
 
       return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
         project: {
           ...state.project,
           sequence: { ...state.project.sequence, lanes: updatedLanes },
@@ -412,6 +519,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }));
 
       return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
         project: {
           ...state.project,
           sequence: { ...state.project.sequence, lanes: updatedLanes },
@@ -423,7 +534,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   addTextItem: (text?: string, placementTimeUs?: number) => {
     const state = get();
-    // Trouver la piste dédiée aux titres/textes (ou la première piste text_overlay)
     let textLane = state.project.sequence.lanes.find((l) => l.lane_type === 'text_overlay');
     if (!textLane) {
       textLane = state.project.sequence.lanes[0];
@@ -434,6 +544,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const updatedSequence = addItemToLane(state.project.sequence, textLane.lane_id, newItem);
 
     set({
+      past: pushPast(state.past, state.project),
+      future: [],
+      canUndo: true,
+      canRedo: false,
       project: {
         ...state.project,
         sequence: updatedSequence,
@@ -462,6 +576,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }));
 
       return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
         project: {
           ...state.project,
           sequence: { ...state.project.sequence, lanes: updatedLanes },
@@ -471,9 +589,88 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       };
     }),
 
+  // --- Gestion du Projet & Fichiers ---
+  setProjectName: (name: string) =>
+    set((state) => ({
+      past: pushPast(state.past, state.project),
+      future: [],
+      canUndo: true,
+      canRedo: false,
+      project: {
+        ...state.project,
+        project_name: name,
+        modified_timestamp_utc: Date.now() * 1000,
+      },
+      isDirty: true,
+    })),
+
+  saveProjectToFile: () => {
+    const { project } = get();
+    const json = JSON.stringify(project, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const safeName = (project.project_name || 'kroma_projet')
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/gi, '_');
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${safeName}.kproj`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    set({ isDirty: false });
+  },
+
+  loadProjectFromJson: (jsonString: string) => {
+    try {
+      const parsed = JSON.parse(jsonString) as KromaProject;
+      // Validation minimale de structure
+      if (!parsed || typeof parsed !== 'object') return false;
+      if (!parsed.kroma_version || !parsed.project_uuid) return false;
+      if (!parsed.sequence || !Array.isArray(parsed.sequence.lanes)) return false;
+      if (!Array.isArray(parsed.asset_catalog)) return false;
+
+      set({
+        project: parsed,
+        past: [],
+        future: [],
+        canUndo: false,
+        canRedo: false,
+        isDirty: false,
+        currentTimeUs: 0,
+        selectedItemId: null,
+        selectedAssetId: null,
+      });
+      return true;
+    } catch (err) {
+      console.error('Erreur lors de la lecture du fichier projet Kroma :', err);
+      return false;
+    }
+  },
+
+  createNewProject: (name?: string) =>
+    set(() => ({
+      project: createDefaultProject(name || 'Nouveau Projet Kroma'),
+      past: [],
+      future: [],
+      canUndo: false,
+      canRedo: false,
+      isDirty: false,
+      selectedAssetId: null,
+      selectedItemId: null,
+      currentTimeUs: 0,
+    })),
+
   resetProject: () =>
     set(() => ({
       project: createDefaultProject(),
+      past: [],
+      future: [],
+      canUndo: false,
+      canRedo: false,
       isDirty: false,
       selectedAssetId: null,
       selectedItemId: null,

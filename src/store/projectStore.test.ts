@@ -189,4 +189,117 @@ describe('useProjectStore', () => {
       expect(item.fade_out_duration_us).toBe(2_000_000);
     });
   });
+
+  describe('historique Undo / Redo & Persistance (Étape 6)', () => {
+    it('undo() et redo() rétablissent les états précédents du projet', () => {
+      // 1. Initialement vide
+      expect(useProjectStore.getState().canUndo).toBe(false);
+      expect(useProjectStore.getState().canRedo).toBe(false);
+
+      // 2. Ajout d'un asset
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      expect(useProjectStore.getState().project.asset_catalog).toHaveLength(1);
+      expect(useProjectStore.getState().canUndo).toBe(true);
+      expect(useProjectStore.getState().canRedo).toBe(false);
+
+      // 3. Annuler (Undo) -> Catalogue redevient vide
+      useProjectStore.getState().undo();
+      expect(useProjectStore.getState().project.asset_catalog).toHaveLength(0);
+      expect(useProjectStore.getState().canUndo).toBe(false);
+      expect(useProjectStore.getState().canRedo).toBe(true);
+
+      // 4. Rétablir (Redo) -> Asset restauré
+      useProjectStore.getState().redo();
+      expect(useProjectStore.getState().project.asset_catalog).toHaveLength(1);
+      expect(useProjectStore.getState().canUndo).toBe(true);
+      expect(useProjectStore.getState().canRedo).toBe(false);
+    });
+
+    it('undo() rétablit la position temporelle d\'un clip déplacé', () => {
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, undefined, 0);
+
+      const itemId = useProjectStore.getState().selectedItemId!;
+      const laneId = useProjectStore.getState().project.sequence.lanes[0].lane_id;
+
+      // Déplacer à 5s
+      useProjectStore.getState().moveTimelineItem(itemId, laneId, 5_000_000);
+      expect(useProjectStore.getState().project.sequence.lanes[0].items[0].placement_time_us).toBe(5_000_000);
+
+      // Annuler -> revient à 0s
+      useProjectStore.getState().undo();
+      expect(useProjectStore.getState().project.sequence.lanes[0].items[0].placement_time_us).toBe(0);
+
+      // Rétablir -> revient à 5s
+      useProjectStore.getState().redo();
+      expect(useProjectStore.getState().project.sequence.lanes[0].items[0].placement_time_us).toBe(5_000_000);
+    });
+
+    it('loadProjectFromJson() charge un projet valide et réinitialise l\'historique', () => {
+      const validKproj = JSON.stringify({
+        kroma_version: '1.0.0',
+        project_uuid: 'test_uuid_123',
+        project_name: 'Projet Importé',
+        created_timestamp_utc: 1000000,
+        modified_timestamp_utc: 1000000,
+        timeline_canvas: {
+          viewport_width: 1920,
+          viewport_height: 1080,
+          frame_rate_fps: 60,
+          audio_sample_rate_hz: 48000,
+          background_color_hex: '#000000',
+        },
+        asset_catalog: [dummyVideoAsset],
+        sequence: {
+          total_length_us: 10_000_000,
+          lanes: [
+            {
+              lane_id: 'l1',
+              lane_title: 'Vidéo',
+              lane_type: 'visual',
+              stack_index: 0,
+              is_muted: false,
+              is_locked: false,
+              gain_level: 1.0,
+              items: [],
+            },
+          ],
+        },
+      });
+
+      const success = useProjectStore.getState().loadProjectFromJson(validKproj);
+      expect(success).toBe(true);
+
+      const state = useProjectStore.getState();
+      expect(state.project.project_name).toBe('Projet Importé');
+      expect(state.project.project_uuid).toBe('test_uuid_123');
+      expect(state.project.asset_catalog).toHaveLength(1);
+      expect(state.canUndo).toBe(false);
+      expect(state.canRedo).toBe(false);
+      expect(state.isDirty).toBe(false);
+    });
+
+    it('loadProjectFromJson() rejette un JSON invalide ou corrompu sans planter', () => {
+      const invalidJson = '{ "mauvais": "format" }';
+      const success = useProjectStore.getState().loadProjectFromJson(invalidJson);
+      expect(success).toBe(false);
+
+      const corrupted = 'Ceci n\'est pas du JSON';
+      const success2 = useProjectStore.getState().loadProjectFromJson(corrupted);
+      expect(success2).toBe(false);
+    });
+
+    it('createNewProject() réinitialise complètement le projet et l\'historique', () => {
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      expect(useProjectStore.getState().canUndo).toBe(true);
+
+      useProjectStore.getState().createNewProject('Tout Nouveau');
+      const state = useProjectStore.getState();
+      expect(state.project.project_name).toBe('Tout Nouveau');
+      expect(state.project.asset_catalog).toHaveLength(0);
+      expect(state.canUndo).toBe(false);
+      expect(state.canRedo).toBe(false);
+      expect(state.isDirty).toBe(false);
+    });
+  });
 });

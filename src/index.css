@@ -1199,6 +1199,25 @@ input {
   color: #fff;
 }
 
+.kroma-icon-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.kroma-header__file-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kroma-header__separator {
+  width: 1px;
+  height: 18px;
+  background: var(--border-strong);
+  margin: 0 4px;
+}
+
 .spin {
   animation: kroma-spin 1s linear infinite;
 }

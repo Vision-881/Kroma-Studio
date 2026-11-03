@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kroma Studio — Flyer Officiel A4</title>
+  <style>
+    /* ============================================================
+       FLYER A4 IMPRIMABLE — KROMA STUDIO
+       Dimensions exactes : 210mm x 297mm
+       ============================================================ */
+
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #09090d;
+      color: #f3f4f6;
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      padding: 12mm 14mm;
+      position: relative;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Bouton d'impression masqué lors de l'impression */
+    .print-bar {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      z-index: 9999;
+      background: #7c6af7;
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 4px 14px rgba(124, 106, 247, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .print-bar:hover {
+      background: #6855ea;
+      transform: translateY(-1px);
+    }
+
+    @media print {
+      body {
+        background: #09090d !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+
+    /* ── 1. EN-TÊTE DU FLYER ───────────────────────────────────── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #232336;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-badge {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #7c6af7 0%, #3b82f6 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      font-weight: 900;
+      color: #ffffff;
+      box-shadow: 0 4px 16px rgba(124, 106, 247, 0.35);
+    }
+
+    .brand-titles h1 {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      line-height: 1;
+      color: #ffffff;
+    }
+
+    .brand-titles h1 span {
+      color: #7c6af7;
+      font-weight: 400;
+      letter-spacing: 1px;
+    }
+
+    .brand-tagline {
+      font-size: 11px;
+      color: #a1a1b5;
+      font-weight: 500;
+      margin-top: 3px;
+    }
+
+    .header-badges {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
+    .pill {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 8px;
+      border-radius: 20px;
+    }
+
+    .pill--purple {
+      background: rgba(124, 106, 247, 0.2);
+      color: #c4b5fd;
+      border: 1px solid rgba(124, 106, 247, 0.4);
+    }
+
+    .pill--green {
+      background: rgba(16, 185, 129, 0.2);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    /* ── 2. BANNIÈRE D'ACCROCHE ────────────────────────────────── */
+    .hero-banner {
+      background: linear-gradient(135deg, rgba(124, 106, 247, 0.12) 0%, rgba(59, 130, 246, 0.08) 100%);
+      border: 1px solid rgba(124, 106, 247, 0.3);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .hero-banner p {
+      font-size: 12px;
+      line-height: 1.45;
+      color: #e5e7eb;
+      max-width: 78%;
+    }
+
+    .hero-banner strong {
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .hero-stat {
+      text-align: right;
+    }
+
+    .hero-stat__number {
+      font-size: 22px;
+      font-weight: 900;
+      color: #60a5fa;
+      line-height: 1;
+    }
+
+    .hero-stat__label {
+      font-size: 9px;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── 3. MOCKUP DE L'INTERFACE (4 QUADRANTS) ────────────────── */
+    .mockup-container {
+      background: #14141e;
+      border: 1px solid #28283d;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .mockup-titlebar {
+      height: 22px;
+      background: #1a1a27;
+      border-bottom: 1px solid #252538;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      font-size: 9px;
+      color: #9ca3af;
+      font-weight: 600;
+    }
+
+    .mockup-dots {
+      display: flex;
+      gap: 4px;
+    }
+
+    .mockup-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+    .mockup-dot--red { background: #ef4444; }
+    .mockup-dot--yellow { background: #f59e0b; }
+    .mockup-dot--green { background: #10b981; }
+
+    .mockup-quadrants {
+      display: grid;
+      grid-template-columns: 28% 44% 28%;
+      grid-template-rows: 105px 75px;
+      gap: 2px;
+      background: #0d0d14;
+      padding: 2px;
+    }
+
+    .quadrant {
+      background: #161622;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .quadrant-title {
+      font-size: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #7c6af7;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Quadrant 1 : Médiathèque */
+    .mockup-media-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px;
+      flex: 1;
+    }
+
+    .mockup-media-card {
+      background: #202030;
+      border: 1px solid #2d2d42;
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 7.5px;
+      color: #cbd5e1;
+      padding: 4px;
+      text-align: center;
+    }
+
+    .mockup-media-card span {
+      font-size: 6.5px;
+      color: #94a3b8;
+    }
+
+    /* Quadrant 2 : Lecteur */
+    .quadrant--player {
+      background: #0b0b10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 1px dashed #2a2a40;
+    }
+
+    .player-screen {
+      width: 88%;
+      height: 72px;
+      background: #12121c;
+      border: 1px solid #252538;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .player-overlay-text {
+      font-size: 11px;
+      font-weight: 800;
+      color: #fff;
+      text-shadow: 0 0 6px rgba(0,0,0,0.9);
+      letter-spacing: 0.5px;
+    }
+
+    .player-controls-mock {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+      font-size: 8px;
+      color: #94a3b8;
+    }
+
+    .play-circle {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #000;
+      font-size: 7px;
+    }
+
+    /* Quadrant 3 : Inspecteur */
+    .mockup-inspector-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 7.5px;
+      padding: 2px 0;
+      color: #cbd5e1;
+      border-bottom: 1px solid #1f1f2e;
+    }
+
+    .mini-slider {
+      width: 42px;
+      height: 3px;
+      background: #3b82f6;
+      border-radius: 2px;
+      position: relative;
+    }
+
+    .mini-slider::after {
+      content: '';
+      position: absolute;
+      right: 6px;
+      top: -2px;
+      width: 7px;
+      height: 7px;
+      background: #fff;
+      border-radius: 50%;
+    }
+
+    /* Quadrant 4 : Timeline multipiste */
+    .quadrant--timeline {
+      grid-column: 1 / span 3;
+      padding: 4px 6px;
+      background: #101018;
+    }
+
+    .timeline-ruler-mock {
+      height: 12px;
+      border-bottom: 1px solid #28283a;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7px;
+      color: #64748b;
+      padding: 0 8px;
+      margin-bottom: 3px;
+    }
+
+    .timeline-lanes-mock {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      position: relative;
+    }
+
+    .lane-mock {
+      height: 16px;
+      background: #181824;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      padding: 0 4px;
+      position: relative;
+    }
+
+    .clip-mock {
+      height: 13px;
+      border-radius: 2px;
+      font-size: 7px;
+      display: flex;
+      align-items: center;
+      padding: 0 6px;
+      font-weight: 600;
+      color: #fff;
+      position: absolute;
+    }
+
+    .clip-mock--visual {
+      background: #1e3a8a;
+      border: 1px solid #3b82f6;
+      width: 58%;
+      left: 30px;
+    }
+
+    .clip-mock--text {
+      background: #78350f;
+      border: 1px solid #f59e0b;
+      width: 35%;
+      left: 120px;
+    }
+
+    .clip-mock--audio {
+      background: #064e3b;
+      border: 1px solid #10b981;
+      width: 72%;
+      left: 45px;
+    }
+
+    .playhead-mock {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 140px;
+      width: 1.5px;
+      background: #ef4444;
+      z-index: 10;
+    }
+
+    /* ── 4. LES 6 PILIERS D'EXCELLENCE (GRID) ─────────────────── */
+    .pillars-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .pillar-card {
+      background: #14141e;
+      border: 1px solid #232334;
+      border-radius: 7px;
+      padding: 8px 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pillar-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: #7c6af7;
+    }
+
+    .pillar-card--cyan::before { background: #06b6d4; }
+    .pillar-card--emerald::before { background: #10b981; }
+    .pillar-card--amber::before { background: #f59e0b; }
+    .pillar-card--blue::before { background: #3b82f6; }
+    .pillar-card--rose::before { background: #f43f5e; }
+
+    .pillar-card h3 {
+      font-size: 11px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .pillar-card p {
+      font-size: 9.5px;
+      line-height: 1.35;
+      color: #9ca3af;
+    }
+
+    .pillar-card strong {
+      color: #e5e7eb;
+    }
+
+    /* ── 5. STATS & ARCHITECTURE ──────────────────────────────── */
+    .metrics-bar {
+      background: #111119;
+      border: 1px solid #1f1f2e;
+      border-radius: 8px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .metric-item {
+      border-right: 1px solid #242436;
+    }
+    .metric-item:last-child {
+      border-right: none;
+    }
+
+    .metric-value {
+      font-size: 18px;
+      font-weight: 900;
+      color: #7c6af7;
+      line-height: 1;
+    }
+
+    .metric-label {
+      font-size: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #9ca3af;
+      margin-top: 3px;
+    }
+
+    /* ── 6. PIED DE PAGE & LIENS OFFICIELS ────────────────────── */
+    .footer {
+      border-top: 2px solid #232336;
+      padding-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9.5px;
+      color: #94a3b8;
+    }
+
+    .footer-left {
+      line-height: 1.4;
+    }
+
+    .footer-left strong {
+      color: #fff;
+    }
+
+    .footer-right {
+      text-align: right;
+    }
+
+    .footer-github {
+      display: inline-block;
+      background: #1f1f2f;
+      border: 1px solid #36364d;
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 5px;
+      font-weight: 600;
+      text-decoration: none;
+      font-size: 10px;
+      letter-spacing: 0.02em;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Bouton d'impression (masqué au print) -->
+  <button class="print-bar no-print" onclick="window.print()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 6 2 18 2 18 9"></polyline>
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+      <rect x="6" y="14" width="12" height="8"></rect>
+    </svg>
+    <span>Imprimer en A4 / Enregistrer en PDF</span>
+  </button>
+
+  <!-- 1. En-tête -->
+  <header class="header">
+    <div class="brand-group">
+      <div class="logo-badge">K</div>
+      <div class="brand-titles">
+        <h1>KROMA <span>STUDIO</span></h1>
+        <div class="brand-tagline">L'éditeur vidéo open source nouvelle génération inspiré des meilleurs standards</div>
+      </div>
+    </div>
+    <div class="header-badges">
+      <span class="pill pill--purple">100% Code Souverain</span>
+      <span class="pill pill--green">Édition Non Destructive</span>
+    </div>
+  </header>
+
+  <!-- 2. Bannière d'accroche -->
+  <section class="hero-banner">
+    <p>
+      <strong>Kroma Studio</strong> redéfinit le montage vidéo créatif sur desktop : une ergonomie <strong>4 quadrants style CapCut</strong>, un moteur de rendu Canvas 2D composite <strong>60 FPS</strong> et une horloge temporelle cadencée à la <strong>microseconde entière (1 µs)</strong> éliminant définitivement la dérive A/V.
+    </p>
+    <div class="hero-stat">
+      <div class="hero-stat__number">0 ms</div>
+      <div class="hero-stat__label">Dérive Audio/Vidéo</div>
+    </div>
+  </section>
+
+  <!-- 3. Mockup interactif de l'interface -->
+  <section class="mockup-container">
+    <div class="mockup-titlebar">
+      <div class="mockup-dots">
+        <div class="mockup-dot mockup-dot--red"></div>
+        <div class="mockup-dot mockup-dot--yellow"></div>
+        <div class="mockup-dot mockup-dot--green"></div>
+      </div>
+      <span>Kroma Studio — Composition 1920×1080 @ 60 FPS • Projet actif</span>
+      <span>v0.6.0-alpha</span>
+    </div>
+
+    <div class="mockup-quadrants">
+      <!-- Quadrant 1 : Médiathèque -->
+      <div class="quadrant">
+        <div class="quadrant-title">📂 Médiathèque (MediaBin)</div>
+        <div class="mockup-media-grid">
+          <div class="mockup-media-card">
+            📹 Rush_4K.mp4
+            <span>1080p • 60 FPS</span>
+          </div>
+          <div class="mockup-media-card">
+            🎵 Beat_LoFi.mp3
+            <span>48 kHz • 3m20s</span>
+          </div>
+          <div class="mockup-media-card">
+            🖼️ Logo_Vector.png
+            <span>1920×1080</span>
+          </div>
+          <div class="mockup-media-card" style="border-style: dashed; color: #7c6af7;">
+            + Importer
+            <span>Glisser-déposer</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quadrant 2 : Lecteur Canvas -->
+      <div class="quadrant quadrant--player">
+        <div class="quadrant-title" style="align-self: flex-start;">📺 Moniteur Canvas (16:9)</div>
+        <div class="player-screen">
+          <div class="player-overlay-text">KROMA STUDIO 2026</div>
+        </div>
+        <div class="player-controls-mock">
+          <span>00:00:04:12</span>
+          <div class="play-circle">▶</div>
+          <span>00:00:15:00</span>
+        </div>
+      </div>
+
+      <!-- Quadrant 3 : Inspecteur -->
+      <div class="quadrant">
+        <div class="quadrant-title">⚙️ Inspecteur Contextuel</div>
+        <div class="mockup-inspector-item">
+          <span>Volume clip</span>
+          <div class="mini-slider"></div>
+          <span style="color:#7c6af7;">100%</span>
+        </div>
+        <div class="mockup-inspector-item">
+          <span>Zoom (Scale)</span>
+          <div class="mini-slider"></div>
+          <span style="color:#7c6af7;">125%</span>
+        </div>
+        <div class="mockup-inspector-item">
+          <span>Fade In / Out</span>
+          <span style="color:#10b981; font-weight:700;">1.5s / 2.0s</span>
+        </div>
+        <div class="mockup-inspector-item">
+          <span>Typographie</span>
+          <span style="color:#f59e0b;">Impact 48pt</span>
+        </div>
+      </div>
+
+      <!-- Quadrant 4 : Timeline multipiste -->
+      <div class="quadrant quadrant--timeline">
+        <div class="timeline-ruler-mock">
+          <span>00:00</span>
+          <span>00:02</span>
+          <span>00:04</span>
+          <span>00:06</span>
+          <span>00:08</span>
+          <span>00:10</span>
+          <span>00:12</span>
+          <span>00:14</span>
+        </div>
+        <div class="timeline-lanes-mock">
+          <div class="playhead-mock"></div>
+          <!-- Piste 1 : Titres -->
+          <div class="lane-mock">
+            <span style="font-size:7px; color:#f59e0b; width:45px;">[T] Titres</span>
+            <div class="clip-mock clip-mock--text">Titre Intro (Fade 1.0s)</div>
+          </div>
+          <!-- Piste 2 : Vidéo -->
+          <div class="lane-mock">
+            <span style="font-size:7px; color:#60a5fa; width:45px;">[V1] Vidéo</span>
+            <div class="clip-mock clip-mock--visual">Rush_Islande_01.mp4</div>
+          </div>
+          <!-- Piste 3 : Audio -->
+          <div class="lane-mock">
+            <span style="font-size:7px; color:#34d399; width:45px;">[A1] Solo S</span>
+            <div class="clip-mock clip-mock--audio">Musique_Fond.mp3 (Waveform)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Les 6 Piliers d'Excellence -->
+  <section class="pillars-grid">
+    <div class="pillar-card">
+      <h3>⏱️ Précision Microseconde (1 µs)</h3>
+      <p>
+        Toutes les positions, durées et découpes sont calculées en <strong>entiers 64 bits en microsecondes</strong>. Zéro accumulation d'erreur décimale, calage lip-sync rigoureux.
+      </p>
+    </div>
+
+    <div class="pillar-card pillar-card--cyan">
+      <h3>📁 Format .kproj Ouvert & Transparent</h3>
+      <p>
+        Fichiers de projet en <strong>JSON pur non destructif</strong>. Sauvegardez, chargez et versionnez vos créations sous Git sans format binaire opaque ni verrou propriétaire.
+      </p>
+    </div>
+
+    <div class="pillar-card pillar-card--emerald">
+      <h3>🎛️ Moteur Audio DSP & Formes d'Onde</h3>
+      <p>
+        Mixage hiérarchique : gain clip + gain piste (0–200%), <strong>mode Solo/Mute</strong> avec isolation instantanée, <strong>Fade In/Out continus</strong> et rendu visuel de Waveforms.
+      </p>
+    </div>
+
+    <div class="pillar-card pillar-card--amber">
+      <h3>✍️ Calques Texte & Typographie Riches</h3>
+      <p>
+        Générateur de titres avec choix de polices, graisse, couleurs, <strong>contours personnalisés</strong> et positionnement normalisé indépendant de la résolution d'affichage.
+      </p>
+    </div>
+
+    <div class="pillar-card pillar-card--blue">
+      <h3>↩️ Historique Undo / Redo Illimité</h3>
+      <p>
+        Contrôle total avec <strong>Ctrl+Z / Ctrl+Y</strong>. Annulez et rétablissez instantanément découpes, déplacements, réglages sonores et ajouts d'effets en toute sérénité.
+      </p>
+    </div>
+
+    <div class="pillar-card pillar-card--rose">
+      <h3>🎬 Exportation MP4 Subprocess FFmpeg</h3>
+      <p>
+        Encodage matériel/logiciel H.264 / AAC haute définition via <strong>FFmpeg subprocess</strong> isolé : performance maximale sans risque juridique de contamination GPL.
+      </p>
+    </div>
+  </section>
+
+  <!-- 5. Chiffres clés et métriques -->
+  <section class="metrics-bar">
+    <div class="metric-item">
+      <div class="metric-value">41</div>
+      <div class="metric-label">Tests Unitaires Validés</div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-value">60 FPS</div>
+      <div class="metric-label">Rendu Canvas Fluide</div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-value">100%</div>
+      <div class="metric-label">Code Source Souverain</div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-value">0 €</div>
+      <div class="metric-label">Libre & Open Source</div>
+    </div>
+  </section>
+
+  <!-- 6. Pied de page -->
+  <footer class="footer">
+    <div class="footer-left">
+      <strong>Kroma Studio</strong> — Conçu avec React 19, TypeScript strict, Vite, Zustand et FFmpeg.<br>
+      Édition vidéo moderne, éthique et performante.
+    </div>
+
+  </footer>
+
+</body>
+</html>

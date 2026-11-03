@@ -19,6 +19,9 @@ export function PreviewMonitor() {
     removeTimelineItem,
     setActiveTool,
     splitTimelineItemAtCurrentTime,
+    undo,
+    redo,
+    saveProjectToFile,
   } = useProjectStore();
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -379,7 +382,28 @@ export function PreviewMonitor() {
         return;
       }
 
-      // 8. Touche M : Mute / Démute Master
+      // 8. Annuler : Ctrl+Z / Cmd+Z
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+        return;
+      }
+
+      // 9. Rétablir : Ctrl+Y ou Ctrl+Maj+Z
+      if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey))) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      // 10. Enregistrer : Ctrl+S
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS') {
+        e.preventDefault();
+        saveProjectToFile();
+        return;
+      }
+
+      // 11. Touche M : Mute / Démute Master
       if (e.code === 'KeyM' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         setIsMasterMuted((prev) => !prev);
@@ -395,6 +419,9 @@ export function PreviewMonitor() {
     removeTimelineItem,
     setActiveTool,
     splitTimelineItemAtCurrentTime,
+    undo,
+    redo,
+    saveProjectToFile,
   ]);
 
   const togglePlay = () => {
