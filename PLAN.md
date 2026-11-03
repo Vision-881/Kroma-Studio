@@ -2,7 +2,7 @@
 
 Ce document consigne l'avancement du projet, la feuille de route du MVP, les étapes réalisées, en cours et à venir, ainsi que les décisions d'architecture prises au fil du développement.
 
-Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 10 : Transitions Visuelles entre clips)
+Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 11 : Effets Vidéo, Filtres FX & Miroir H/V)
 
 ---
 
@@ -21,6 +21,7 @@ Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 10 : Transitions Visuell
 | **Étape 8** | Étalonnage Couleur & Réglages Visuels | ✅ Terminé | Section Inspecteur (Luminosité, Contraste, Saturation, Teinte, Flou), aperçu Canvas 2D temps réel 60 FPS (`ctx.filter`), export FFmpeg (`eq`, `hue`, `gblur`), actions Zustand avec Undo/Redo, 53 tests unitaires. |
 | **Étape 9** | Vitesse Variable & Ralenti / Accéléré | ✅ Terminé | Vitesse de lecture par clip (0.25× à 4.0×), calcul temporel source exact, prévisualisation fluide via `video.playbackRate`/`audio.playbackRate`, adaptation d'horloge matérielle, filtres FFmpeg `setpts` et `atempo` chaîné, section Inspecteur, 57 tests unitaires. |
 | **Étape 10** | Transitions Visuelles entre clips | ✅ Terminé | Transitions d'entrée vidéo (Fondu enchaîné / crossfade, Fondu au noir / fade_to_black, Flash blanc / dip_to_white, Balayage gauche / wipe_left), durée réglable (0.1s à 5.0s), badge violet sur la timeline, rendu Canvas 2D temps réel 60 FPS, export FFmpeg avec filtre `fade` et alpha overlay, 60 tests unitaires. |
+| **Étape 11** | Effets Vidéo, Filtres FX & Miroir H/V | ✅ Terminé | Inversion miroir horizontale/verticale (`hflip`, `vflip`), filtres artistiques (Monochrome, Sépia, Argentique vintage, Négatif, Vignetage cinéma réglable), Canvas 2D 60 FPS, export FFmpeg, section Inspecteur, badge rose sur la timeline, 63 tests unitaires. |
 
 ---
 
@@ -75,6 +76,10 @@ Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 10 : Transitions Visuell
 ### 2.12 Transitions visuelles non-destructives et composition alpha multi-formats
 - **Décision :** La transition est modélisée par `transition_in` sur le clip entrant (`transition_type` et `duration_us`). Pendant la fenêtre de transition $[T_{\text{in}}, T_{\text{in}} + \Delta_{\text{trans}}[$, le lecteur Canvas 2D calcule le ratio de progression $p \in [0, 1]$ et compose la transformation d'opacité (`crossfade`), le masque géométrique dynamique (`wipe_left` via `ctx.rect` et `ctx.clip()`), ou les voiles colorés dégressifs (`fade_to_black`, `dip_to_white`). Côté export FFmpeg, le filtre `fade=t=in:st=...:d=...` est appliqué avec `alpha=1` ou `color=black`/`color=white` sur le flux RGBA/YUV découpé avant son insertion dans le canevas de base.
 - **Justification :** Permet des transitions fluides sans nécessiter de chevauchement complexe de pistes ou de découpage destructif des clips voisins, tout en garantissant une fidélité visuelle parfaite entre l'aperçu dynamique à 60 FPS et le rendu final FFmpeg.
+
+### 2.13 Effets artistiques, symétrie miroir et matrices de convolution FFmpeg
+- **Décision :** La symétrie spatiale (`flip_horizontal`, `flip_vertical`) est encapsulée directement dans `spatial_placement` et exécutée via inversion de signe d'échelle (`scale(-1, 1)` / `scale(1, -1)`). Les filtres créatifs (`video_effects`) combinent les filtres CSS Canvas natifs (`grayscale`, `sepia`, `invert`), un dégradé radial d'assombrissement pour le vignettage focal, et sont traduits fidèlement dans FFmpeg via `hflip`, `vflip`, `hue=s=0`, `colorchannelmixer`, `curves=vintage`, `negate` et `vignette`.
+- **Justification :** Offre aux créateurs de contenu les outils essentiels de stylisation visuelle et de correction d'orientation de rushs sans alourdir le moteur ni introduire de dépendance externe.
 
 ---
 
@@ -167,4 +172,18 @@ Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 10 : Transitions Visuell
 - **Interface Inspecteur CapCut :** Section « Transition d'entrée » dans `InspectorPanel.tsx` avec sélecteur d'effets visuels stylisé (icônes `Sparkles`, `RotateCcw`), slider de durée interactif (0.2s à 3.0s) et réinitialisation rapide.
 - **Visualisation Timeline :** Indicateur visuel sur les clips de la timeline (`TimelineClip.tsx`) composé d'un dégradé violet d'entrée et d'un badge distinctif (`✨ Fondu`, `✨ Noir`, `✨ Flash`, `✨ Wipe`).
 - **Tests unitaires :** Nouveaux tests automatisés dans `projectStore.test.ts` et `ffmpegCommandBuilder.test.ts`. Suite complète portée à **60 tests unitaires validés (100% succès)**.
+
+### Étape 11 — Effets Vidéo, Filtres FX & Miroir H/V (03/11/2026)
+- **Modèle de données :** Ajout de `flip_horizontal?: boolean` et `flip_vertical?: boolean` dans `SpatialPlacement`, définition de `VideoEffectPreset` (`none`, `monochrome`, `sepia`, `vintage`, `invert`, `vignette`), interface `VideoEffects` et ajout de `video_effects?: VideoEffects` sur `TimelineItem` dans `src/core/types/timeline.ts`.
+- **Gestion d'état Zustand & Historique :** Actions `toggleClipFlipHorizontal(itemId)`, `toggleClipFlipVertical(itemId)` et `updateClipEffects(itemId, effects, commitHistory)` dans `src/store/projectStore.ts` avec prise en charge totale Undo/Redo (`Ctrl+Z` / `Ctrl+Y`).
+- **Rendu temps réel Canvas 2D (60 FPS) :**
+  - Application géométrique instantanée de la symétrie miroir : `ctx.scale(zoomX * (flipH ? -1 : 1), zoomY * (flipV ? -1 : 1))`.
+  - Application des filtres CSS natifs : `grayscale(100%)`, `sepia(90%)`, `invert(100%)`, `sepia(45%) contrast(115%)`.
+  - Rendu du vignettage cinéma via un dégradé radial d'assombrissement dégressif centré sur le clip.
+- **Pipeline d'exportation FFmpeg :** Génération automatique des filtres FFmpeg correspondants dans `ffmpegCommandBuilder.ts` : `hflip`, `vflip`, `hue=s=0` (N&B), `colorchannelmixer` (Sépia rétro), `curves=vintage` (Argentique), `negate` (Inversion) et `vignette` (Obscurcissement focal).
+- **Interface Inspecteur CapCut :**
+  - Boutons de bascule ergonomiques **Miroir H** (icône `FlipHorizontal`) et **Miroir V** (icône `FlipVertical`) avec mise en surbrillance indigo dans la section Transformation.
+  - Nouvelle section **« Filtres & Effets FX »** (icône `Wand2`) avec sélecteur de style visuel, curseur d'intensité de vignettage et bouton de réinitialisation rapide.
+- **Visualisation Timeline :** Badge informatif distinctif rose (`🪞 Miroir`, `↕️ Flip V`, `🪄 N&B`, `🪄 Sépia`, `🪄 Rétro`, `🪄 Négatif`, `🪄 Vignet.`) sur les clips concernés.
+- **Tests unitaires :** Nouveaux tests automatisés dans `projectStore.test.ts` et `ffmpegCommandBuilder.test.ts`. Suite complète portée à **63 tests unitaires validés (100% succès)**.
 

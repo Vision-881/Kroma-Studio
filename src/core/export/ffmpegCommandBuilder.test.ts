@@ -384,6 +384,83 @@ describe('ffmpegCommandBuilder', () => {
     });
   });
 
+  describe('Effets vidéo, Filtres FX et Miroir H/V (Étape 11)', () => {
+    it('génère les filtres FFmpeg de miroir (hflip, vflip) et les effets artistiques', () => {
+      const proj = createDefaultProject('Projet FX');
+      const assetVid: MediaAsset = {
+        asset_id: 'vid-fx',
+        display_name: 'scene.mp4',
+        media_kind: 'video',
+        source_path: 'C:/scene.mp4',
+        duration_us: 10_000_000,
+        native_width: 1920,
+        native_height: 1080,
+        detected_fps: 30,
+        audio_channels: 2,
+        audio_sample_rate_hz: 48000,
+      };
+      proj.asset_catalog = [assetVid];
+
+      // Test 1: Miroir H & V
+      const itemFx: TimelineItem = {
+        item_id: 'item-fx-1',
+        referenced_asset_id: 'vid-fx',
+        placement_time_us: 0,
+        play_duration_us: 5_000_000,
+        source_in_point_us: 0,
+        source_duration_us: 5_000_000,
+        item_gain: 1.0,
+        spatial_placement: {
+          offset_x_px: 0,
+          offset_y_px: 0,
+          zoom_factor_x: 1.0,
+          zoom_factor_y: 1.0,
+          rotation_degrees: 0,
+          opacity_ratio: 1.0,
+          flip_horizontal: true,
+          flip_vertical: true,
+        },
+        video_effects: {
+          preset: 'sepia',
+          vignette_amount: 0.6,
+        },
+      };
+
+      proj.sequence.lanes[0].items = [itemFx];
+      proj.sequence.total_length_us = 5_000_000;
+
+      let result = buildFFmpegCommand(proj);
+      expect(result.filterComplex).toContain('hflip');
+      expect(result.filterComplex).toContain('vflip');
+      expect(result.filterComplex).toContain('colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131');
+      expect(result.filterComplex).toContain('vignette=');
+
+      // Test 2: Monochrome & Invert
+      itemFx.spatial_placement = {
+        offset_x_px: 0,
+        offset_y_px: 0,
+        zoom_factor_x: 1.0,
+        zoom_factor_y: 1.0,
+        rotation_degrees: 0,
+        opacity_ratio: 1.0,
+        flip_horizontal: false,
+        flip_vertical: false,
+      };
+      itemFx.video_effects = { preset: 'monochrome' };
+      result = buildFFmpegCommand(proj);
+      expect(result.filterComplex).toContain('hue=s=0');
+      expect(result.filterComplex).not.toContain('hflip');
+
+      itemFx.video_effects = { preset: 'invert' };
+      result = buildFFmpegCommand(proj);
+      expect(result.filterComplex).toContain('negate');
+
+      itemFx.video_effects = { preset: 'vintage' };
+      result = buildFFmpegCommand(proj);
+      expect(result.filterComplex).toContain('curves=vintage');
+    });
+  });
+
   describe('Isolation Solo et Mute pour l\'audio', () => {
     it('ignore les pistes rendues silencieuses par le mode Solo ou Mute', () => {
       const proj = createDefaultProject('Projet Audio Mute');

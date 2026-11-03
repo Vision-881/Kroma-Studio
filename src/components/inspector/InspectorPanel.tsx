@@ -4,10 +4,10 @@
  * l'opacité, l'échelle et la position des clips sélectionnés.
  * Lorsqu'un calque texte est sélectionné, affiche le TextEditor dédié.
  */
-import { Sliders, Volume2, Move, Trash2, Plus, Info, Layers, Palette, RotateCcw, Gauge, Sparkles } from 'lucide-react';
+import { Sliders, Volume2, Move, Trash2, Plus, Info, Layers, Palette, RotateCcw, Gauge, Sparkles, FlipHorizontal, FlipVertical, Wand2 } from 'lucide-react';
 import { useProjectStore } from '../../store/projectStore';
 import { formatDurationHuman, usToTimecode } from '../../core/time/timeUtils';
-import type { TransitionType } from '../../core/types/timeline';
+import type { TransitionType, VideoEffectPreset } from '../../core/types/timeline';
 import { TextEditor } from '../text/TextEditor';
 
 export function InspectorPanel() {
@@ -20,6 +20,9 @@ export function InspectorPanel() {
     updateClipGain,
     updateClipFade,
     updateClipPlacement,
+    toggleClipFlipHorizontal,
+    toggleClipFlipVertical,
+    updateClipEffects,
     updateClipColorAdjustments,
     resetClipColorAdjustments,
     updateClipSpeed,
@@ -95,6 +98,8 @@ export function InspectorPanel() {
     const rotationDeg = Math.round(
       selectedItem.spatial_placement?.rotation_degrees ?? 0,
     );
+    const flipH = !!selectedItem.spatial_placement?.flip_horizontal;
+    const flipV = !!selectedItem.spatial_placement?.flip_vertical;
 
     return (
       <aside className="inspector-panel">
@@ -326,6 +331,63 @@ export function InspectorPanel() {
                   }
                   className="kroma-slider"
                 />
+              </div>
+
+              {/* Miroir & Orientation (Étape 11) */}
+              <div className="inspector-control" style={{ marginTop: 12 }}>
+                <span style={{ fontSize: 11, color: '#aaa', display: 'block', marginBottom: 6 }}>
+                  Miroir & Symétrie
+                </span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="kroma-btn"
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      fontSize: 11,
+                      padding: '6px 8px',
+                      background: flipH ? '#6366f1' : '#222230',
+                      border: '1px solid ' + (flipH ? '#818cf8' : '#333345'),
+                      color: flipH ? '#fff' : '#ccc',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      fontWeight: flipH ? 600 : 400,
+                    }}
+                    onClick={() => toggleClipFlipHorizontal(selectedItem!.item_id)}
+                    title="Inverser horizontalement (Miroir gauche/droite)"
+                  >
+                    <FlipHorizontal size={13} />
+                    <span>Miroir H</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="kroma-btn"
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      fontSize: 11,
+                      padding: '6px 8px',
+                      background: flipV ? '#6366f1' : '#222230',
+                      border: '1px solid ' + (flipV ? '#818cf8' : '#333345'),
+                      color: flipV ? '#fff' : '#ccc',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      fontWeight: flipV ? 600 : 400,
+                    }}
+                    onClick={() => toggleClipFlipVertical(selectedItem!.item_id)}
+                    title="Inverser verticalement (Miroir haut/bas)"
+                  >
+                    <FlipVertical size={13} />
+                    <span>Miroir V</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -684,6 +746,93 @@ export function InspectorPanel() {
                   </>
                 );
               })()}
+            </div>
+          )}
+
+          {/* Filtres artistiques & Effets FX (Étape 11) */}
+          {parentLane.lane_type === 'visual' && (
+            <div className="inspector-section">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h4 className="inspector-section__title" style={{ margin: 0 }}>
+                  <Wand2 size={14} />
+                  <span>Filtres & Effets FX</span>
+                </h4>
+                {selectedItem.video_effects && selectedItem.video_effects.preset !== 'none' && (
+                  <button
+                    className="kroma-icon-btn"
+                    style={{ padding: '2px 6px', fontSize: '0.7rem' }}
+                    onClick={() => updateClipEffects(selectedItem!.item_id, undefined, true)}
+                    title="Retirer les effets FX"
+                  >
+                    <RotateCcw size={12} />
+                  </button>
+                )}
+              </div>
+
+              <div className="inspector-control" style={{ marginTop: 10 }}>
+                <label style={{ fontSize: 11, color: '#aaa' }}>Style de filtre :</label>
+                <select
+                  style={{
+                    width: '100%',
+                    marginTop: 6,
+                    background: '#191924',
+                    border: '1px solid #333345',
+                    borderRadius: 4,
+                    color: '#e0e0e0',
+                    fontSize: 12,
+                    padding: '6px 8px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                  value={selectedItem.video_effects?.preset || 'none'}
+                  onChange={(e) => {
+                    const preset = e.target.value as VideoEffectPreset;
+                    updateClipEffects(
+                      selectedItem!.item_id,
+                      { preset },
+                      true,
+                    );
+                  }}
+                >
+                  <option value="none">Aucun effet (Normal)</option>
+                  <option value="monochrome">🖤 Noir & Blanc (Monochrome)</option>
+                  <option value="sepia">📜 Sépia (Rétro / Vintage)</option>
+                  <option value="vintage">🎞️ Argentique (Cinéma 70s)</option>
+                  <option value="invert">🔮 Négatif (Inversion des couleurs)</option>
+                  <option value="vignette">🎬 Vignetage sombre (Focus cinéma)</option>
+                </select>
+              </div>
+
+              {/* Slider intensité vignetage si actif */}
+              {(selectedItem.video_effects?.preset === 'vignette' || (selectedItem.video_effects?.vignette_amount && selectedItem.video_effects.vignette_amount > 0)) && (
+                <div className="inspector-control" style={{ marginTop: 10 }}>
+                  <div className="inspector-control__label-row">
+                    <span>Obscurcissement des bords</span>
+                    <span className="inspector-control__value-badge">
+                      {Math.round((selectedItem.video_effects?.vignette_amount ?? 0.65) * 100)}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="1.0"
+                    step="0.05"
+                    value={selectedItem.video_effects?.vignette_amount ?? 0.65}
+                    onPointerDown={() => pushHistorySnapshot()}
+                    onChange={(e) =>
+                      updateClipEffects(
+                        selectedItem!.item_id,
+                        {
+                          preset: selectedItem.video_effects?.preset || 'vignette',
+                          vignette_amount: Number(e.target.value),
+                        },
+                        false,
+                      )
+                    }
+                    className="kroma-slider"
+                  />
+                </div>
+              )}
             </div>
           )}
 

@@ -20,6 +20,10 @@ export interface SpatialPlacement {
   rotation_degrees: number;
   /** Opacité de 0.0 (transparent) à 1.0 (opaque) */
   opacity_ratio: number;
+  /** Miroir horizontal (inversion gauche/droite) */
+  flip_horizontal?: boolean;
+  /** Miroir vertical (inversion haut/bas) */
+  flip_vertical?: boolean;
 }
 
 export interface TextLayerData {
@@ -70,6 +74,21 @@ export interface TransitionData {
   duration_us: number;
 }
 
+export type VideoEffectPreset =
+  | 'none'
+  | 'monochrome'
+  | 'sepia'
+  | 'vintage'
+  | 'invert'
+  | 'vignette';
+
+export interface VideoEffects {
+  /** Préréglage de filtre artistique/créatif */
+  preset?: VideoEffectPreset;
+  /** Intensité du vignettage de 0.0 (aucun) à 1.0 (sombre) */
+  vignette_amount?: number;
+}
+
 export interface TimelineItem {
   /** Identifiant unique du segment sur la timeline */
   item_id: string;
@@ -93,6 +112,8 @@ export interface TimelineItem {
   playback_speed?: number;
   /** Effet de transition visuelle à l'entrée du clip */
   transition_in?: TransitionData;
+  /** Effets vidéo artistiques et créatifs (Étape 11) */
+  video_effects?: VideoEffects;
   /** Gain audio individuel du clip (1.0 = volume original) */
   item_gain: number;
   /** Durée du fondu audio d'entrée en microsecondes (0 = pas de fondu) */

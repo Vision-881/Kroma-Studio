@@ -445,5 +445,67 @@ describe('useProjectStore', () => {
       item = useProjectStore.getState().project.sequence.lanes[0].items[0];
       expect(item.transition_in).toBeUndefined();
     });
+
+    it('toggleClipFlipHorizontal() et toggleClipFlipVertical() inversent l\'orientation avec Undo/Redo (Étape 11)', () => {
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      const laneId = useProjectStore.getState().project.sequence.lanes[0].lane_id;
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, laneId, 0);
+      const itemId = useProjectStore.getState().project.sequence.lanes[0].items[0].item_id;
+
+      // 1. Activer le miroir horizontal
+      useProjectStore.getState().toggleClipFlipHorizontal(itemId);
+      let item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.spatial_placement?.flip_horizontal).toBe(true);
+
+      // 2. Activer le miroir vertical
+      useProjectStore.getState().toggleClipFlipVertical(itemId);
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.spatial_placement?.flip_vertical).toBe(true);
+
+      // 3. Annuler (Undo) le miroir vertical
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.spatial_placement?.flip_vertical).toBeFalsy();
+      expect(item.spatial_placement?.flip_horizontal).toBe(true);
+
+      // 4. Annuler (Undo) le miroir horizontal
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.spatial_placement?.flip_horizontal).toBeFalsy();
+
+      // 5. Rétablir (Redo)
+      useProjectStore.getState().redo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.spatial_placement?.flip_horizontal).toBe(true);
+    });
+
+    it('updateClipEffects() applique des presets FX et du vignettage avec Undo/Redo (Étape 11)', () => {
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      const laneId = useProjectStore.getState().project.sequence.lanes[0].lane_id;
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, laneId, 0);
+      const itemId = useProjectStore.getState().project.sequence.lanes[0].items[0].item_id;
+
+      // 1. Appliquer le preset Monochrome
+      useProjectStore.getState().updateClipEffects(itemId, { preset: 'monochrome' });
+      let item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.video_effects?.preset).toBe('monochrome');
+
+      // 2. Changer pour Sépia et ajouter un vignettage
+      useProjectStore.getState().updateClipEffects(itemId, { preset: 'sepia', vignette_amount: 0.8 });
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.video_effects?.preset).toBe('sepia');
+      expect(item.video_effects?.vignette_amount).toBe(0.8);
+
+      // 3. Réinitialiser les effets (suppression)
+      useProjectStore.getState().updateClipEffects(itemId, undefined);
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.video_effects).toBeUndefined();
+
+      // 4. Undo rétablit les effets précédents
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.video_effects?.preset).toBe('sepia');
+      expect(item.video_effects?.vignette_amount).toBe(0.8);
+    });
   });
 });

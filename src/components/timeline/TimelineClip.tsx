@@ -219,6 +219,49 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
         </>
       )}
 
+      {/* Badge Effets FX / Miroir (Étape 11) */}
+      {(() => {
+        const hasFlip = item.spatial_placement?.flip_horizontal || item.spatial_placement?.flip_vertical;
+        const fxPreset = item.video_effects?.preset;
+        const hasFx = fxPreset && fxPreset !== 'none';
+        if (!hasFlip && !hasFx) return null;
+
+        let fxLabel = '';
+        if (hasFlip && hasFx) {
+          fxLabel = '🪞+🪄';
+        } else if (hasFlip) {
+          fxLabel = item.spatial_placement?.flip_horizontal && item.spatial_placement?.flip_vertical ? '🪞 H+V' : item.spatial_placement?.flip_horizontal ? '🪞 Miroir' : '↕️ Flip V';
+        } else {
+          fxLabel = fxPreset === 'monochrome' ? '🪄 N&B' : fxPreset === 'sepia' ? '🪄 Sépia' : fxPreset === 'vintage' ? '🪄 Rétro' : fxPreset === 'invert' ? '🪄 Négatif' : '🪄 Vignet.';
+        }
+
+        return (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 4,
+              right: 6,
+              zIndex: 4,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              padding: '1px 5px',
+              borderRadius: 3,
+              background: 'rgba(236, 72, 153, 0.85)',
+              color: '#ffffff',
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: '0.02em',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
+              pointerEvents: 'none',
+            }}
+            title={`Effets : ${hasFlip ? 'Miroir ' : ''}${hasFx ? fxPreset : ''}`}
+          >
+            <span>{fxLabel}</span>
+          </div>
+        );
+      })()}
+
       {/* Rendu de la forme d'onde audio (Waveform) */}
       {hasAudio && (
         <AudioWaveform

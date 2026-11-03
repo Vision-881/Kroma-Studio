@@ -318,6 +318,12 @@ export function buildFFmpegCommand(
           const alpha = Math.max(0, Math.min(1.0, placement.opacity_ratio)).toFixed(2);
           clipSubFilters.push(`format=rgba,colorchannelmixer=aa=${alpha}`);
         }
+        if (placement.flip_horizontal) {
+          clipSubFilters.push('hflip');
+        }
+        if (placement.flip_vertical) {
+          clipSubFilters.push('vflip');
+        }
       }
 
       // Filtres d'étalonnage et de couleur (Étape 8)
@@ -341,6 +347,24 @@ export function buildFFmpegCommand(
         }
         if (color.blur_px && color.blur_px > 0) {
           clipSubFilters.push(`gblur=sigma=${color.blur_px}`);
+        }
+      }
+
+      // Effets vidéo artistiques et créatifs (Étape 11)
+      const fx = item.video_effects;
+      if (fx) {
+        if (fx.preset === 'monochrome') {
+          clipSubFilters.push('hue=s=0');
+        } else if (fx.preset === 'sepia') {
+          clipSubFilters.push('colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131');
+        } else if (fx.preset === 'invert') {
+          clipSubFilters.push('negate');
+        } else if (fx.preset === 'vintage') {
+          clipSubFilters.push('curves=vintage');
+        }
+        if (fx.preset === 'vignette' || (fx.vignette_amount && fx.vignette_amount > 0)) {
+          const angle = fx.vignette_amount ? ((fx.vignette_amount * Math.PI) / 2).toFixed(4) : 'PI/4';
+          clipSubFilters.push(`vignette=${angle}`);
         }
       }
 

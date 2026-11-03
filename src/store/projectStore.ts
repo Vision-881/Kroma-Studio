@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import type { MediaAsset } from '../core/types/asset';
 import { type KromaProject, createDefaultProject } from '../core/types/project';
-import type { SpatialPlacement, TextLayerData, ColorAdjustments, TransitionData } from '../core/types/timeline';
+import type { SpatialPlacement, TextLayerData, ColorAdjustments, TransitionData, VideoEffects } from '../core/types/timeline';
 import {
   createItemFromAsset,
   createTextItem,
@@ -85,6 +85,9 @@ interface ProjectState {
   resetClipColorAdjustments: (itemId: string) => void;
   updateClipSpeed: (itemId: string, speed: number, commitHistory?: boolean) => void;
   updateClipTransition: (itemId: string, transition: TransitionData | undefined, commitHistory?: boolean) => void;
+  toggleClipFlipHorizontal: (itemId: string) => void;
+  toggleClipFlipVertical: (itemId: string) => void;
+  updateClipEffects: (itemId: string, effects: Partial<VideoEffects> | undefined, commitHistory?: boolean) => void;
   addTextItem: (text?: string, placementTimeUs?: number) => void;
   updateTextLayerData: (itemId: string, updates: Partial<TextLayerData>) => void;
 
@@ -653,6 +656,116 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
             ? { ...item, transition_in: transition && transition.transition_type !== 'none' ? transition : undefined }
             : item,
         ),
+      }));
+
+      return {
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  toggleClipFlipHorizontal: (itemId: string) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          const current = item.spatial_placement || {
+            offset_x_px: 0,
+            offset_y_px: 0,
+            zoom_factor_x: 1.0,
+            zoom_factor_y: 1.0,
+            rotation_degrees: 0,
+            opacity_ratio: 1.0,
+          };
+          return {
+            ...item,
+            spatial_placement: {
+              ...current,
+              flip_horizontal: !current.flip_horizontal,
+            },
+          };
+        }),
+      }));
+
+      return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  toggleClipFlipVertical: (itemId: string) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          const current = item.spatial_placement || {
+            offset_x_px: 0,
+            offset_y_px: 0,
+            zoom_factor_x: 1.0,
+            zoom_factor_y: 1.0,
+            rotation_degrees: 0,
+            opacity_ratio: 1.0,
+          };
+          return {
+            ...item,
+            spatial_placement: {
+              ...current,
+              flip_vertical: !current.flip_vertical,
+            },
+          };
+        }),
+      }));
+
+      return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  updateClipEffects: (itemId: string, effects: Partial<VideoEffects> | undefined, commitHistory: boolean = true) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          if (!effects || (effects.preset === 'none' && !effects.vignette_amount)) {
+            const { video_effects, ...rest } = item;
+            return rest;
+          }
+          return {
+            ...item,
+            video_effects: {
+              ...item.video_effects,
+              ...effects,
+            },
+          };
+        }),
       }));
 
       return {

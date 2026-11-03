@@ -84,8 +84,10 @@ export function PreviewMonitor() {
           ctx.rotate((placement.rotation_degrees * Math.PI) / 180);
         }
 
-        // Échelle / Zoom
-        ctx.scale(placement.zoom_factor_x, placement.zoom_factor_y);
+        // Échelle / Zoom et Miroir Horizontal / Vertical (Étape 11)
+        const scaleX = placement.zoom_factor_x * (placement.flip_horizontal ? -1 : 1);
+        const scaleY = placement.zoom_factor_y * (placement.flip_vertical ? -1 : 1);
+        ctx.scale(scaleX, scaleY);
 
         // Opacité de base combinée avec la transition
         let baseAlpha = Math.max(0, Math.min(1, placement.opacity_ratio));
@@ -108,7 +110,8 @@ export function PreviewMonitor() {
 
         ctx.globalAlpha = baseAlpha;
 
-        // Filtres d'étalonnage et de couleur (Étape 8)
+        // Filtres d'étalonnage et de couleur (Étape 8) combinés avec Effets FX (Étape 11)
+        const filterParts: string[] = [];
         if (item.color_adjustments) {
           const adj = item.color_adjustments;
           const b = Math.max(0, 1 + (adj.brightness || 0));
@@ -116,10 +119,23 @@ export function PreviewMonitor() {
           const s = Math.max(0, 1 + (adj.saturation || 0));
           const h = adj.hue_degrees || 0;
           const blur = Math.max(0, adj.blur_px || 0);
-          ctx.filter = `brightness(${b}) contrast(${c}) saturate(${s}) hue-rotate(${h}deg)${blur > 0 ? ` blur(${blur}px)` : ''}`;
-        } else {
-          ctx.filter = 'none';
+          filterParts.push(`brightness(${b}) contrast(${c}) saturate(${s}) hue-rotate(${h}deg)${blur > 0 ? ` blur(${blur}px)` : ''}`);
         }
+
+        if (item.video_effects?.preset) {
+          const preset = item.video_effects.preset;
+          if (preset === 'monochrome') {
+            filterParts.push('grayscale(100%)');
+          } else if (preset === 'sepia') {
+            filterParts.push('sepia(90%) contrast(110%)');
+          } else if (preset === 'invert') {
+            filterParts.push('invert(100%)');
+          } else if (preset === 'vintage') {
+            filterParts.push('sepia(45%) contrast(115%) brightness(95%)');
+          }
+        }
+
+        ctx.filter = filterParts.length > 0 ? filterParts.join(' ') : 'none';
 
         // Rendu Vidéo ou Image
         if (asset) {
@@ -169,6 +185,18 @@ export function PreviewMonitor() {
             } else if (transitionType === 'dip_to_white' && transitionProgress < 1.0) {
               const whiteAlpha = 1.0 - transitionProgress;
               ctx.fillStyle = `rgba(255, 255, 255, ${whiteAlpha.toFixed(3)})`;
+              ctx.fillRect(-drawW / 2, -drawH / 2, drawW, drawH);
+            }
+
+            // Effet Vignettage cinéma (Étape 11)
+            const hasVignette = item.video_effects?.preset === 'vignette' || (item.video_effects?.vignette_amount && item.video_effects.vignette_amount > 0);
+            if (hasVignette) {
+              const vigAmount = item.video_effects?.vignette_amount ?? 0.65;
+              const radius = Math.max(drawW, drawH) * 0.7;
+              const vignetteGrad = ctx.createRadialGradient(0, 0, radius * 0.35, 0, 0, radius);
+              vignetteGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+              vignetteGrad.addColorStop(1, `rgba(0, 0, 0, ${vigAmount.toFixed(2)})`);
+              ctx.fillStyle = vignetteGrad;
               ctx.fillRect(-drawW / 2, -drawH / 2, drawW, drawH);
             }
           }
