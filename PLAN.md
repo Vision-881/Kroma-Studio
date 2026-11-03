@@ -2,7 +2,7 @@
 
 Ce document consigne l'avancement du projet, la feuille de route du MVP, les étapes réalisées, en cours et à venir, ainsi que les décisions d'architecture prises au fil du développement.
 
-Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 9 : Vitesse Variable & Speed Ramping)
+Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 10 : Transitions Visuelles entre clips)
 
 ---
 
@@ -20,6 +20,7 @@ Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 9 : Vitesse Variable & S
 | **Étape 7** | Export MP4 via FFmpeg | ✅ Terminé | Génération de commande CLI FFmpeg, graphe filtre complexe (`trim`, `contain/pad`, `overlay`, `drawtext`, `adelay`, `afade`, `amix`), modal `ExportDialog`, scripts autonomes `.bat` et `.sh`, raccourci `Ctrl+E`, 52 tests unitaires. |
 | **Étape 8** | Étalonnage Couleur & Réglages Visuels | ✅ Terminé | Section Inspecteur (Luminosité, Contraste, Saturation, Teinte, Flou), aperçu Canvas 2D temps réel 60 FPS (`ctx.filter`), export FFmpeg (`eq`, `hue`, `gblur`), actions Zustand avec Undo/Redo, 53 tests unitaires. |
 | **Étape 9** | Vitesse Variable & Ralenti / Accéléré | ✅ Terminé | Vitesse de lecture par clip (0.25× à 4.0×), calcul temporel source exact, prévisualisation fluide via `video.playbackRate`/`audio.playbackRate`, adaptation d'horloge matérielle, filtres FFmpeg `setpts` et `atempo` chaîné, section Inspecteur, 57 tests unitaires. |
+| **Étape 10** | Transitions Visuelles entre clips | ✅ Terminé | Transitions d'entrée vidéo (Fondu enchaîné / crossfade, Fondu au noir / fade_to_black, Flash blanc / dip_to_white, Balayage gauche / wipe_left), durée réglable (0.1s à 5.0s), badge violet sur la timeline, rendu Canvas 2D temps réel 60 FPS, export FFmpeg avec filtre `fade` et alpha overlay, 60 tests unitaires. |
 
 ---
 
@@ -70,6 +71,10 @@ Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 9 : Vitesse Variable & S
 ### 2.11 Étalement temporel continu et chaînage de vitesse FFmpeg (setpts & atempo)
 - **Décision :** La vitesse variable d'un clip (`playback_speed`, de 0.25× à 4.0×) est appliquée de manière continue : la durée du segment sur la timeline (`play_duration_us`) reste la durée perçue par l'utilisateur, tandis que la quantité de média source consommée est proportionnelle à la vitesse ($\Delta t_{\text{source}} = \Delta t_{\text{timeline}} \times \text{speed}$). Côté export FFmpeg, la vitesse vidéo est ajustée via `trim` de durée source suivi de `setpts=(PTS-STARTPTS)/speed+offset/TB`, et l'audio est adapté via découpage source puis chaînage décomposé du filtre `atempo` (en bornant chaque palier entre 0.5 et 2.0).
 - **Justification :** Évite toute désynchronisation audio/vidéo lors de l'accélération ou du ralenti, conserve une granularité temporelle précise en microsecondes et surmonte la limitation stricte du filtre `atempo` de FFmpeg qui n'accepte nativement que les facteurs entre 0.5 et 2.0.
+
+### 2.12 Transitions visuelles non-destructives et composition alpha multi-formats
+- **Décision :** La transition est modélisée par `transition_in` sur le clip entrant (`transition_type` et `duration_us`). Pendant la fenêtre de transition $[T_{\text{in}}, T_{\text{in}} + \Delta_{\text{trans}}[$, le lecteur Canvas 2D calcule le ratio de progression $p \in [0, 1]$ et compose la transformation d'opacité (`crossfade`), le masque géométrique dynamique (`wipe_left` via `ctx.rect` et `ctx.clip()`), ou les voiles colorés dégressifs (`fade_to_black`, `dip_to_white`). Côté export FFmpeg, le filtre `fade=t=in:st=...:d=...` est appliqué avec `alpha=1` ou `color=black`/`color=white` sur le flux RGBA/YUV découpé avant son insertion dans le canevas de base.
+- **Justification :** Permet des transitions fluides sans nécessiter de chevauchement complexe de pistes ou de découpage destructif des clips voisins, tout en garantissant une fidélité visuelle parfaite entre l'aperçu dynamique à 60 FPS et le rendu final FFmpeg.
 
 ---
 
@@ -149,4 +154,17 @@ Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 9 : Vitesse Variable & S
 - **Pipeline d'exportation FFmpeg :** Calcul dynamique de la durée de source découpée (`durationSec * speed`), accélération/ralenti vidéo via `setpts=(PTS-STARTPTS)/speed+offset/TB`, et chaînage audio transparent via la nouvelle fonction utilitaire exportée `buildAtempoFilter()` (décomposition sécurisée en multi-passes `atempo=2.0` ou `atempo=0.5`).
 - **Panneau Inspecteur :** Nouvelle section « Vitesse de lecture » avec slider continu 0.25× à 4.0×, affichage dynamique de la vitesse avec mise en surbrillance ambre et bouton de réinitialisation instantanée « 1× » (icône `Gauge` + `RotateCcw`).
 - **Tests unitaires :** 4 nouveaux tests unitaires automatisés ajoutés dans `playbackEngine.test.ts`, `projectStore.test.ts` et `ffmpegCommandBuilder.test.ts`. Suite complète portée à **57 tests unitaires validés (100% succès)**.
+
+### Étape 10 — Transitions Visuelles entre clips (03/11/2026)
+- **Modèle de données :** Définition de `TransitionType` (`none`, `crossfade`, `fade_to_black`, `dip_to_white`, `wipe_left`), de l'interface `TransitionData` (`transition_type`, `duration_us`) et ajout du champ optionnel `transition_in?: TransitionData` sur `TimelineItem` dans `src/core/types/timeline.ts`.
+- **Gestion d'état Zustand & Historique :** Action `updateClipTransition(itemId, transition, commitHistory)` dans `src/store/projectStore.ts` avec prise en charge du lissage de glisser via `pushHistorySnapshot()` et compatibilité totale Undo/Redo (`Ctrl+Z` / `Ctrl+Y`).
+- **Rendu temps réel 60 FPS (Canvas 2D) :** Implémentation du moteur de transition dans `PreviewMonitor.tsx` :
+  - *Fondu enchaîné (Crossfade) :* Rampe linéaire de transparence `baseAlpha *= transitionProgress`.
+  - *Balayage gauche (Wipe left) :* Découpe rectangulaire dynamique avec `ctx.beginPath()`, `ctx.rect()` et `ctx.clip()` progressant de droite à gauche.
+  - *Fondu au noir (Fade to black) :* Voile d'obscurcissement noir dégressif superposé avec opacité $1 - p$.
+  - *Flash blanc (Dip to white) :* Flash lumineux blanc dégressif superposé avec opacité $1 - p$.
+- **Pipeline d'exportation FFmpeg :** Intégration déclarative dans `ffmpegCommandBuilder.ts` générant automatiquement les filtres de fondu calibrés à la milliseconde près : `format=rgba,fade=t=in:st=...:d=...:alpha=1` pour le fondu enchaîné et le balayage, `fade=...:color=black` pour le fondu au noir, et `fade=...:color=white` pour le fondu au blanc.
+- **Interface Inspecteur CapCut :** Section « Transition d'entrée » dans `InspectorPanel.tsx` avec sélecteur d'effets visuels stylisé (icônes `Sparkles`, `RotateCcw`), slider de durée interactif (0.2s à 3.0s) et réinitialisation rapide.
+- **Visualisation Timeline :** Indicateur visuel sur les clips de la timeline (`TimelineClip.tsx`) composé d'un dégradé violet d'entrée et d'un badge distinctif (`✨ Fondu`, `✨ Noir`, `✨ Flash`, `✨ Wipe`).
+- **Tests unitaires :** Nouveaux tests automatisés dans `projectStore.test.ts` et `ffmpegCommandBuilder.test.ts`. Suite complète portée à **60 tests unitaires validés (100% succès)**.
 

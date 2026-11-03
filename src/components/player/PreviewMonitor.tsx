@@ -87,8 +87,26 @@ export function PreviewMonitor() {
         // Échelle / Zoom
         ctx.scale(placement.zoom_factor_x, placement.zoom_factor_y);
 
-        // Opacité
-        ctx.globalAlpha = Math.max(0, Math.min(1, placement.opacity_ratio));
+        // Opacité de base combinée avec la transition
+        let baseAlpha = Math.max(0, Math.min(1, placement.opacity_ratio));
+
+        // Transition visuelle d'entrée (Étape 10)
+        let transitionProgress = 1.0;
+        let transitionType = 'none';
+        if (item.transition_in && item.transition_in.transition_type !== 'none') {
+          const transDur = item.transition_in.duration_us || 1_000_000;
+          const timeSincePlacement = currentTimeUs - item.placement_time_us;
+          if (timeSincePlacement >= 0 && timeSincePlacement < transDur) {
+            transitionProgress = Math.max(0, Math.min(1.0, timeSincePlacement / transDur));
+            transitionType = item.transition_in.transition_type;
+          }
+        }
+
+        if (transitionType === 'crossfade') {
+          baseAlpha *= transitionProgress;
+        }
+
+        ctx.globalAlpha = baseAlpha;
 
         // Filtres d'étalonnage et de couleur (Étape 8)
         if (item.color_adjustments) {
@@ -129,7 +147,30 @@ export function PreviewMonitor() {
             const drawW = srcWidth * scale;
             const drawH = srcHeight * scale;
 
+            // Masque de balayage (Wipe)
+            if (transitionType === 'wipe_left' && transitionProgress < 1.0) {
+              ctx.beginPath();
+              ctx.rect(
+                -drawW / 2 + drawW * (1.0 - transitionProgress),
+                -drawH / 2,
+                drawW * transitionProgress,
+                drawH,
+              );
+              ctx.clip();
+            }
+
             ctx.drawImage(sourceElement, -drawW / 2, -drawH / 2, drawW, drawH);
+
+            // Voiles pour fondu au noir et flash blanc
+            if (transitionType === 'fade_to_black' && transitionProgress < 1.0) {
+              const blackAlpha = 1.0 - transitionProgress;
+              ctx.fillStyle = `rgba(0, 0, 0, ${blackAlpha.toFixed(3)})`;
+              ctx.fillRect(-drawW / 2, -drawH / 2, drawW, drawH);
+            } else if (transitionType === 'dip_to_white' && transitionProgress < 1.0) {
+              const whiteAlpha = 1.0 - transitionProgress;
+              ctx.fillStyle = `rgba(255, 255, 255, ${whiteAlpha.toFixed(3)})`;
+              ctx.fillRect(-drawW / 2, -drawH / 2, drawW, drawH);
+            }
           }
         }
 
@@ -163,7 +204,7 @@ export function PreviewMonitor() {
         ctx.restore();
       }
     },
-    [canvasWidth, canvasHeight, project.timeline_canvas.background_color_hex],
+    [canvasWidth, canvasHeight, project.timeline_canvas.background_color_hex, currentTimeUs],
   );
 
   // ── Synchronisation des médias et gestion du son ──────────────────────────

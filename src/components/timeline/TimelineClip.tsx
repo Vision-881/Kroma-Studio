@@ -163,6 +163,62 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
         />
       )}
 
+      {/* Zone visuelle et badge de transition d'entrée (Étape 10) */}
+      {item.transition_in && item.transition_in.transition_type !== 'none' && (
+        <>
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: `${Math.min(
+                widthPx,
+                Math.max(16, ((item.transition_in.duration_us || 1_000_000) / 1_000_000) * zoomPixelsPerSecond),
+              )}px`,
+              background: 'linear-gradient(90deg, rgba(168, 85, 247, 0.4) 0%, rgba(168, 85, 247, 0.05) 100%)',
+              borderRight: '1px dashed rgba(168, 85, 247, 0.7)',
+              pointerEvents: 'none',
+              zIndex: 2,
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              left: 6,
+              top: 4,
+              zIndex: 4,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              padding: '1px 5px',
+              borderRadius: 3,
+              background: 'rgba(168, 85, 247, 0.85)',
+              color: '#ffffff',
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: '0.02em',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
+              pointerEvents: 'none',
+            }}
+            title={`Transition : ${item.transition_in.transition_type} (${(
+              (item.transition_in.duration_us || 1_000_000) / 1_000_000
+            ).toFixed(1)}s)`}
+          >
+            <span>✨</span>
+            <span>
+              {item.transition_in.transition_type === 'crossfade'
+                ? 'Fondu'
+                : item.transition_in.transition_type === 'fade_to_black'
+                ? 'Noir'
+                : item.transition_in.transition_type === 'dip_to_white'
+                ? 'Flash'
+                : 'Wipe'}
+            </span>
+          </div>
+        </>
+      )}
+
       {/* Rendu de la forme d'onde audio (Waveform) */}
       {hasAudio && (
         <AudioWaveform

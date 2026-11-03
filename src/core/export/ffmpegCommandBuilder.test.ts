@@ -320,6 +320,70 @@ describe('ffmpegCommandBuilder', () => {
     });
   });
 
+  describe('Transitions visuelles entre clips (Étape 10)', () => {
+    it('génère les filtres FFmpeg de fondu appropriés pour chaque type de transition', () => {
+      const proj = createDefaultProject('Projet Transitions');
+      const assetVid: MediaAsset = {
+        asset_id: 'vid-trans',
+        display_name: 'clip.mp4',
+        media_kind: 'video',
+        source_path: 'C:/clip.mp4',
+        duration_us: 10_000_000,
+        native_width: 1920,
+        native_height: 1080,
+        detected_fps: 30,
+        audio_channels: 2,
+        audio_sample_rate_hz: 48000,
+      };
+      proj.asset_catalog = [assetVid];
+
+      // Test 1: Fondu enchaîné (crossfade)
+      const itemCrossfade: TimelineItem = {
+        item_id: 'item-cf',
+        referenced_asset_id: 'vid-trans',
+        placement_time_us: 2_000_000, // 2s
+        play_duration_us: 5_000_000,
+        source_in_point_us: 0,
+        source_duration_us: 5_000_000,
+        item_gain: 1.0,
+        transition_in: {
+          transition_type: 'crossfade',
+          duration_us: 1_500_000, // 1.5s
+        },
+      };
+
+      proj.sequence.lanes[0].items = [itemCrossfade];
+      proj.sequence.total_length_us = 7_000_000;
+
+      let result = buildFFmpegCommand(proj);
+      expect(result.filterComplex).toContain('format=rgba,fade=t=in:st=2.000:d=1.500:alpha=1');
+
+      // Test 2: Fondu au noir (fade_to_black)
+      itemCrossfade.transition_in = {
+        transition_type: 'fade_to_black',
+        duration_us: 1_000_000,
+      };
+      result = buildFFmpegCommand(proj);
+      expect(result.filterComplex).toContain('fade=t=in:st=2.000:d=1.000:color=black');
+
+      // Test 3: Fondu au blanc (dip_to_white)
+      itemCrossfade.transition_in = {
+        transition_type: 'dip_to_white',
+        duration_us: 800_000,
+      };
+      result = buildFFmpegCommand(proj);
+      expect(result.filterComplex).toContain('fade=t=in:st=2.000:d=0.800:color=white');
+
+      // Test 4: Balayage gauche (wipe_left)
+      itemCrossfade.transition_in = {
+        transition_type: 'wipe_left',
+        duration_us: 1_200_000,
+      };
+      result = buildFFmpegCommand(proj);
+      expect(result.filterComplex).toContain('format=rgba,fade=t=in:st=2.000:d=1.200:alpha=1');
+    });
+  });
+
   describe('Isolation Solo et Mute pour l\'audio', () => {
     it('ignore les pistes rendues silencieuses par le mode Solo ou Mute', () => {
       const proj = createDefaultProject('Projet Audio Mute');

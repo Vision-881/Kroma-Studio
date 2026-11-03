@@ -403,5 +403,47 @@ describe('useProjectStore', () => {
       item = useProjectStore.getState().project.sequence.lanes[0].items[0];
       expect(item.playback_speed).toBeUndefined(); // Vitesse originale par défaut (1.0x)
     });
+
+    it('updateClipTransition() configure, modifie et supprime les transitions avec Undo/Redo', () => {
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      const laneId = useProjectStore.getState().project.sequence.lanes[0].lane_id;
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, laneId, 0);
+      const itemId = useProjectStore.getState().project.sequence.lanes[0].items[0].item_id;
+
+      // 1. Ajout d'une transition enchaînée (crossfade de 1.5s)
+      useProjectStore.getState().updateClipTransition(itemId, {
+        transition_type: 'crossfade',
+        duration_us: 1_500_000,
+      });
+
+      let item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.transition_in).toBeDefined();
+      expect(item.transition_in?.transition_type).toBe('crossfade');
+      expect(item.transition_in?.duration_us).toBe(1_500_000);
+
+      // 2. Changement de transition (fondu au noir de 2s)
+      useProjectStore.getState().updateClipTransition(itemId, {
+        transition_type: 'fade_to_black',
+        duration_us: 2_000_000,
+      });
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.transition_in?.transition_type).toBe('fade_to_black');
+      expect(item.transition_in?.duration_us).toBe(2_000_000);
+
+      // 3. Suppression de la transition
+      useProjectStore.getState().updateClipTransition(itemId, undefined);
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.transition_in).toBeUndefined();
+
+      // 4. Undo rétablit le fondu au noir
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.transition_in?.transition_type).toBe('fade_to_black');
+
+      // 5. Redo rétablit la suppression
+      useProjectStore.getState().redo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.transition_in).toBeUndefined();
+    });
   });
 });

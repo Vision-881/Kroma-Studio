@@ -161,7 +161,22 @@ L'espace de travail est structuré en 4 zones complémentaires :
 3. Pendant la lecture d'aperçu (`Espace`), le moteur adapte la fréquence de lecture native (`playbackRate`) en temps réel sans saccade.
 4. Lors de l'exportation MP4 (`Ctrl + E`), FFmpeg applique automatiquement les filtres temporels `setpts` pour la vidéo et le chaînage intelligent `atempo` pour conserver la cohérence sonore.
 
-### Étape 12 : Annuler, Rétablir et Sauvegarder/Ouvrir votre projet
+### Étape 12 : Ajouter des transitions visuelles entre les clips
+1. Sélectionnez un clip vidéo ou image sur la timeline.
+2. Dans le panneau **Inspecteur** à droite, repérez la section **« Transition d'entrée »** (icône étincelles `✨`) :
+   - **Type d'effet :**
+     - **Aucune :** Le clip démarre sans effet de transition particulier.
+     - **Fondu enchaîné (Crossfade) :** Apparition progressive et douce en transparence au-dessus du fond ou du clip précédent.
+     - **Fondu au noir (Fade to black) :** Le clip commence entièrement masqué par un voile noir et s'illumine progressivement.
+     - **Flash blanc (Dip to white) :** Éclat lumineux blanc intense qui s'estompe pour révéler la scène.
+     - **Balayage gauche (Wipe left) :** Volet géométrique horizontal glissant de la droite vers la gauche.
+   - **Durée de la transition :** Ajustez le curseur entre **0.2 s et 3.0 s** selon le dynamisme souhaité pour votre scène.
+   - **Badge visuel sur la timeline :** Le clip arbore immédiatement une zone violette dégradée ainsi qu'un badge informatif (`✨ Fondu`, `✨ Noir`, `✨ Flash`, `✨ Wipe`).
+3. Appuyez sur `Espace` pour visualiser la transition en direct sur le Canvas composite 16:9 à 60 images par seconde.
+4. Lors de l'exportation MP4 (`Ctrl + E`), FFmpeg intègre nativement les filtres d'alpha et de couleur `fade=t=in:st=...:d=...` pour un rendu identique à la prévisualisation.
+5. Cliquez sur l'icône de réinitialisation circulaire pour retirer la transition à tout moment.
+
+### Étape 13 : Annuler, Rétablir et Sauvegarder/Ouvrir votre projet
 1. **Annuler une erreur (Undo) :**
    - Appuyez sur `Ctrl + Z` sur votre clavier (ou cliquez sur le bouton de flèche retour dans l'en-tête ou la timeline).
    - Vos clips découpés, déplacés ou modifiés reviennent instantanément à leur état antérieur.
@@ -175,7 +190,7 @@ L'espace de travail est structuré en 4 zones complémentaires :
 5. **Ouvrir un projet existant :**
    - Cliquez sur l'icône de dossier **Ouvrir** dans la barre supérieure et sélectionnez votre fichier `.kproj`. Votre montage complet, vos pistes, vos textes et vos réglages sont restaurés instantanément !
 
-### Étape 13 : Exporter la vidéo finale en MP4 via FFmpeg
+### Étape 14 : Exporter la vidéo finale en MP4 via FFmpeg
 1. Cliquez sur le bouton vert **« Exporter »** dans l'en-tête supérieur droit, ou appuyez sur `Ctrl + E`.
 2. La boîte de dialogue d'exportation professionnelle s'ouvre :
    - **Préréglage de résolution :** Choisissez entre **1080p Full HD (60 FPS)**, **720p HD**, **4K Ultra HD** ou **Personnalisé** (dimensions et cadence sur mesure).
@@ -243,7 +258,7 @@ Un flyer de présentation complet au format standard A4 (210×297 mm) prêt à i
 
 ## 8. Bilan du MVP & Perspectives
 
-Avec l'achèvement de l'**Étape 7** et des extensions de la **Phase 2**, les 9 étapes de Kroma Studio sont désormais **100 % opérationnelles et validées par la suite de 57 tests automatisés** :
+Avec l'achèvement de l'**Étape 7** et des extensions de la **Phase 2**, les 10 étapes de Kroma Studio sont désormais **100 % opérationnelles et validées par la suite de 60 tests automatisés** :
 - ✅ **Étape 0 :** Socle technique Vite + React 19 + TypeScript strict.
 - ✅ **Étape 1 :** Import de médias & Médiathèque avec drag & drop et vignettes.
 - ✅ **Étape 2 :** Timeline multipiste avec ergonomie 4 quadrants style CapCut.
@@ -254,5 +269,6 @@ Avec l'achèvement de l'**Étape 7** et des extensions de la **Phase 2**, les 9 
 - ✅ **Étape 7 :** Pipeline de transcodage et exportation MP4 via FFmpeg CLI.
 - ✅ **Étape 8 :** Étalonnage couleur & filtres d'image (Canvas 2D + FFmpeg eq/hue/gblur).
 - ✅ **Étape 9 :** Vitesse variable (ralenti/accéléré 0.25× à 4.0×, synchro playbackRate et FFmpeg setpts/atempo).
+- ✅ **Étape 10 :** Transitions visuelles entre clips (fondu enchaîné, fondu au noir, flash blanc, balayage gauche, Canvas 2D + FFmpeg fade).
 
-Perspectives pour les versions ultérieures : transitions visuelles (fondu enchaîné / dissolve), gestion des images-clés (keyframes) d'animation, et intégration en application de bureau native via Tauri 2.
+Perspectives pour les versions ultérieures : gestion des images-clés (keyframes) d'animation, effets vidéo créatifs (chromakey/fond vert, glitch, tremblement), et intégration en application de bureau native via Tauri 2.

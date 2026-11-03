@@ -2,7 +2,7 @@
 
 Ce document détaille l'organisation structurelle, le découpage en modules et le format de fichier projet de l'éditeur vidéo **Kroma Studio**.
 
-Dernière mise à jour : 03/11/2026 (Étape 9 — Vitesse Variable & Speed Ramping)
+Dernière mise à jour : 03/11/2026 (Étape 10 — Transitions Visuelles entre clips)
 
 ---
 
@@ -54,7 +54,7 @@ L'application est conçue selon une séparation stricte des responsabilités ent
 ### 1.1 `src/core/types`
 Définit les interfaces TypeScript canoniques de l'application :
 - `asset.ts` : `MediaAsset`, `MediaKind` ('video' | 'audio' | 'image'). Représente les fichiers multimédias importés.
-- `timeline.ts` : `TimelineSequence`, `TimelineLane`, `TimelineItem`, `SpatialPlacement`, `TextLayerData`. Décrit l'agencement temporel et spatial des pistes et des segments de clips, y compris les durées de fondus d'entrée/sortie (`fade_in_duration_us`, `fade_out_duration_us`) et l'état solo (`is_solo`).
+- `timeline.ts` : `TimelineSequence`, `TimelineLane`, `TimelineItem`, `SpatialPlacement`, `TextLayerData`, `ColorAdjustments`, `TransitionType`, `TransitionData`. Décrit l'agencement temporel et spatial des pistes et des segments de clips, y compris les durées de fondus sonores (`fade_in_duration_us`, `fade_out_duration_us`), l'état solo (`is_solo`), la vitesse de lecture (`playback_speed`) et les transitions visuelles d'entrée (`transition_in`).
 - `project.ts` : `KromaProject`, `TimelineCanvasSettings`, fonction utilitaire `createDefaultProject()`.
 
 ### 1.2 `src/core/playback`
@@ -75,14 +75,14 @@ Composants React modulaires organisés selon l'agencement CapCut :
 - `components/layout/Header.tsx` : barre supérieure avec boutons Nouveau, Ouvrir, Enregistrer (`.kproj`), Annuler / Rétablir, renommage du projet et bouton Export.
 - `components/player/PreviewMonitor.tsx` : écran `<canvas>` composite 16:9 haute performance avec contrôle du volume dynamique en temps réel et raccourcis claviers universels (`Espace`, `V`, `B`, `Ctrl+B`, `Ctrl+Z`, `Ctrl+Y`, `Ctrl+S`, `Ctrl+E`).
 - `components/media/MediaBin.tsx` : médiathèque avec onglets, recherche et drag & drop vers les pistes.
-- `components/inspector/InspectorPanel.tsx` : panneau de propriétés contextuel avec section Audio complète (volume, fondus Fade In/Out avec enveloppe), section Vitesse de lecture (ralenti/accéléré 0.25× à 4.0× avec réinitialisation 1×) et section Réglages & Étalonnage Couleur (luminosité, contraste, saturation, teinte, flou).
+- `components/inspector/InspectorPanel.tsx` : panneau de propriétés contextuel avec section Audio complète (volume, fondus Fade In/Out avec enveloppe), section Vitesse de lecture (ralenti/accéléré 0.25× à 4.0× avec réinitialisation 1×), section Réglages & Étalonnage Couleur (luminosité, contraste, saturation, teinte, flou) et section Transition d'entrée (fondu enchaîné, fondu au noir, flash blanc, balayage gauche avec réglage de durée 0.1s à 5.0s).
 - `components/audio/AudioWaveform.tsx` : générateur vectoriel haute performance de formes d'ondes audio harmoniques.
-- `components/timeline/` : suite complète de timeline (barre d'outils avec Annuler/Rétablir et bouton **Texte**, réglette graduée, tête de lecture, en-têtes avec Solo [S] et volume de piste, et clips avec visualisations de fondus).
+- `components/timeline/` : suite complète de timeline (barre d'outils avec Annuler/Rétablir et bouton **Texte**, réglette graduée, tête de lecture, en-têtes avec Solo [S] et volume de piste, et clips avec visualisations de fondus et badges de transitions violettes).
 - `components/export/ExportDialog.tsx` *(Étape 7)* : modal d'exportation avec préréglages (1080p, 720p, 4K, personnalisé), réglages fins d'encodage H.264/HEVC, aperçu de commandes CLI et téléchargement de scripts `.bat` et `.sh`.
 
 ### 1.6 `src/core/export` *(Étape 7)*
 Moteur d'exportation et compilation du graphe de filtrage FFmpeg :
-- `ffmpegCommandBuilder.ts` : analyse la structure complète du projet (`KromaProject`), génère les filtres de trim, contain/pad, overlays multi-pistes, calques `drawtext`, mixage audio `amix` avec `adelay` et `afade`, assemble la commande CLI complète et produit des scripts exécutables Windows (`.bat`) et Unix (`.sh`).
+- `ffmpegCommandBuilder.ts` : analyse la structure complète du projet (`KromaProject`), génère les filtres de trim, contain/pad, transformations géométriques 2D, filtres d'étalonnage (`eq`, `hue`, `gblur`), vitesses de lecture (`setpts`, `atempo`), transitions d'entrée (`fade`), overlays multi-pistes, calques `drawtext`, mixage audio `amix` avec `adelay` et `afade`, assemble la commande CLI complète et produit des scripts exécutables Windows (`.bat`) et Unix (`.sh`).
 
 ---
 
@@ -118,6 +118,9 @@ Moteur d'exportation et compilation du graphe de filtrage FFmpeg :
 
 9. **Vitesse variable continue & Décomposition multi-passes FFmpeg :**
    Le réglage de vitesse de lecture d'un clip (`playback_speed`, 0.25× à 4.0×) ajuste de manière continue le temps source sans modifier sa durée assignée sur la timeline. Pendant la lecture en temps réel, les éléments `<video>` et `<audio>` voient leur propriété `playbackRate` synchronisée instantanément avec compensation d'horloge matérielle. À l'exportation FFmpeg, la vitesse vidéo est redimensionnée par `trim` et `setpts=(PTS-STARTPTS)/speed+offset/TB`, et l'audio est étiré ou compressé via une décomposition multi-passes sécurisée du filtre `atempo` (en enchaînant des paliers bornés à $[0.5, 2.0]$).
+
+10. **Transitions visuelles non-destructives & Composition multi-formats :**
+    Les transitions entre clips (fondu enchaîné, fondu au noir, flash blanc, balayage gauche) sont déclarées sur le clip entrant (`transition_in`), permettant une interpolation continue sans nécessiter d'empilement complexe de pistes. Le moteur Canvas 2D applique les masques de découpe géométrique (`ctx.clip()`) ou les rampes de transparence en temps réel à 60 FPS, et le générateur FFmpeg compile ces effets en filtres `fade` RGBA avec activation d'opacité ou voiles colorés.
 
 ---
 

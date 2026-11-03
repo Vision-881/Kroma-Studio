@@ -344,6 +344,25 @@ export function buildFFmpegCommand(
         }
       }
 
+      // Transition d'entrée (Étape 10)
+      if (item.transition_in && item.transition_in.transition_type !== 'none') {
+        const transSec = usToSeconds(item.transition_in.duration_us || 1_000_000);
+        const transType = item.transition_in.transition_type;
+        if (transType === 'crossfade' || transType === 'wipe_left') {
+          clipSubFilters.push(
+            `format=rgba,fade=t=in:st=${startSec.toFixed(3)}:d=${transSec.toFixed(3)}:alpha=1`,
+          );
+        } else if (transType === 'fade_to_black') {
+          clipSubFilters.push(
+            `fade=t=in:st=${startSec.toFixed(3)}:d=${transSec.toFixed(3)}:color=black`,
+          );
+        } else if (transType === 'dip_to_white') {
+          clipSubFilters.push(
+            `fade=t=in:st=${startSec.toFixed(3)}:d=${transSec.toFixed(3)}:color=white`,
+          );
+        }
+      }
+
       const clipFilteredTag = `[v_clip_${videoStep}]`;
       filterParts.push(`${streamLabel}${clipSubFilters.join(',')}${clipFilteredTag}`);
 

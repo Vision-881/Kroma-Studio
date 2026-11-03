@@ -61,6 +61,15 @@ export interface ColorAdjustments {
   blur_px: number;
 }
 
+export type TransitionType = 'none' | 'crossfade' | 'fade_to_black' | 'dip_to_white' | 'wipe_left';
+
+export interface TransitionData {
+  /** Type d'effet de transition */
+  transition_type: TransitionType;
+  /** Durée de la transition en microsecondes (ex: 1 000 000 us = 1.0 s) */
+  duration_us: number;
+}
+
 export interface TimelineItem {
   /** Identifiant unique du segment sur la timeline */
   item_id: string;
@@ -82,6 +91,8 @@ export interface TimelineItem {
   color_adjustments?: ColorAdjustments;
   /** Vitesse de lecture du clip (1.0 = normale, 0.5 = ralenti 2×, 2.0 = accéléré 2×). Valeur par défaut : 1.0 */
   playback_speed?: number;
+  /** Effet de transition visuelle à l'entrée du clip */
+  transition_in?: TransitionData;
   /** Gain audio individuel du clip (1.0 = volume original) */
   item_gain: number;
   /** Durée du fondu audio d'entrée en microsecondes (0 = pas de fondu) */

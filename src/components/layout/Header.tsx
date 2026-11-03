@@ -186,7 +186,7 @@ export function Header() {
 
       {/* 4. Actions supérieures (Version + Export) */}
       <div className="kroma-header__actions">
-        <div className="kroma-header__version-pill">v0.9.0-alpha</div>
+        <div className="kroma-header__version-pill">v0.10.0-alpha</div>
 
         <button
           className="kroma-btn kroma-btn-export"

@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import type { MediaAsset } from '../core/types/asset';
 import { type KromaProject, createDefaultProject } from '../core/types/project';
-import type { SpatialPlacement, TextLayerData, ColorAdjustments } from '../core/types/timeline';
+import type { SpatialPlacement, TextLayerData, ColorAdjustments, TransitionData } from '../core/types/timeline';
 import {
   createItemFromAsset,
   createTextItem,
@@ -84,6 +84,7 @@ interface ProjectState {
   updateClipColorAdjustments: (itemId: string, updates: Partial<ColorAdjustments>, commitHistory?: boolean) => void;
   resetClipColorAdjustments: (itemId: string) => void;
   updateClipSpeed: (itemId: string, speed: number, commitHistory?: boolean) => void;
+  updateClipTransition: (itemId: string, transition: TransitionData | undefined, commitHistory?: boolean) => void;
   addTextItem: (text?: string, placementTimeUs?: number) => void;
   updateTextLayerData: (itemId: string, updates: Partial<TextLayerData>) => void;
 
@@ -625,6 +626,31 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         items: lane.items.map((item) =>
           item.item_id === itemId
             ? { ...item, playback_speed: clampedSpeed }
+            : item,
+        ),
+      }));
+
+      return {
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  updateClipTransition: (itemId: string, transition: TransitionData | undefined, commitHistory: boolean = true) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) =>
+          item.item_id === itemId
+            ? { ...item, transition_in: transition && transition.transition_type !== 'none' ? transition : undefined }
             : item,
         ),
       }));

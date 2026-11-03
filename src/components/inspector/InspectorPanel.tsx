@@ -4,9 +4,10 @@
  * l'opacité, l'échelle et la position des clips sélectionnés.
  * Lorsqu'un calque texte est sélectionné, affiche le TextEditor dédié.
  */
-import { Sliders, Volume2, Move, Trash2, Plus, Info, Layers, Palette, RotateCcw, Gauge } from 'lucide-react';
+import { Sliders, Volume2, Move, Trash2, Plus, Info, Layers, Palette, RotateCcw, Gauge, Sparkles } from 'lucide-react';
 import { useProjectStore } from '../../store/projectStore';
 import { formatDurationHuman, usToTimecode } from '../../core/time/timeUtils';
+import type { TransitionType } from '../../core/types/timeline';
 import { TextEditor } from '../text/TextEditor';
 
 export function InspectorPanel() {
@@ -22,6 +23,7 @@ export function InspectorPanel() {
     updateClipColorAdjustments,
     resetClipColorAdjustments,
     updateClipSpeed,
+    updateClipTransition,
     addItemFromAsset,
   } = useProjectStore();
 
@@ -394,6 +396,125 @@ export function InspectorPanel() {
                   </>
                 );
               })()}
+            </div>
+          )}
+
+          {/* Transitions & Effets d'entrée (Étape 10) */}
+          {parentLane.lane_type === 'visual' && (
+            <div className="inspector-section">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h4 className="inspector-section__title" style={{ margin: 0 }}>
+                  <Sparkles size={14} />
+                  <span>Transition d'entrée</span>
+                </h4>
+                {selectedItem.transition_in && selectedItem.transition_in.transition_type !== 'none' && (
+                  <button
+                    className="kroma-icon-btn"
+                    style={{ padding: '2px 6px', fontSize: '0.7rem' }}
+                    onClick={() => updateClipTransition(selectedItem!.item_id, undefined, true)}
+                    title="Supprimer la transition"
+                  >
+                    <RotateCcw size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Sélecteur de type de transition */}
+              <div className="inspector-control" style={{ marginTop: 10 }}>
+                <div className="inspector-control__label-row">
+                  <span>Effet</span>
+                  <span className="inspector-control__value-badge">
+                    {(() => {
+                      const t = selectedItem.transition_in?.transition_type || 'none';
+                      switch (t) {
+                        case 'crossfade': return 'Fondu enchaîné';
+                        case 'fade_to_black': return 'Fondu au noir';
+                        case 'dip_to_white': return 'Flash blanc';
+                        case 'wipe_left': return 'Balayage';
+                        default: return 'Aucun (Cut)';
+                      }
+                    })()}
+                  </span>
+                </div>
+                <select
+                  style={{
+                    width: '100%',
+                    marginTop: 6,
+                    background: '#191924',
+                    border: '1px solid #333345',
+                    borderRadius: 4,
+                    color: '#e0e0e0',
+                    fontSize: 12,
+                    padding: '6px 8px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                  value={selectedItem.transition_in?.transition_type || 'none'}
+                  onChange={(e) => {
+                    const type = e.target.value as TransitionType;
+                    if (type === 'none') {
+                      updateClipTransition(selectedItem!.item_id, undefined, true);
+                    } else {
+                      const curDur = selectedItem.transition_in?.duration_us || 1_000_000;
+                      updateClipTransition(
+                        selectedItem!.item_id,
+                        { transition_type: type, duration_us: curDur },
+                        true,
+                      );
+                    }
+                  }}
+                >
+                  <option value="none">Aucun (Cut direct)</option>
+                  <option value="crossfade">✨ Fondu enchaîné (Crossfade)</option>
+                  <option value="fade_to_black">🌑 Fondu au noir (Dip to Black)</option>
+                  <option value="dip_to_white">⚡ Flash blanc (Dip to White)</option>
+                  <option value="wipe_left">👉 Balayage horizontal (Wipe Left)</option>
+                </select>
+              </div>
+
+              {/* Durée de la transition si active */}
+              {selectedItem.transition_in && selectedItem.transition_in.transition_type !== 'none' && (
+                <div className="inspector-control" style={{ marginTop: 10 }}>
+                  <div className="inspector-control__label-row">
+                    <span>Durée de transition</span>
+                    <span className="inspector-control__value-badge">
+                      {((selectedItem.transition_in.duration_us || 1_000_000) / 1_000_000).toFixed(1)} s
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.2"
+                    max="3.0"
+                    step="0.1"
+                    value={(selectedItem.transition_in.duration_us || 1_000_000) / 1_000_000}
+                    onPointerDown={() => pushHistorySnapshot()}
+                    onChange={(e) =>
+                      updateClipTransition(
+                        selectedItem!.item_id,
+                        {
+                          transition_type: selectedItem.transition_in!.transition_type,
+                          duration_us: Math.round(Number(e.target.value) * 1_000_000),
+                        },
+                        false,
+                      )
+                    }
+                    className="kroma-slider"
+                  />
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: 10,
+                      color: '#888',
+                      marginTop: 2,
+                    }}
+                  >
+                    <span>0.2 s (rapide)</span>
+                    <span>1.0 s</span>
+                    <span>3.0 s (lent)</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
