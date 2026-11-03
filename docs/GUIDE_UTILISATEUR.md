@@ -4,7 +4,7 @@ Bienvenue dans le guide d'utilisation de **Kroma Studio**, un éditeur vidéo mo
 
 Ce guide est spécialement conçu pour les débutants. Chaque manipulation est décrite étape par étape, avec des instructions numérotées claires.
 
-> **Note de version :** Ce document correspond à la version **v0.7.0-alpha (Étape 7 du MVP — MVP Complet !)**. Il décrit l'ensemble des fonctionnalités du socle Kroma Studio : l'importation de fichiers médias, l'agencement 4 quadrants, le montage sur la timeline (déplacement, scission au rasoir, rognage par poignées, suppression), l'ajout et l'édition complète de calques texte superposés, le mixage audio complet (volume par clip et par piste, mode Solo/Mute, fondus Fade In/Fade Out avec courbe d'enveloppe, visualisations d'ondes Waveform sur clips), l'**historique Annuler / Rétablir illimité (`Ctrl+Z` / `Ctrl+Y`)**, la **sauvegarde et l'ouverture de projets au format ouvert `.kproj`**, le **moteur d'exportation MP4 via FFmpeg CLI (`Ctrl+E`)**, le moteur de prévisualisation vidéo en temps réel sur Canvas 16:9 avec synchronisation à la frame, la lecture Play/Pause avec la barre d'espace et l'ajustement dynamique des propriétés visuelles (zoom, rotation, opacité).
+> **Note de version :** Ce document correspond à la version **v0.8.0-alpha (Étape 8 : Étalonnage & Filtres Visuels)**. Il décrit l'ensemble des fonctionnalités du studio : l'importation de fichiers médias, l'agencement 4 quadrants, le montage sur la timeline (déplacement, scission au rasoir, rognage par poignées, suppression), l'ajout et l'édition complète de calques texte superposés, le **panneau d'étalonnage des couleurs en temps réel (luminosité, contraste, saturation, teinte, flou)**, le mixage audio complet (volume par clip et par piste, mode Solo/Mute, fondus Fade In/Fade Out avec courbe d'enveloppe, visualisations d'ondes Waveform sur clips), l'**historique Annuler / Rétablir illimité (`Ctrl+Z` / `Ctrl+Y`)**, la **sauvegarde et l'ouverture de projets au format ouvert `.kproj`**, le **moteur d'exportation MP4 via FFmpeg CLI (`Ctrl+E`)**, le moteur de prévisualisation vidéo en temps réel sur Canvas 16:9 avec synchronisation à la frame, la lecture Play/Pause avec la barre d'espace et l'ajustement dynamique des propriétés visuelles (zoom, rotation, opacité).
 
 ---
 
@@ -138,7 +138,18 @@ L'espace de travail est structuré en 4 zones complémentaires :
      - Déplacez le curseur **Fondu de sortie (Fade Out)** (ex: 2.0 secondes) : le son diminuera en douceur à la fin.
      - Observez la courbe d'enveloppe sonore verte et les pentes diagonales qui apparaissent directement sur votre clip sur la timeline !
 
-### Étape 10 : Annuler, Rétablir et Sauvegarder/Ouvrir votre projet
+### Étape 10 : Étalonner et appliquer des filtres de couleur
+1. Sélectionnez un clip vidéo ou une image sur la timeline.
+2. Dans le panneau **Inspecteur** à droite, faites défiler jusqu'à la section **« Réglages & Étalonnage »** :
+   - **Luminosité (-100% à +100%) :** Éclaircissez ou assombrissez votre rush en temps réel.
+   - **Contraste (-100% à +100%) :** Renforcez le dynamisme entre les ombres et les hautes lumières.
+   - **Saturation (-100% à +100%) :** Ravivez les couleurs vives ou créez un effet noir et blanc nostalgique (-100%).
+   - **Teinte (Hue, -180° à +180°) :** Décalez le spectre colorimétrique pour une ambiance créative (sci-fi, vintage, teintes dorées).
+   - **Flou gaussien (0 à 20 px) :** Floutez ou adoucissez le clip sans impacter le reste du projet.
+3. Le résultat s'affiche en direct sur le moniteur Canvas 2D 60 FPS sans le moindre ralentissement.
+4. Cliquez sur l'icône de réinitialisation circulaire à côté du titre pour réinitialiser les curseurs à tout moment, ou faites `Ctrl + Z`.
+
+### Étape 11 : Annuler, Rétablir et Sauvegarder/Ouvrir votre projet
 1. **Annuler une erreur (Undo) :**
    - Appuyez sur `Ctrl + Z` sur votre clavier (ou cliquez sur le bouton de flèche retour dans l'en-tête ou la timeline).
    - Vos clips découpés, déplacés ou modifiés reviennent instantanément à leur état antérieur.
@@ -152,7 +163,7 @@ L'espace de travail est structuré en 4 zones complémentaires :
 5. **Ouvrir un projet existant :**
    - Cliquez sur l'icône de dossier **Ouvrir** dans la barre supérieure et sélectionnez votre fichier `.kproj`. Votre montage complet, vos pistes, vos textes et vos réglages sont restaurés instantanément !
 
-### Étape 11 : Exporter la vidéo finale en MP4 via FFmpeg
+### Étape 12 : Exporter la vidéo finale en MP4 via FFmpeg
 1. Cliquez sur le bouton vert **« Exporter »** dans l'en-tête supérieur droit, ou appuyez sur `Ctrl + E`.
 2. La boîte de dialogue d'exportation professionnelle s'ouvre :
    - **Préréglage de résolution :** Choisissez entre **1080p Full HD (60 FPS)**, **720p HD**, **4K Ultra HD** ou **Personnalisé** (dimensions et cadence sur mesure).

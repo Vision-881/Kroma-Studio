@@ -4,7 +4,7 @@
  * l'opacité, l'échelle et la position des clips sélectionnés.
  * Lorsqu'un calque texte est sélectionné, affiche le TextEditor dédié.
  */
-import { Sliders, Volume2, Move, Trash2, Plus, Info, Layers } from 'lucide-react';
+import { Sliders, Volume2, Move, Trash2, Plus, Info, Layers, Palette, RotateCcw } from 'lucide-react';
 import { useProjectStore } from '../../store/projectStore';
 import { formatDurationHuman, usToTimecode } from '../../core/time/timeUtils';
 import { TextEditor } from '../text/TextEditor';
@@ -18,6 +18,8 @@ export function InspectorPanel() {
     updateClipGain,
     updateClipFade,
     updateClipPlacement,
+    updateClipColorAdjustments,
+    resetClipColorAdjustments,
     addItemFromAsset,
   } = useProjectStore();
 
@@ -301,6 +303,150 @@ export function InspectorPanel() {
                   className="kroma-slider"
                 />
               </div>
+            </div>
+          )}
+
+          {/* Étalonnage des couleurs & Filtres (Étape 8) */}
+          {parentLane.lane_type === 'visual' && (
+            <div className="inspector-section">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h4 className="inspector-section__title" style={{ margin: 0 }}>
+                  <Palette size={14} />
+                  <span>Réglages & Étalonnage</span>
+                </h4>
+                {selectedItem.color_adjustments && (
+                  <button
+                    className="kroma-icon-btn"
+                    style={{ padding: '2px 6px', fontSize: '0.7rem' }}
+                    onClick={() => resetClipColorAdjustments(selectedItem!.item_id)}
+                    title="Réinitialiser les réglages de couleur"
+                  >
+                    <RotateCcw size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Sliders d'étalonnage */}
+              {(() => {
+                const adj = selectedItem.color_adjustments || {
+                  brightness: 0,
+                  contrast: 0,
+                  saturation: 0,
+                  temperature: 0,
+                  hue_degrees: 0,
+                  blur_px: 0,
+                };
+                const brightnessPct = Math.round((adj.brightness || 0) * 100);
+                const contrastPct = Math.round((adj.contrast || 0) * 100);
+                const saturationPct = Math.round((adj.saturation || 0) * 100);
+                const hueDeg = Math.round(adj.hue_degrees || 0);
+                const blurPx = Math.round(adj.blur_px || 0);
+
+                return (
+                  <>
+                    <div className="inspector-control" style={{ marginTop: 10 }}>
+                      <div className="inspector-control__label-row">
+                        <span>Luminosité</span>
+                        <span className="inspector-control__value-badge">
+                          {brightnessPct > 0 ? `+${brightnessPct}` : brightnessPct}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-100"
+                        max="100"
+                        value={brightnessPct}
+                        onChange={(e) =>
+                          updateClipColorAdjustments(selectedItem!.item_id, {
+                            brightness: Number(e.target.value) / 100,
+                          })
+                        }
+                        className="kroma-slider"
+                      />
+                    </div>
+
+                    <div className="inspector-control" style={{ marginTop: 10 }}>
+                      <div className="inspector-control__label-row">
+                        <span>Contraste</span>
+                        <span className="inspector-control__value-badge">
+                          {contrastPct > 0 ? `+${contrastPct}` : contrastPct}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-100"
+                        max="100"
+                        value={contrastPct}
+                        onChange={(e) =>
+                          updateClipColorAdjustments(selectedItem!.item_id, {
+                            contrast: Number(e.target.value) / 100,
+                          })
+                        }
+                        className="kroma-slider"
+                      />
+                    </div>
+
+                    <div className="inspector-control" style={{ marginTop: 10 }}>
+                      <div className="inspector-control__label-row">
+                        <span>Saturation</span>
+                        <span className="inspector-control__value-badge">
+                          {saturationPct > 0 ? `+${saturationPct}` : saturationPct}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-100"
+                        max="100"
+                        value={saturationPct}
+                        onChange={(e) =>
+                          updateClipColorAdjustments(selectedItem!.item_id, {
+                            saturation: Number(e.target.value) / 100,
+                          })
+                        }
+                        className="kroma-slider"
+                      />
+                    </div>
+
+                    <div className="inspector-control" style={{ marginTop: 10 }}>
+                      <div className="inspector-control__label-row">
+                        <span>Teinte (Hue)</span>
+                        <span className="inspector-control__value-badge">{hueDeg}°</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-180"
+                        max="180"
+                        value={hueDeg}
+                        onChange={(e) =>
+                          updateClipColorAdjustments(selectedItem!.item_id, {
+                            hue_degrees: Number(e.target.value),
+                          })
+                        }
+                        className="kroma-slider"
+                      />
+                    </div>
+
+                    <div className="inspector-control" style={{ marginTop: 10 }}>
+                      <div className="inspector-control__label-row">
+                        <span>Flou gaussien</span>
+                        <span className="inspector-control__value-badge">{blurPx} px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="20"
+                        value={blurPx}
+                        onChange={(e) =>
+                          updateClipColorAdjustments(selectedItem!.item_id, {
+                            blur_px: Number(e.target.value),
+                          })
+                        }
+                        className="kroma-slider"
+                      />
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
 

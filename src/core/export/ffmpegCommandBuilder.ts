@@ -290,6 +290,30 @@ export function buildFFmpegCommand(
         }
       }
 
+      // Filtres d'étalonnage et de couleur (Étape 8)
+      const color = item.color_adjustments;
+      if (color) {
+        const eqParts: string[] = [];
+        if (color.brightness && color.brightness !== 0) {
+          eqParts.push(`brightness=${color.brightness.toFixed(3)}`);
+        }
+        if (color.contrast && color.contrast !== 0) {
+          eqParts.push(`contrast=${(1 + color.contrast).toFixed(3)}`);
+        }
+        if (color.saturation && color.saturation !== 0) {
+          eqParts.push(`saturation=${(1 + color.saturation).toFixed(3)}`);
+        }
+        if (eqParts.length > 0) {
+          clipSubFilters.push(`eq=${eqParts.join(':')}`);
+        }
+        if (color.hue_degrees && color.hue_degrees !== 0) {
+          clipSubFilters.push(`hue=h=${color.hue_degrees}`);
+        }
+        if (color.blur_px && color.blur_px > 0) {
+          clipSubFilters.push(`gblur=sigma=${color.blur_px}`);
+        }
+      }
+
       const clipFilteredTag = `[v_clip_${videoStep}]`;
       filterParts.push(`${streamLabel}${clipSubFilters.join(',')}${clipFilteredTag}`);
 
@@ -560,3 +584,4 @@ echo ""
 echo "[SUCCÈS] Exportation terminée : ${result.outputFilename}"
 `;
 }
+

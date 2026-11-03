@@ -240,6 +240,14 @@ describe('ffmpegCommandBuilder', () => {
           rotation_degrees: 45,
           opacity_ratio: 0.75,
         },
+        color_adjustments: {
+          brightness: 0.1,
+          contrast: 0.2,
+          saturation: 0.3,
+          temperature: 0,
+          hue_degrees: 25,
+          blur_px: 3,
+        },
       };
       proj.sequence.lanes[0].items = [item];
       proj.sequence.total_length_us = 5_000_000;
@@ -250,8 +258,13 @@ describe('ffmpegCommandBuilder', () => {
       expect(result.filterComplex).toContain('scale=iw*1.500:ih*1.500');
       expect(result.filterComplex).toContain('rotate=0.7854:c=none');
       expect(result.filterComplex).toContain('colorchannelmixer=aa=0.75');
-      expect(result.filterComplex).toContain("(W-w)/2+(50)");
-      expect(result.filterComplex).toContain("(H-h)/2+(-30)");
+      expect(result.filterComplex).toContain('(W-w)/2+(50)');
+      expect(result.filterComplex).toContain('(H-h)/2+(-30)');
+
+      // Filtres de couleur eq, hue, gblur
+      expect(result.filterComplex).toContain('eq=brightness=0.100:contrast=1.200:saturation=1.300');
+      expect(result.filterComplex).toContain('hue=h=25');
+      expect(result.filterComplex).toContain('gblur=sigma=3');
     });
   });
 

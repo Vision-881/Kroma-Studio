@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import type { MediaAsset } from '../core/types/asset';
 import { type KromaProject, createDefaultProject } from '../core/types/project';
-import type { SpatialPlacement, TextLayerData } from '../core/types/timeline';
+import type { SpatialPlacement, TextLayerData, ColorAdjustments } from '../core/types/timeline';
 import {
   createItemFromAsset,
   createTextItem,
@@ -80,6 +80,8 @@ interface ProjectState {
   updateClipPlacement: (itemId: string, updates: Partial<SpatialPlacement>) => void;
   updateClipGain: (itemId: string, gain: number) => void;
   updateClipFade: (itemId: string, fadeInUs: number, fadeOutUs: number) => void;
+  updateClipColorAdjustments: (itemId: string, updates: Partial<ColorAdjustments>) => void;
+  resetClipColorAdjustments: (itemId: string) => void;
   addTextItem: (text?: string, placementTimeUs?: number) => void;
   updateTextLayerData: (itemId: string, updates: Partial<TextLayerData>) => void;
 
@@ -523,6 +525,71 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
             fade_in_duration_us: Math.max(0, fadeInUs),
             fade_out_duration_us: Math.max(0, fadeOutUs),
           };
+        }),
+      }));
+
+      return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  updateClipColorAdjustments: (itemId: string, updates: Partial<ColorAdjustments>) =>
+    set((state) => {
+      const defaultAdjustments: ColorAdjustments = {
+        brightness: 0,
+        contrast: 0,
+        saturation: 0,
+        temperature: 0,
+        hue_degrees: 0,
+        blur_px: 0,
+      };
+
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          const current = item.color_adjustments || defaultAdjustments;
+          return {
+            ...item,
+            color_adjustments: {
+              ...current,
+              ...updates,
+            },
+          };
+        }),
+      }));
+
+      return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  resetClipColorAdjustments: (itemId: string) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          const { color_adjustments: _, ...rest } = item;
+          return rest as typeof item;
         }),
       }));
 

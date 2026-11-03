@@ -75,7 +75,7 @@ Composants React modulaires organisés selon l'agencement CapCut :
 - `components/layout/Header.tsx` : barre supérieure avec boutons Nouveau, Ouvrir, Enregistrer (`.kproj`), Annuler / Rétablir, renommage du projet et bouton Export.
 - `components/player/PreviewMonitor.tsx` : écran `<canvas>` composite 16:9 haute performance avec contrôle du volume dynamique en temps réel et raccourcis claviers universels (`Espace`, `V`, `B`, `Ctrl+B`, `Ctrl+Z`, `Ctrl+Y`, `Ctrl+S`, `Ctrl+E`).
 - `components/media/MediaBin.tsx` : médiathèque avec onglets, recherche et drag & drop vers les pistes.
-- `components/inspector/InspectorPanel.tsx` : panneau de propriétés contextuel avec section Audio complète (volume du clip, réglages fins des fondus Fade In / Fade Out et visualisation de la courbe d'enveloppe).
+- `components/inspector/InspectorPanel.tsx` : panneau de propriétés contextuel avec section Audio complète (volume, fondus Fade In/Out avec enveloppe) et section Réglages & Étalonnage Couleur (luminosité, contraste, saturation, teinte, flou).
 - `components/audio/AudioWaveform.tsx` : générateur vectoriel haute performance de formes d'ondes audio harmoniques.
 - `components/timeline/` : suite complète de timeline (barre d'outils avec Annuler/Rétablir et bouton **Texte**, réglette graduée, tête de lecture, en-têtes avec Solo [S] et volume de piste, et clips avec visualisations de fondus).
 - `components/export/ExportDialog.tsx` *(Étape 7)* : modal d'exportation avec préréglages (1080p, 720p, 4K, personnalisé), réglages fins d'encodage H.264/HEVC, aperçu de commandes CLI et téléchargement de scripts `.bat` et `.sh`.
@@ -112,6 +112,9 @@ Moteur d'exportation et compilation du graphe de filtrage FFmpeg :
 
 7. **Pipeline d'exportation externe indépendant FFmpeg & Isolation Copyleft :**
    Pour respecter la licence GPL de FFmpeg et libx264, Kroma ne lie aucune bibliothèque binaire en mémoire. L'ensemble de la logique de composition est compilé sous forme d'un graphe déclaratif `-filter_complex` et exécuté via sous-processus indépendant CLI (`ffmpeg.exe`), garantissant la liberté du code source de Kroma Studio.
+
+8. **Filtres d'étalonnage temps réel & Équivalence d'exportation :**
+   Les réglages visuels (luminosité, contraste, saturation, teinte, flou) sont prévisualisés à 60 FPS sur le Canvas 2D via les filtres CSS (`ctx.filter`) et traduits sans perte dans le graphe d'exportation FFmpeg sous forme de filtres `eq`, `hue` et `gblur`.
 
 ---
 

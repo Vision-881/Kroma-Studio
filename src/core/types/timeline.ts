@@ -46,6 +46,21 @@ export interface TextLayerData {
   };
 }
 
+export interface ColorAdjustments {
+  /** Luminosité relative (-1.0 à +1.0, 0 = normal) */
+  brightness: number;
+  /** Contraste relatif (-1.0 à +1.0, 0 = normal) */
+  contrast: number;
+  /** Saturation relative (-1.0 à +1.0, 0 = normal) */
+  saturation: number;
+  /** Température de couleur (-1.0 froid à +1.0 chaud) */
+  temperature: number;
+  /** Rotation de teinte en degrés (-180° à +180°, 0 = normal) */
+  hue_degrees: number;
+  /** Rayon de flou gaussien en pixels (0 = net) */
+  blur_px: number;
+}
+
 export interface TimelineItem {
   /** Identifiant unique du segment sur la timeline */
   item_id: string;
@@ -63,6 +78,8 @@ export interface TimelineItem {
   spatial_placement?: SpatialPlacement;
   /** Données spécifiques aux calques de texte */
   text_layer_data?: TextLayerData;
+  /** Réglages d'étalonnage des couleurs et filtres d'image */
+  color_adjustments?: ColorAdjustments;
   /** Gain audio individuel du clip (1.0 = volume original) */
   item_gain: number;
   /** Durée du fondu audio d'entrée en microsecondes (0 = pas de fondu) */

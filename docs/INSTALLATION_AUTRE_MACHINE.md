@@ -92,3 +92,4 @@ Ghidra nécessite impérativement un Java Development Kit récent :
 | **Git** | **OUI** (Indispensable) | Synchronisation et versionnement du code source |
 | **FFmpeg** | **Recommandé** | Rendu et encodage direct des exports MP4 en pleine définition |
 | **Ghidra / REA** | **NON** (Optionnel) | Uniquement requis pour rétro-concevoir d'autres binaires propriétaires |
+

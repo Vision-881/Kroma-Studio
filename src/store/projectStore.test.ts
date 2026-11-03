@@ -311,5 +311,40 @@ describe('useProjectStore', () => {
       useProjectStore.getState().closeExportDialog();
       expect(useProjectStore.getState().isExportDialogOpen).toBe(false);
     });
+
+    it('updateClipColorAdjustments() et resetClipColorAdjustments() modifient l\'étalonnage avec support Undo', () => {
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      const laneId = useProjectStore.getState().project.sequence.lanes[0].lane_id;
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, laneId, 0);
+
+      const itemId = useProjectStore.getState().project.sequence.lanes[0].items[0].item_id;
+
+      // Application de réglages de couleur
+      useProjectStore.getState().updateClipColorAdjustments(itemId, {
+        brightness: 0.2,
+        contrast: 0.15,
+        saturation: 0.5,
+        hue_degrees: 30,
+        blur_px: 4,
+      });
+
+      let item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.color_adjustments).toBeDefined();
+      expect(item.color_adjustments?.brightness).toBe(0.2);
+      expect(item.color_adjustments?.contrast).toBe(0.15);
+      expect(item.color_adjustments?.saturation).toBe(0.5);
+      expect(item.color_adjustments?.hue_degrees).toBe(30);
+      expect(item.color_adjustments?.blur_px).toBe(4);
+
+      // Réinitialisation
+      useProjectStore.getState().resetClipColorAdjustments(itemId);
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.color_adjustments).toBeUndefined();
+
+      // Undo restaure les réglages
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.color_adjustments?.brightness).toBe(0.2);
+    });
   });
 });

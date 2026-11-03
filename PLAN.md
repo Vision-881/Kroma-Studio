@@ -2,11 +2,11 @@
 
 Ce document consigne l'avancement du projet, la feuille de route du MVP, les étapes réalisées, en cours et à venir, ainsi que les décisions d'architecture prises au fil du développement.
 
-Dernière mise à jour : 03/11/2026 (Étape 7 du MVP — MVP 100% achevé !)
+Dernière mise à jour : 03/11/2026 (Phase 2 — Étape 8 : Étalonnage & Filtres Visuels)
 
 ---
 
-## 1. Feuille de route du MVP
+## 1. Feuille de route du MVP & Extensions
 
 | Étape | Intitulé | Statut | Description succincte |
 |---|---|---|---|
@@ -18,6 +18,7 @@ Dernière mise à jour : 03/11/2026 (Étape 7 du MVP — MVP 100% achevé !)
 | **Étape 5** | Mixage & Contrôle du volume | ✅ Terminé | Contrôle de gain par clip et par piste (0% à 200%), mode Solo / Mute avancé avec isolation, fondus d'entrée (Fade In) et de sortie (Fade Out) continus, formes d'ondes audio (Waveforms) sur clips, 36 tests unitaires. |
 | **Étape 6** | Historique Annuler / Rétablir & Persistance | ✅ Terminé | Pile Undo/Redo complète (50 états, `Ctrl+Z` / `Ctrl+Y`), sérialisation et chargement de fichiers `.kproj` avec validation de schéma, 41 tests unitaires. |
 | **Étape 7** | Export MP4 via FFmpeg | ✅ Terminé | Génération de commande CLI FFmpeg, graphe filtre complexe (`trim`, `contain/pad`, `overlay`, `drawtext`, `adelay`, `afade`, `amix`), modal `ExportDialog`, scripts autonomes `.bat` et `.sh`, raccourci `Ctrl+E`, 52 tests unitaires. |
+| **Étape 8** | Étalonnage Couleur & Réglages Visuels | ✅ Terminé | Section Inspecteur (Luminosité, Contraste, Saturation, Teinte, Flou), aperçu Canvas 2D temps réel 60 FPS (`ctx.filter`), export FFmpeg (`eq`, `hue`, `gblur`), actions Zustand avec Undo/Redo, 53 tests unitaires. |
 
 ---
 
@@ -60,6 +61,10 @@ Dernière mise à jour : 03/11/2026 (Étape 7 du MVP — MVP 100% achevé !)
 ### 2.9 Pipeline d'exportation externe indépendant FFmpeg & Isolation Copyleft
 - **Décision :** Kroma Studio compile l'ensemble de la timeline en un graphe déclaratif de filtres FFmpeg complexes (`-filter_complex`) et génère des commandes CLI / scripts exécutables autonomes (`.bat` pour Windows, `.sh` pour Linux/macOS) plutôt que de lier des bibliothèques C/C++ ou DLLs GPL en mémoire.
 - **Justification :** Respect strict des obligations de la licence GPL v2+/v3 de FFmpeg (`libx264`/`libx265`). L'isolation via sous-processus (« fork and exec ») protège la liberté et la propriété intellectuelle du code source de Kroma tout en exploitant la pleine accélération matérielle native de la machine hôte.
+
+### 2.10 Rendu temps réel des filtres de couleur via Canvas 2D filter et équivalence FFmpeg
+- **Décision :** L'étalonnage et les filtres visuels (luminosité, contraste, saturation, teinte, flou) exploitent la propriété native `ctx.filter` du Canvas 2D pour l'aperçu temps réel à 60 FPS sans shader lourd, et se traduisent directement en filtres vidéo normalisés FFmpeg (`eq`, `hue`, `gblur`) lors de l'exportation.
+- **Justification :** Performance maximale dans le navigateur, absence totale de latence lors de la manipulation des curseurs et cohérence colorimétrique exacte entre la prévisualisation et le rendu MP4 final.
 
 ---
 
@@ -122,4 +127,12 @@ Dernière mise à jour : 03/11/2026 (Étape 7 du MVP — MVP 100% achevé !)
 - **Intégration globale :** Bouton vert **« Exporter »** dans `Header.tsx`, raccourci universel `Ctrl+E` dans `PreviewMonitor.tsx`, gestion d'état dans `projectStore.ts`.
 - **Tests unitaires :** 10 nouveaux tests unitaires automatisés validés dans `ffmpegCommandBuilder.test.ts` et 1 test dans `projectStore.test.ts`. Suite complète portée à **52 tests unitaires validés (100% succès)**.
 - **Statut MVP :** Les 7 étapes du MVP sont désormais **100 % terminées**.
+
+### Étape 8 — Étalonnage Couleur & Réglages Visuels (03/11/2026)
+- **Modèle de données :** Interface `ColorAdjustments` dans `src/core/types/timeline.ts` (luminosité, contraste, saturation, température, rotation de teinte `hue_degrees`, flou gaussien `blur_px`).
+- **Gestion d'état Zustand :** Actions `updateClipColorAdjustments(itemId, updates)` et `resetClipColorAdjustments(itemId)` dans `src/store/projectStore.ts`, avec intégration complète à l'historique Undo/Redo (`Ctrl+Z` / `Ctrl+Y`).
+- **Rendu Canvas 2D en temps réel :** Implémentation de `ctx.filter` dans `PreviewMonitor.tsx` appliquant dynamiquement `brightness()`, `contrast()`, `saturate()`, `hue-rotate()` et `blur()` à 60 FPS sans latence.
+- **Pipeline d'exportation FFmpeg :** Intégration transparente dans `ffmpegCommandBuilder.ts` avec filtres `eq` (brightness, contrast, saturation), `hue` (h=degrees) et `gblur` (sigma=blur).
+- **Interface Inspecteur CapCut :** Nouvelle section « Réglages & Étalonnage » dans `InspectorPanel.tsx` avec sliders interactifs et bouton de réinitialisation rapide.
+- **Tests unitaires :** Nouveaux tests ajoutés dans `projectStore.test.ts` et `ffmpegCommandBuilder.test.ts`. Suite complète portée à **53 tests unitaires validés (100% succès)**.
 

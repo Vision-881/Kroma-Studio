@@ -90,6 +90,19 @@ export function PreviewMonitor() {
         // Opacité
         ctx.globalAlpha = Math.max(0, Math.min(1, placement.opacity_ratio));
 
+        // Filtres d'étalonnage et de couleur (Étape 8)
+        if (item.color_adjustments) {
+          const adj = item.color_adjustments;
+          const b = Math.max(0, 1 + (adj.brightness || 0));
+          const c = Math.max(0, 1 + (adj.contrast || 0));
+          const s = Math.max(0, 1 + (adj.saturation || 0));
+          const h = adj.hue_degrees || 0;
+          const blur = Math.max(0, adj.blur_px || 0);
+          ctx.filter = `brightness(${b}) contrast(${c}) saturate(${s}) hue-rotate(${h}deg)${blur > 0 ? ` blur(${blur}px)` : ''}`;
+        } else {
+          ctx.filter = 'none';
+        }
+
         // Rendu Vidéo ou Image
         if (asset) {
           let sourceElement: CanvasImageSource | null = null;
