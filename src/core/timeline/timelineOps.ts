@@ -44,6 +44,8 @@ export function createItemFromAsset(
     source_in_point_us: 0,
     source_duration_us: defaultDurationUs,
     item_gain: 1.0,
+    fade_in_duration_us: 0,
+    fade_out_duration_us: 0,
     spatial_placement: {
       offset_x_px: 0,
       offset_y_px: 0,

@@ -141,4 +141,52 @@ describe('useProjectStore', () => {
       expect(stateBefore.sequence.lanes.length).toBe(stateAfter.sequence.lanes.length);
     });
   });
+
+  describe('mixage audio & contrôles de volume (Étape 5)', () => {
+    it('toggleLaneSolo — bascule l\'état solo de la piste', () => {
+      const state = useProjectStore.getState();
+      const laneId = state.project.sequence.lanes[0].lane_id;
+
+      expect(state.project.sequence.lanes[0].is_solo).toBeFalsy();
+      useProjectStore.getState().toggleLaneSolo(laneId);
+
+      const updated = useProjectStore.getState();
+      expect(updated.project.sequence.lanes[0].is_solo).toBe(true);
+
+      useProjectStore.getState().toggleLaneSolo(laneId);
+      expect(useProjectStore.getState().project.sequence.lanes[0].is_solo).toBe(false);
+    });
+
+    it('updateLaneGain — met à jour et borne le gain de la piste', () => {
+      const state = useProjectStore.getState();
+      const laneId = state.project.sequence.lanes[0].lane_id;
+
+      // Réglage à 1.5 (150%)
+      useProjectStore.getState().updateLaneGain(laneId, 1.5);
+      expect(useProjectStore.getState().project.sequence.lanes[0].gain_level).toBe(1.5);
+
+      // Borne supérieure à 2.0
+      useProjectStore.getState().updateLaneGain(laneId, 3.5);
+      expect(useProjectStore.getState().project.sequence.lanes[0].gain_level).toBe(2.0);
+
+      // Borne inférieure à 0.0
+      useProjectStore.getState().updateLaneGain(laneId, -0.5);
+      expect(useProjectStore.getState().project.sequence.lanes[0].gain_level).toBe(0.0);
+    });
+
+    it('updateClipFade — configure le fondu d\'entrée et de sortie', () => {
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, undefined, 0);
+
+      const itemId = useProjectStore.getState().selectedItemId!;
+      useProjectStore.getState().updateClipFade(itemId, 1_500_000, 2_000_000);
+
+      const state = useProjectStore.getState();
+      const lane = state.project.sequence.lanes.find((l) => l.lane_type === 'visual')!;
+      const item = lane.items.find((i) => i.item_id === itemId)!;
+
+      expect(item.fade_in_duration_us).toBe(1_500_000);
+      expect(item.fade_out_duration_us).toBe(2_000_000);
+    });
+  });
 });

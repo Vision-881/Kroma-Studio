@@ -4,7 +4,7 @@ Bienvenue dans le guide d'utilisation de **Kroma Studio**, un éditeur vidéo mo
 
 Ce guide est spécialement conçu pour les débutants. Chaque manipulation est décrite étape par étape, avec des instructions numérotées claires.
 
-> **Note de version :** Ce document correspond à la version **v0.4.0-alpha (Étape 4 du MVP)**. Il décrit les fonctionnalités actuellement actives : l'importation de fichiers médias, l'agencement 4 quadrants, le montage sur la timeline (déplacement, scission au rasoir, rognage par poignées, suppression), l'ajout et l'édition complète de **calques texte superposés (titres, typographie, couleurs, contours, alignement et positionnement normalisé)**, le **moteur de prévisualisation vidéo en temps réel sur Canvas 16:9** avec synchronisation à la frame, la lecture Play/Pause avec la barre d'espace et l'ajustement dynamique des propriétés (volume, zoom, rotation, opacité).
+> **Note de version :** Ce document correspond à la version **v0.5.0-alpha (Étape 5 du MVP)**. Il décrit les fonctionnalités actuellement actives : l'importation de fichiers médias, l'agencement 4 quadrants, le montage sur la timeline (déplacement, scission au rasoir, rognage par poignées, suppression), l'ajout et l'édition complète de calques texte superposés, le **mixage audio complet (volume par clip et par piste, mode Solo/Mute, fondus Fade In/Fade Out avec courbe d'enveloppe, visualisations d'ondes Waveform sur clips)**, le **moteur de prévisualisation vidéo en temps réel sur Canvas 16:9** avec synchronisation à la frame, la lecture Play/Pause avec la barre d'espace et l'ajustement dynamique des propriétés visuelles (zoom, rotation, opacité).
 
 ---
 
@@ -123,6 +123,21 @@ L'espace de travail est structuré en 4 zones complémentaires :
    - **Position sur le canevas :** Ajustez les curseurs horizontaux (X) et verticaux (Y) pour positionner le texte avec précision sur la vidéo.
    - Observez le résultat en direct sur le lecteur vidéo et dans l'aperçu du panneau !
 
+### Étape 9 : Régler le mixage audio, le mode Solo et les fondus
+1. **Équilibrer le volume d'une piste entière :**
+   - Dans l'en-tête de piste à gauche, utilisez le curseur de volume compact pour ajuster le niveau général de la piste (de 0% à 200%).
+2. **Isoler une piste en écoute (Mode Solo) :**
+   - Cliquez sur le bouton doré **« S »** dans l'en-tête de piste. Toutes les autres pistes sont immédiatement atténuées, vous permettant d'écouter la voix ou la musique isolément.
+   - Cliquez à nouveau sur **« S »** pour désactiver le mode Solo.
+3. **Couper le son d'une piste (Mode Mute) :**
+   - Cliquez sur l'icône de haut-parleur dans l'en-tête de piste pour la rendre silencieuse.
+4. **Appliquer des fondus d'entrée (Fade In) et de sortie (Fade Out) sur un clip :**
+   - Sélectionnez le clip sur la timeline (remarquez les formes d'ondes audio dessinées à l'intérieur).
+   - Dans le panneau **Inspecteur** à droite, sous la section **Audio & Mixage** :
+     - Déplacez le curseur **Fondu d'entrée (Fade In)** (ex: 1.5 seconde) : le son augmentera progressivement depuis le silence.
+     - Déplacez le curseur **Fondu de sortie (Fade Out)** (ex: 2.0 secondes) : le son diminuera en douceur à la fin.
+     - Observez la courbe d'enveloppe sonore verte et les pentes diagonales qui apparaissent directement sur votre clip sur la timeline !
+
 ---
 
 ## 5. Raccourcis et astuces de navigation
@@ -160,6 +175,5 @@ L'espace de travail est structuré en 4 zones complémentaires :
 ## 7. Prochaines étapes
 
 Ce qui arrive dans les prochaines versions de Kroma Studio :
-- **Étape 5 :** Mixage & Contrôle du volume : réglage du gain par piste, fondus audio enchaînés (Fade In / Fade Out), fonctions Solo / Mute avancées et visualisation des formes d'onde audio.
 - **Étape 6 :** Historique Annuler / Rétablir (`Ctrl+Z` / `Ctrl+Y`) et sauvegarde / chargement de projets au format `.kproj`.
 - **Étape 7 :** Export vidéo final MP4 haute définition accéléré par FFmpeg.

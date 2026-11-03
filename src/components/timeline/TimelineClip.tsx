@@ -7,6 +7,7 @@ import { useRef } from 'react';
 import type { TimelineItem, LaneType } from '../../core/types/timeline';
 import { useProjectStore } from '../../store/projectStore';
 import { formatDurationHuman } from '../../core/time/timeUtils';
+import { AudioWaveform } from '../audio/AudioWaveform';
 
 interface TimelineClipProps {
   item: TimelineItem;
@@ -130,6 +131,17 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
   // Classe CSS de coloration selon le type de piste
   const typeClass = `timeline-clip--${laneType}`;
 
+  // Calcul des largeurs graphiques des fondus audio (Fade in / Fade out)
+  const fadeInPx = item.fade_in_duration_us && item.fade_in_duration_us > 0
+    ? Math.min(widthPx, (item.fade_in_duration_us / 1_000_000) * zoomPixelsPerSecond)
+    : 0;
+
+  const fadeOutPx = item.fade_out_duration_us && item.fade_out_duration_us > 0
+    ? Math.min(widthPx, (item.fade_out_duration_us / 1_000_000) * zoomPixelsPerSecond)
+    : 0;
+
+  const hasAudio = laneType === 'audio' || (sourceAsset?.media_kind === 'video' && (sourceAsset.audio_channels ?? 0) > 0);
+
   return (
     <div
       ref={clipRef}
@@ -149,6 +161,40 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
           onMouseDown={(e) => handleTrimMouseDown(e, 'start')}
           title="Régler le point de début (Trim in)"
         />
+      )}
+
+      {/* Rendu de la forme d'onde audio (Waveform) */}
+      {hasAudio && (
+        <AudioWaveform
+          widthPx={widthPx}
+          heightPx={24}
+          color={laneType === 'audio' ? 'rgba(52, 211, 153, 0.45)' : 'rgba(96, 165, 250, 0.35)'}
+          seed={item.item_id}
+        />
+      )}
+
+      {/* Pente graphique du fondu d'entrée (Fade In Slope) */}
+      {fadeInPx > 0 && (
+        <svg
+          className="timeline-clip__fade-overlay timeline-clip__fade-overlay--in"
+          style={{ width: `${fadeInPx}px` }}
+          aria-hidden="true"
+        >
+          <polygon points={`0,0 ${fadeInPx},0 0,56`} fill="rgba(0, 0, 0, 0.35)" />
+          <line x1="0" y1="56" x2={fadeInPx} y2="0" stroke="rgba(255, 255, 255, 0.6)" strokeWidth="1.5" strokeDasharray="3 2" />
+        </svg>
+      )}
+
+      {/* Pente graphique du fondu de sortie (Fade Out Slope) */}
+      {fadeOutPx > 0 && (
+        <svg
+          className="timeline-clip__fade-overlay timeline-clip__fade-overlay--out"
+          style={{ width: `${fadeOutPx}px` }}
+          aria-hidden="true"
+        >
+          <polygon points={`0,0 ${fadeOutPx},0 ${fadeOutPx},56`} fill="rgba(0, 0, 0, 0.35)" />
+          <line x1="0" y1="0" x2={fadeOutPx} y2="56" stroke="rgba(255, 255, 255, 0.6)" strokeWidth="1.5" strokeDasharray="3 2" />
+        </svg>
       )}
 
       {/* Corps du clip */}

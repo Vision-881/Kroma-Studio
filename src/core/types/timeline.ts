@@ -65,6 +65,10 @@ export interface TimelineItem {
   text_layer_data?: TextLayerData;
   /** Gain audio individuel du clip (1.0 = volume original) */
   item_gain: number;
+  /** Durée du fondu audio d'entrée en microsecondes (0 = pas de fondu) */
+  fade_in_duration_us?: number;
+  /** Durée du fondu audio de sortie en microsecondes (0 = pas de fondu) */
+  fade_out_duration_us?: number;
 }
 
 export interface TimelineLane {
@@ -78,6 +82,8 @@ export interface TimelineLane {
   stack_index: number;
   /** Piste coupée (silence) */
   is_muted: boolean;
+  /** Mode solo : si actif sur au moins une piste, seules les pistes en solo sont audibles */
+  is_solo?: boolean;
   /** Piste verrouillée contre les modifications */
   is_locked: boolean;
   /** Volume global de la piste (0.0 à 2.0, 1.0 = 100%) */

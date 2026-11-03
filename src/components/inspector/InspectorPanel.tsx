@@ -16,6 +16,7 @@ export function InspectorPanel() {
     selectedAssetId,
     removeTimelineItem,
     updateClipGain,
+    updateClipFade,
     updateClipPlacement,
     addItemFromAsset,
   } = useProjectStore();
@@ -124,12 +125,14 @@ export function InspectorPanel() {
             </div>
           </div>
 
-          {/* Audio & Volume */}
+          {/* Audio, Mixage & Fondus */}
           <div className="inspector-section">
             <h4 className="inspector-section__title">
               <Volume2 size={14} />
-              <span>Audio</span>
+              <span>Audio & Mixage</span>
             </h4>
+
+            {/* Volume du clip */}
             <div className="inspector-control">
               <div className="inspector-control__label-row">
                 <span>Volume du clip</span>
@@ -146,6 +149,87 @@ export function InspectorPanel() {
                 className="kroma-slider"
               />
             </div>
+
+            {/* Fondu d'entrée (Fade In) */}
+            {(() => {
+              const fadeInSec = (selectedItem!.fade_in_duration_us ?? 0) / 1_000_000;
+              const fadeOutSec = (selectedItem!.fade_out_duration_us ?? 0) / 1_000_000;
+              const clipDurSec = selectedItem!.play_duration_us / 1_000_000;
+              const maxFade = Math.max(1, Math.min(10, clipDurSec / 2));
+
+              // Coordonnées pour l'enveloppe sonore SVG
+              const inRatio = Math.min(0.45, (fadeInSec / clipDurSec) || 0);
+              const outRatio = Math.min(0.45, (fadeOutSec / clipDurSec) || 0);
+              const x1 = Math.round(inRatio * 180);
+              const x2 = Math.round(180 - outRatio * 180);
+
+              return (
+                <>
+                  <div className="inspector-control" style={{ marginTop: 10 }}>
+                    <div className="inspector-control__label-row">
+                      <span>Fondu d'entrée (Fade In)</span>
+                      <span className="inspector-control__value-badge">{fadeInSec.toFixed(1)} s</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max={maxFade}
+                      step="0.1"
+                      value={fadeInSec}
+                      onChange={(e) =>
+                        updateClipFade(
+                          selectedItem!.item_id,
+                          Math.round(Number(e.target.value) * 1_000_000),
+                          selectedItem!.fade_out_duration_us ?? 0,
+                        )
+                      }
+                      className="kroma-slider"
+                    />
+                  </div>
+
+                  {/* Fondu de sortie (Fade Out) */}
+                  <div className="inspector-control" style={{ marginTop: 10 }}>
+                    <div className="inspector-control__label-row">
+                      <span>Fondu de sortie (Fade Out)</span>
+                      <span className="inspector-control__value-badge">{fadeOutSec.toFixed(1)} s</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max={maxFade}
+                      step="0.1"
+                      value={fadeOutSec}
+                      onChange={(e) =>
+                        updateClipFade(
+                          selectedItem!.item_id,
+                          selectedItem!.fade_in_duration_us ?? 0,
+                          Math.round(Number(e.target.value) * 1_000_000),
+                        )
+                      }
+                      className="kroma-slider"
+                    />
+                  </div>
+
+                  {/* Mini-courbe d'enveloppe sonore */}
+                  {(fadeInSec > 0 || fadeOutSec > 0) && (
+                    <div className="inspector-audio-envelope" title="Profil de volume avec fondus">
+                      <svg width="100%" height="28" viewBox="0 0 180 28" preserveAspectRatio="none">
+                        <polygon
+                          points={`0,26 ${x1},4 ${x2},4 180,26 180,28 0,28`}
+                          fill="rgba(52, 211, 153, 0.2)"
+                        />
+                        <polyline
+                          points={`0,26 ${x1},4 ${x2},4 180,26`}
+                          fill="none"
+                          stroke="#34d399"
+                          strokeWidth="2"
+                        />
+                      </svg>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Transformation visuelle (si piste visuelle) */}

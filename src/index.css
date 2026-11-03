@@ -857,7 +857,7 @@ input {
 }
 
 .timeline-headers-column {
-  width: 160px;
+  width: 184px;
   background: var(--bg-panel);
   border-right: 1px solid var(--border-subtle);
   flex-shrink: 0;

@@ -2,7 +2,7 @@
 
 Ce document détaille l'organisation structurelle, le découpage en modules et le format de fichier projet de l'éditeur vidéo **Kroma Studio**.
 
-Dernière mise à jour : 02/11/2026 (Étape 4 du MVP)
+Dernière mise à jour : 03/11/2026 (Étape 5 du MVP)
 
 ---
 
@@ -17,14 +17,15 @@ L'application est conçue selon une séparation stricte des responsabilités ent
 │    MÉDIATHÈQUE (320px)   │     MONITEUR D'APERÇU (Player)   │    INSPECTEUR (290px)     │
 │  - Import & Catégories   │   - Canvas 16:9 composite       │  - Clip : Volume, Zoom,   │
 │  - Drag & Drop vers TL   │   - Rendu vidéo & audio réels   │    Rotation, Opacité      │
-│  - mediaSession registre │   - Transport & Synchro 60 FPS  │  - Texte : TextEditor     │
+│  - mediaSession registre │   - Transport & Synchro 60 FPS  │  - Audio : Fondus In/Out  │
+│                          │                                 │  - Texte : TextEditor     │
 ├──────────────────────────┴─────────────────────────────────┴───────────────────────────┤
 │                                  TIMELINE MULTIPISTE                                   │
 │  - Barre d'outils : Outil Sélection (V), Outil Rasoir (B), Supprimer, Texte, Zoom      │
 │  - Réglette temporelle graduée (Ruler) avec scrubbing                                  │
 │  - Tête de lecture (Playhead) rouge traversante synchronisée                           │
-│  - En-têtes de pistes (Mute, Lock) et corps de pistes récepteurs de drag & drop        │
-│  - Segments de clips colorés par type avec poignées de rognage (Trim handles)          │
+│  - En-têtes de pistes avec Mute, Solo [S], Lock et Curseur de volume de piste          │
+│  - Segments de clips avec Formes d'ondes audio (Waveforms) et Pentes de fondu visuelles│
 └────────────────────────────────────────────────────────────────────────────────────────┘
                                            │
                                            ▼
@@ -42,20 +43,21 @@ L'application est conçue selon une séparation stricte des responsabilités ent
 │      CORE : TEMPS     │   │  CORE : OPÉRATIONS TIMELINE │   │ CORE : MOTEUR DE LECTURE │
 │  - Microsecondes pure │   │  - addItemToLane            │   │  - getActiveItemsAtTime  │
 │  - Timecode SMPTE     │   │  - splitItemInSequence      │   │  - calculateSourceTimeUs │
-│  - formatDuration     │   │  - trimItemInSequence       │   │  - mediaSession registre │
-│                       │   │  - createTextItem (Ét.4)    │   │  - Canvas 2D composition │
+│  - formatDuration     │   │  - trimItemInSequence       │   │  - calculateFadeGain (É5)│
+│                       │   │  - createTextItem (Ét.4)    │   │  - mediaSession registre │
+│                       │   │                             │   │  - Canvas 2D composition │
 └───────────────────────┘   └─────────────────────────────┘   └──────────────────────────┘
 ```
 
 ### 1.1 `src/core/types`
 Définit les interfaces TypeScript canoniques de l'application :
 - `asset.ts` : `MediaAsset`, `MediaKind` ('video' | 'audio' | 'image'). Représente les fichiers multimédias importés.
-- `timeline.ts` : `TimelineSequence`, `TimelineLane`, `TimelineItem`, `SpatialPlacement`, `TextLayerData`. Décrit l'agencement temporel et spatial des pistes et des segments de clips.
+- `timeline.ts` : `TimelineSequence`, `TimelineLane`, `TimelineItem`, `SpatialPlacement`, `TextLayerData`. Décrit l'agencement temporel et spatial des pistes et des segments de clips, y compris les durées de fondus d'entrée/sortie (`fade_in_duration_us`, `fade_out_duration_us`) et l'état solo (`is_solo`).
 - `project.ts` : `KromaProject`, `TimelineCanvasSettings`, fonction utilitaire `createDefaultProject()`.
 
 ### 1.2 `src/core/playback`
 Moteur de prévisualisation et de synchronisation :
-- `playbackEngine.ts` : calcule l'ensemble des segments visuels et audios actifs sous la tête de lecture à l'instant $T$, triés selon leur ordre d'empilement vertical (`stack_index`), et détermine le temps source exact $t_{\text{source\_us}} = t_{\text{timeline\_us}} - t_{\text{placement\_us}} + t_{\text{source\_in\_us}}$.
+- `playbackEngine.ts` : calcule l'ensemble des segments visuels et audios actifs sous la tête de lecture à l'instant $T$, applique les règles d'isolation Solo/Mute et le mixage sommateur pondéré via la fonction `calculateFadeGain(offsetUs, durationUs, fadeInUs, fadeOutUs)`.
 
 ### 1.3 `src/core/media`
 Gestion et décodage multimédia :
@@ -68,11 +70,11 @@ Module pur de manipulation des pistes et segments :
 
 ### 1.5 `src/components`
 Composants React modulaires organisés selon l'agencement CapCut :
-- `components/player/PreviewMonitor.tsx` : écran `<canvas>` composite 16:9 haute performance dessinant en direct le flux vidéo, audio, titres (texte positionné via `normalized_center`), avec barre de transport et raccourci barre d'espace.
+- `components/player/PreviewMonitor.tsx` : écran `<canvas>` composite 16:9 haute performance avec contrôle du volume dynamique en temps réel.
 - `components/media/MediaBin.tsx` : médiathèque avec onglets, recherche et drag & drop vers les pistes.
-- `components/inspector/InspectorPanel.tsx` : panneau de propriétés contextuel. Bascule automatiquement sur `TextEditor` si le clip sélectionné possède `text_layer_data`.
-- `components/text/TextEditor.tsx` *(Étape 4)* : éditeur texte complet (contenu, police, taille, gras, alignement, couleurs, contour, position X/Y normalisée, aperçu live).
-- `components/timeline/` : suite complète de timeline (barre d'outils avec bouton **Texte**, réglette graduée, tête de lecture, en-têtes et clips interactifs).
+- `components/inspector/InspectorPanel.tsx` : panneau de propriétés contextuel avec section Audio complète (volume du clip, réglages fins des fondus Fade In / Fade Out et visualisation de la courbe d'enveloppe).
+- `components/audio/AudioWaveform.tsx` *(Étape 5)* : générateur vectoriel haute performance de formes d'ondes audio harmoniques.
+- `components/timeline/` : suite complète de timeline (barre d'outils, réglette graduée, tête de lecture, en-têtes avec Solo [S] et volume de piste, et clips avec visualisations de fondus).
 
 ---
 
@@ -89,6 +91,13 @@ Composants React modulaires organisés selon l'agencement CapCut :
 
 4. **Positionnement normalisé des calques texte :**
    La position (`normalized_center`) est stockée en ratios 0.0–1.0 indépendants de la résolution, permettant à un texte positionné à `{x: 0.5, y: 0.85}` de rester toujours centré à 85 % de la hauteur quelle que soit la résolution (1080p, 4K, etc.).
+
+5. **Modèle de mixage audio DSP hiérarchique :**
+   Le volume d'un élément audio à tout instant $t$ résulte de la composition de 3 étages indépendants :
+   - Étage 1 : Le gain individuel du clip (`item_gain`), ajustable de 0% à 200%.
+   - Étage 2 : Le gain général de la piste (`gain_level`), ajustable de 0% à 200% pour équilibrer les pistes entre elles.
+   - Étage 3 : La rampe continue d'atténuation du fondu (`Fade In` / `Fade Out`), évitant les claquements et assurant des montées/descentes sonores progressives.
+   - Étage 4 : La matrice d'acheminement Solo / Mute garantissant l'isolation instantanée des pistes d'écoute.
 
 ---
 

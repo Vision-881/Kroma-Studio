@@ -54,9 +54,12 @@ interface ProjectState {
   trimTimelineItem: (itemId: string, handle: 'start' | 'end', deltaUs: number) => void;
   removeTimelineItem: (itemId: string) => void;
   toggleLaneMute: (laneId: string) => void;
+  toggleLaneSolo: (laneId: string) => void;
   toggleLaneLock: (laneId: string) => void;
+  updateLaneGain: (laneId: string, gain: number) => void;
   updateClipPlacement: (itemId: string, updates: Partial<SpatialPlacement>) => void;
   updateClipGain: (itemId: string, gain: number) => void;
+  updateClipFade: (itemId: string, fadeInUs: number, fadeOutUs: number) => void;
   addTextItem: (text?: string, placementTimeUs?: number) => void;
   updateTextLayerData: (itemId: string, updates: Partial<TextLayerData>) => void;
 
@@ -292,10 +295,41 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       };
     }),
 
+  toggleLaneSolo: (laneId: string) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((l) =>
+        l.lane_id === laneId ? { ...l, is_solo: !l.is_solo } : l,
+      );
+      return {
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
   toggleLaneLock: (laneId: string) =>
     set((state) => {
       const updatedLanes = state.project.sequence.lanes.map((l) =>
         l.lane_id === laneId ? { ...l, is_locked: !l.is_locked } : l,
+      );
+      return {
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  updateLaneGain: (laneId: string, gain: number) =>
+    set((state) => {
+      const clampedGain = Math.max(0, Math.min(2.0, gain));
+      const updatedLanes = state.project.sequence.lanes.map((l) =>
+        l.lane_id === laneId ? { ...l, gain_level: clampedGain } : l,
       );
       return {
         project: {
@@ -349,6 +383,30 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           return {
             ...item,
             item_gain: Math.max(0, Math.min(2.0, gain)),
+          };
+        }),
+      }));
+
+      return {
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  updateClipFade: (itemId: string, fadeInUs: number, fadeOutUs: number) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          return {
+            ...item,
+            fade_in_duration_us: Math.max(0, fadeInUs),
+            fade_out_duration_us: Math.max(0, fadeOutUs),
           };
         }),
       }));

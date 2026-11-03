@@ -2,7 +2,7 @@
 
 Ce document consigne l'avancement du projet, la feuille de route du MVP, les étapes réalisées, en cours et à venir, ainsi que les décisions d'architecture prises au fil du développement.
 
-Dernière mise à jour : 02/11/2026 (Étape 4 du MVP)
+Dernière mise à jour : 03/11/2026 (Étape 5 du MVP)
 
 ---
 
@@ -15,8 +15,8 @@ Dernière mise à jour : 02/11/2026 (Étape 4 du MVP)
 | **Étape 2** | Timeline multipiste & Ergonomie CapCut | ✅ Terminé | Disposition 4 quadrants style CapCut Desktop, réglette graduée dynamique, zoom temporel, déplacement de clips, découpe (outil Rasoir/Split), rognage (Trim handles), suppression, drag & drop depuis la médiathèque, panneau Inspecteur/Propriétés. |
 | **Étape 3** | Lecteur d'aperçu temps réel synchronisé | ✅ Terminé | Moteur de rendu `<canvas>` 16:9 haute performance alimenté par les flux réels (`<video>`, `<audio>`, `<img>`), synchronisation à la frame près sous la tête de lecture, registre de session multimédia `mediaSession`, lecture Play/Pause 60 FPS (raccourci Espace), 21 tests unitaires. |
 | **Étape 4** | Superposition de texte | ✅ Terminé | Calques textes riches sur piste `text_overlay` dédiée, éditeur complet (police, taille, gras, couleur remplissage/contour, alignement, position X/Y), rendu Canvas natif avec `normalized_center`, 27 tests unitaires. |
-| **Étape 5** | Mixage & Contrôle du volume | ⬜ À faire | Gestion fine du gain audio, automation/fondu, fonction mute / solo par piste. |
-| **Étape 6** | Historique Annuler / Rétablir & Persistance | ⬜ À faire | Pile Undo/Redo complète sur les actions de timeline, sauvegarde et ouverture de projets `.kproj` en JSON via dialogue de fichiers. |
+| **Étape 5** | Mixage & Contrôle du volume | ✅ Terminé | Contrôle de gain par clip et par piste (0% à 200%), mode Solo / Mute avancé avec isolation, fondus d'entrée (Fade In) et de sortie (Fade Out) continus, formes d'ondes audio (Waveforms) sur clips, 36 tests unitaires. |
+| **Étape 6** | Historique Annuler / Rétablir & Persistance | ⬜ Prochaine | Pile Undo/Redo complète sur les actions de timeline, sauvegarde et ouverture de projets `.kproj` en JSON via dialogue de fichiers. |
 | **Étape 7** | Export MP4 via FFmpeg | ⬜ À faire | Génération de la commande de filtre complexe FFmpeg et exécution en sous-processus externe indépendant. |
 
 ---
@@ -47,6 +47,12 @@ Dernière mise à jour : 02/11/2026 (Étape 4 du MVP)
 - **Décision :** La position d'un calque texte est stockée sous forme de ratios `x_ratio` / `y_ratio` entre 0.0 et 1.0 relatifs aux dimensions du canevas, plutôt qu'en pixels absolus.
 - **Justification :** Le positionnement normalisé est indépendant de la résolution du canevas (1080p, 4K, 720p…). Un texte positionné à `{x: 0.5, y: 0.8}` sera toujours centré horizontalement à 80 % de la hauteur quelle que soit la résolution de sortie choisie.
 
+### 2.7 Mixage sommateur pondéré et calcul continu des rampes de fondu
+- **Décision :** Le gain effectif perçu à tout instant $t$ est le produit scalaire :
+  $$\text{Gain}_{\text{effectif}}(t) = \text{Gain}_{\text{clip}} \times \text{Gain}_{\text{piste}} \times \text{FadeFactor}(t)$$
+  où $\text{FadeFactor}(t)$ est évalué continûment selon les durées de fondu d'entrée (`fade_in_duration_us`) et de sortie (`fade_out_duration_us`).
+- **Justification :** Permet un contrôle hiérarchique intuitif (équilibrage global d'une piste entière + micro-ajustement d'un clip particulier) et des transitions d'entrée/sortie ultra-douces sans craquement sonore (pop/click).
+
 ---
 
 ## 3. Historique des étapes
@@ -75,5 +81,14 @@ Dernière mise à jour : 02/11/2026 (Étape 4 du MVP)
 - **Intégration :** `InspectorPanel.tsx` — détection automatique des calques texte et bascule vers `TextEditor` ; `TimelineToolbar.tsx` — bouton "Texte" (icône T) pour insérer un calque texte à la tête de lecture.
 - **Rendu Canvas :** `PreviewMonitor.tsx` — rendu texte tenant compte de `normalized_center` (position absolue sur canvas), contour `lineJoin: round`, police scalée ×2 pour la haute résolution.
 - **Styles :** `src/styles/text-editor.css` — 27 règles CSS dédiées au panneau TextEditor.
-- **Tests :** 27 tests unitaires (9 dans `timelineOps.test.ts`, 9 dans `projectStore.test.ts`), tous ✅.
+- **Tests :** 27 tests unitaires, tous ✅.
+
+### Étape 5 — Mixage & Contrôle du volume (03/11/2026)
+- **Modèle :** `fade_in_duration_us` et `fade_out_duration_us` sur `TimelineItem` ; `is_solo` et `gain_level` sur `TimelineLane`.
+- **Moteur audio DSP :** Fonction `calculateFadeGain()` dans `playbackEngine.ts` pour évaluer les rampes de volume à la microseconde près. Gestion de l'isolation Solo (isole la/les pistes Solo et coupe les autres).
+- **Store Zustand :** Actions `toggleLaneSolo`, `updateLaneGain` (0% à 200%), `updateClipFade` (Fade in / Fade out).
+- **Interface Timeline :** Bouton Solo [S] doré dans `TimelineTrackHeader`, curseur de volume de piste intégré avec badge dynamique, indicateur visuel d'atténuation sur les pistes masquées par le Solo.
+- **Formes d'onde & Pentes de fondu :** Composant `AudioWaveform.tsx` avec modélisation harmonique pour les clips audio et vidéo, et superpositions SVG de pentes de volume sur la timeline lors des fondus.
+- **Panneau Inspecteur :** Section Audio enrichie avec curseurs Fade In (0.0s à 5.0s), Fade Out (0.0s à 5.0s) et visualisation SVG de la courbe d'enveloppe sonore.
+- **Tests :** 36 tests unitaires automatisés (8 dans `playbackEngine.test.ts`, 12 dans `projectStore.test.ts`), tous ✅.
 
