@@ -931,6 +931,47 @@ input {
   text-align: center;
 }
 
+/* Boutons de réinitialisation contextuels des réglages de l'Inspecteur */
+.inspector-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 120ms ease;
+  line-height: 1;
+}
+
+.inspector-reset-btn:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  color: #ffffff;
+  border-color: var(--border-strong);
+}
+
+.inspector-reset-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.inspector-reset-btn--active {
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.inspector-reset-btn--active:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.6);
+}
+
 /* ── Zone inférieure : Timeline multipiste ────────────────── */
 .kroma-workspace-bottom {
   height: 310px;

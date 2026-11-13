@@ -60,6 +60,7 @@ export function InspectorPanel() {
     updateClipGain,
     updateClipFade,
     updateClipPlacement,
+    resetClipPlacement,
     addOrUpdateClipKeyframe,
     removeClipKeyframe,
     clearAllClipKeyframes,
@@ -188,11 +189,33 @@ export function InspectorPanel() {
           </div>
 
           {/* Audio, Mixage & Fondus */}
-          <div className="inspector-section">
-            <h4 className="inspector-section__title">
-              <Volume2 size={14} />
-              <span>Audio & Mixage</span>
-            </h4>
+          {(() => {
+            const isAudioModified =
+              (selectedItem.item_gain ?? 1.0) !== 1.0 ||
+              (selectedItem.fade_in_duration_us ?? 0) > 0 ||
+              (selectedItem.fade_out_duration_us ?? 0) > 0;
+
+            return (
+              <div className="inspector-section">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h4 className="inspector-section__title" style={{ margin: 0 }}>
+                    <Volume2 size={14} />
+                    <span>Audio & Mixage</span>
+                  </h4>
+                  {isAudioModified && (
+                    <button
+                      className="inspector-reset-btn"
+                      onClick={() => {
+                        updateClipGain(selectedItem!.item_id, 1.0, true);
+                        updateClipFade(selectedItem!.item_id, 0, 0, true);
+                      }}
+                      title="Rétablir le volume à 100% et annuler les fondus"
+                    >
+                      <RotateCcw size={11} />
+                      <span>Réinitialiser</span>
+                    </button>
+                  )}
+                </div>
 
             {/* Volume du clip */}
             <div className="inspector-control">
@@ -297,6 +320,8 @@ export function InspectorPanel() {
               );
             })()}
           </div>
+        );
+      })()}
 
           {/* Transformation visuelle & Images-Clés (Étape 14) */}
           {parentLane.lane_type === 'visual' && (() => {
@@ -470,6 +495,17 @@ export function InspectorPanel() {
               );
             };
 
+            const isPlacementModified = Boolean(
+              selectedItem.spatial_placement && (
+                (selectedItem.spatial_placement.zoom_factor_x ?? 1.0) !== 1.0 ||
+                (selectedItem.spatial_placement.zoom_factor_y ?? 1.0) !== 1.0 ||
+                (selectedItem.spatial_placement.offset_x_px ?? 0) !== 0 ||
+                (selectedItem.spatial_placement.offset_y_px ?? 0) !== 0 ||
+                (selectedItem.spatial_placement.rotation_degrees ?? 0) !== 0 ||
+                (selectedItem.spatial_placement.opacity_ratio ?? 1.0) !== 1.0
+              )
+            );
+
             return (
               <div className="inspector-section">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -477,16 +513,27 @@ export function InspectorPanel() {
                     <Move size={14} />
                     <span>Transformation & Images-Clés</span>
                   </h4>
-                  {clipHasKf && (
-                    <button
-                      className="inspector-reset-btn"
-                      style={{ fontSize: 10, padding: '2px 6px', color: '#f87171' }}
-                      onClick={() => clearAllClipKeyframes(clipItem.item_id)}
-                      title="Effacer toutes les images-clés de ce clip"
-                    >
-                      Effacer tout
-                    </button>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {isPlacementModified && (
+                      <button
+                        className="inspector-reset-btn"
+                        onClick={() => resetClipPlacement(clipItem.item_id)}
+                        title="Réinitialiser la transformation (Échelle 100%, Position 0, Rotation 0, Opacité 100%)"
+                      >
+                        <RotateCcw size={11} />
+                        <span>Réinitialiser</span>
+                      </button>
+                    )}
+                    {clipHasKf && (
+                      <button
+                        className="inspector-reset-btn inspector-reset-btn--active"
+                        onClick={() => clearAllClipKeyframes(clipItem.item_id)}
+                        title="Effacer toutes les images-clés de ce clip"
+                      >
+                        <span>Effacer tout</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Bannière d'état animation */}
@@ -652,9 +699,10 @@ export function InspectorPanel() {
                   <button
                     className="inspector-reset-btn"
                     onClick={() => updateClipSpeed(selectedItem!.item_id, 1.0)}
-                    title="Rétablir à 1.0×"
+                    title="Rétablir la vitesse à 1.0×"
                   >
-                    <RotateCcw size={12} />
+                    <RotateCcw size={11} />
+                    <span>Réinitialiser</span>
                   </button>
                 )}
               </div>
@@ -710,7 +758,8 @@ export function InspectorPanel() {
                     onClick={() => updateClipTransition(selectedItem!.item_id, undefined)}
                     title="Retirer la transition"
                   >
-                    <RotateCcw size={12} />
+                    <RotateCcw size={11} />
+                    <span>Retirer</span>
                   </button>
                 )}
               </div>
@@ -789,23 +838,35 @@ export function InspectorPanel() {
           )}
 
           {/* Réglages & Étalonnage Couleur (Étape 8) */}
-          {isVideoOrImage && (
-            <div className="inspector-section">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h4 className="inspector-section__title" style={{ margin: 0 }}>
-                  <Palette size={14} />
-                  <span>Réglages & Étalonnage</span>
-                </h4>
-                {selectedItem.color_adjustments && (
+          {isVideoOrImage && (() => {
+            const adj = selectedItem.color_adjustments;
+            const isColorAdjusted = Boolean(
+              adj && (
+                (adj.brightness ?? 0) !== 0 ||
+                (adj.contrast ?? 0) !== 0 ||
+                (adj.saturation ?? 0) !== 0 ||
+                (adj.hue_degrees ?? 0) !== 0 ||
+                (adj.blur_px ?? 0) !== 0
+              )
+            );
+
+            return (
+              <div className="inspector-section">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h4 className="inspector-section__title" style={{ margin: 0 }}>
+                    <Palette size={14} />
+                    <span>Réglages & Étalonnage</span>
+                  </h4>
                   <button
-                    className="inspector-reset-btn"
+                    className={`inspector-reset-btn ${isColorAdjusted ? 'inspector-reset-btn--active' : ''}`}
+                    disabled={!isColorAdjusted}
                     onClick={() => resetClipColorAdjustments(selectedItem!.item_id)}
-                    title="Réinitialiser l'étalonnage"
+                    title={isColorAdjusted ? "Réinitialiser tous les réglages de couleur à 0" : "Aucun réglage modifié"}
                   >
-                    <RotateCcw size={12} />
+                    <RotateCcw size={11} />
+                    <span>Réinitialiser</span>
                   </button>
-                )}
-              </div>
+                </div>
 
               {/* Luminosité */}
               <div className="inspector-control" style={{ marginTop: 8 }}>
@@ -936,27 +997,50 @@ export function InspectorPanel() {
                   className="kroma-slider"
                 />
               </div>
-            </div>
-          )}
 
-          {/* Filtres FX & Effets Dynamiques (Étape 11 & 13) */}
-          {isVideoOrImage && (
-            <div className="inspector-section">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h4 className="inspector-section__title" style={{ margin: 0 }}>
-                  <Wand2 size={14} />
-                  <span>Filtres & Effets FX</span>
-                </h4>
-                {selectedItem.video_effects && selectedItem.video_effects.preset !== 'none' && (
-                  <button
-                    className="inspector-reset-btn"
-                    onClick={() => updateClipEffects(selectedItem!.item_id, undefined)}
-                    title="Réinitialiser les effets"
-                  >
-                    <RotateCcw size={12} />
-                  </button>
-                )}
-              </div>
+              {/* Bouton de réinitialisation complet */}
+              {isColorAdjusted && (
+                <button
+                  type="button"
+                  className="inspector-reset-btn inspector-reset-btn--active"
+                  style={{
+                    width: '100%',
+                    justifyContent: 'center',
+                    marginTop: 10,
+                    padding: '6px 12px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                  onClick={() => resetClipColorAdjustments(selectedItem!.item_id)}
+                  title="Remettre la luminosité, le contraste, la saturation, la teinte et le flou à 0"
+                >
+                  <RotateCcw size={12} />
+                  <span>Réinitialiser tous les réglages</span>
+                </button>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Filtres FX & Effets Dynamiques (Étape 11 & 13) */}
+        {isVideoOrImage && (
+          <div className="inspector-section">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h4 className="inspector-section__title" style={{ margin: 0 }}>
+                <Wand2 size={14} />
+                <span>Filtres & Effets FX</span>
+              </h4>
+              {selectedItem.video_effects && selectedItem.video_effects.preset !== 'none' && (
+                <button
+                  className="inspector-reset-btn"
+                  onClick={() => updateClipEffects(selectedItem!.item_id, undefined)}
+                  title="Réinitialiser les effets"
+                >
+                  <RotateCcw size={11} />
+                  <span>Réinitialiser</span>
+                </button>
+              )}
+            </div>
 
               {/* Grille de sélection des filtres artistiques et dynamiques */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, margin: '10px 0' }}>
@@ -1123,7 +1207,8 @@ export function InspectorPanel() {
                       }
                       title="Réinitialiser l'incrustation"
                     >
-                      <RotateCcw size={12} />
+                      <RotateCcw size={11} />
+                      <span>Réinitialiser</span>
                     </button>
                   )}
                   {/* Toggle Switch */}
@@ -1317,7 +1402,8 @@ export function InspectorPanel() {
                     onClick={() => resetClipMask(selectedItem!.item_id)}
                     title="Réinitialiser le masque"
                   >
-                    <RotateCcw size={12} />
+                    <RotateCcw size={11} />
+                    <span>Réinitialiser</span>
                   </button>
                 )}
               </div>

@@ -96,6 +96,7 @@ interface ProjectState {
   toggleLaneLock: (laneId: string) => void;
   updateLaneGain: (laneId: string, gain: number) => void;
   updateClipPlacement: (itemId: string, updates: Partial<SpatialPlacement>, commitHistory?: boolean) => void;
+  resetClipPlacement: (itemId: string) => void;
   updateClipGain: (itemId: string, gain: number, commitHistory?: boolean) => void;
   updateClipFade: (itemId: string, fadeInUs: number, fadeOutUs: number, commitHistory?: boolean) => void;
   updateClipColorAdjustments: (itemId: string, updates: Partial<ColorAdjustments>, commitHistory?: boolean) => void;
@@ -542,6 +543,42 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         future: commitHistory ? [] : state.future,
         canUndo: commitHistory ? true : state.canUndo,
         canRedo: commitHistory ? false : state.canRedo,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  resetClipPlacement: (itemId: string) =>
+    set((state) => {
+      const defaultPlacement: SpatialPlacement = {
+        offset_x_px: 0,
+        offset_y_px: 0,
+        zoom_factor_x: 1.0,
+        zoom_factor_y: 1.0,
+        rotation_degrees: 0,
+        opacity_ratio: 1.0,
+      };
+
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          return {
+            ...item,
+            spatial_placement: { ...defaultPlacement },
+          };
+        }),
+      }));
+
+      return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
         project: {
           ...state.project,
           sequence: { ...state.project.sequence, lanes: updatedLanes },

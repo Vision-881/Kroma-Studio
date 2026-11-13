@@ -347,6 +347,45 @@ describe('useProjectStore', () => {
       expect(item.color_adjustments?.brightness).toBe(0.2);
     });
 
+    it('resetClipPlacement() réinitialise l\'échelle, la position, la rotation et l\'opacité avec Undo/Redo', () => {
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      const laneId = useProjectStore.getState().project.sequence.lanes[0].lane_id;
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, laneId, 0);
+
+      const itemId = useProjectStore.getState().project.sequence.lanes[0].items[0].item_id;
+
+      // Modifier la transformation
+      useProjectStore.getState().updateClipPlacement(itemId, {
+        zoom_factor_x: 1.8,
+        zoom_factor_y: 1.8,
+        offset_x_px: 120,
+        offset_y_px: -50,
+        rotation_degrees: 45,
+        opacity_ratio: 0.7,
+      });
+
+      let item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.spatial_placement?.zoom_factor_x).toBe(1.8);
+      expect(item.spatial_placement?.offset_x_px).toBe(120);
+      expect(item.spatial_placement?.rotation_degrees).toBe(45);
+
+      // Réinitialisation
+      useProjectStore.getState().resetClipPlacement(itemId);
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.spatial_placement?.zoom_factor_x).toBe(1.0);
+      expect(item.spatial_placement?.zoom_factor_y).toBe(1.0);
+      expect(item.spatial_placement?.offset_x_px).toBe(0);
+      expect(item.spatial_placement?.offset_y_px).toBe(0);
+      expect(item.spatial_placement?.rotation_degrees).toBe(0);
+      expect(item.spatial_placement?.opacity_ratio).toBe(1.0);
+
+      // Undo restaure les transformations personnalisées
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.spatial_placement?.zoom_factor_x).toBe(1.8);
+      expect(item.spatial_placement?.offset_x_px).toBe(120);
+    });
+
     it('updateClipSpeed() modifie la vitesse de lecture avec bornage et support Undo/Redo', () => {
       useProjectStore.getState().addAsset(dummyVideoAsset);
       const laneId = useProjectStore.getState().project.sequence.lanes[0].lane_id;
