@@ -18,6 +18,7 @@ export function Timeline() {
     addItemFromAsset,
     setSelectedItemId,
     currentTimeUs,
+    setCurrentTimeUs,
   } = useProjectStore();
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -58,9 +59,6 @@ export function Timeline() {
     }
   }, [currentTimeUs, zoomPixelsPerSecond]);
 
-  // Hauteur totale calculée des pistes pour la tête de lecture
-  const tracksHeight = project.sequence.lanes.length * 56 + 32;
-
   // ── Gestion du Drag & Drop d'un asset vers une piste ───────────────────────
   const handleTrackDragOver = (e: React.DragEvent) => {
     if (e.dataTransfer.types.includes('application/kroma-asset-id')) {
@@ -86,9 +84,23 @@ export function Timeline() {
     addItemFromAsset(asset, laneId, dropTimeUs);
   };
 
-  const handleTimelineBackgroundClick = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).classList.contains('timeline-track-body')) {
+  const handleTimelineBackgroundMouseDown = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (
+      target.classList.contains('timeline-track-body') ||
+      target.classList.contains('timeline-lanes-list') ||
+      target.classList.contains('timeline-tracks-scroll')
+    ) {
       setSelectedItemId(null);
+      const canvasEl = scrollContainerRef.current?.querySelector(
+        '.timeline-tracks-canvas',
+      ) as HTMLElement | null;
+      if (canvasEl) {
+        const rect = canvasEl.getBoundingClientRect();
+        const clickOffsetPx = e.clientX - rect.left;
+        const targetSeconds = Math.max(0, clickOffsetPx / zoomPixelsPerSecond);
+        setCurrentTimeUs(Math.round(targetSeconds * 1_000_000));
+      }
     }
   };
 
@@ -111,7 +123,7 @@ export function Timeline() {
         <div
           ref={scrollContainerRef}
           className="timeline-tracks-scroll"
-          onClick={handleTimelineBackgroundClick}
+          onMouseDown={handleTimelineBackgroundMouseDown}
         >
           <div
             className="timeline-tracks-canvas"
@@ -120,8 +132,8 @@ export function Timeline() {
             {/* Réglette temporelle graduée */}
             <TimelineRuler totalWidthPx={totalTimelineWidthPx} />
 
-            {/* Tête de lecture rouge */}
-            <TimelinePlayhead totalHeightPx={tracksHeight} />
+            {/* Tête de lecture rouge CapCut unifiée */}
+            <TimelinePlayhead />
 
             {/* Rangées de pistes */}
             <div className="timeline-lanes-list">

@@ -27,6 +27,11 @@ import {
   type ExportOptions,
 } from '../../core/export/ffmpegCommandBuilder';
 import { usToTimecode } from '../../core/time/timeUtils';
+import {
+  detectAspectRatio,
+  CANVAS_RATIO_PRESETS,
+  type CanvasAspectRatio,
+} from '../../core/types/project';
 import '../../styles/export-dialog.css';
 
 interface ResolutionPreset {
@@ -38,48 +43,224 @@ interface ResolutionPreset {
   fps: number;
 }
 
-const PRESETS: ResolutionPreset[] = [
-  {
-    id: '1080p',
-    label: '1080p Full HD',
-    sub: '1920×1080 · 60 FPS',
-    width: 1920,
-    height: 1080,
-    fps: 60,
-  },
-  {
-    id: '720p',
-    label: '720p HD',
-    sub: '1280×720 · 30 FPS',
-    width: 1280,
-    height: 720,
-    fps: 30,
-  },
-  {
-    id: '4k',
-    label: '4K Ultra HD',
-    sub: '3840×2160 · 60 FPS',
-    width: 3840,
-    height: 2160,
-    fps: 60,
-  },
-  {
-    id: 'custom',
-    label: 'Personnalisé',
-    sub: 'Sur mesure',
-    width: 0,
-    height: 0,
-    fps: 0,
-  },
-];
+function getResolutionPresetsForCanvas(
+  canvasWidth: number,
+  canvasHeight: number,
+  ratio: CanvasAspectRatio,
+): ResolutionPreset[] {
+  // Format Vertical 9:16 (TikTok, Reels, Shorts)
+  if (ratio === '9:16' || (canvasHeight > canvasWidth && Math.abs(canvasWidth / canvasHeight - 9 / 16) < 0.05)) {
+    return [
+      {
+        id: '1080p_v',
+        label: '1080p Vertical',
+        sub: '1080×1920 · 60 FPS (TikTok/Reels)',
+        width: 1080,
+        height: 1920,
+        fps: 60,
+      },
+      {
+        id: '720p_v',
+        label: '720p HD Vertical',
+        sub: '720×1280 · 30 FPS',
+        width: 720,
+        height: 1280,
+        fps: 30,
+      },
+      {
+        id: '4k_v',
+        label: '4K Vertical',
+        sub: '2160×3840 · 60 FPS',
+        width: 2160,
+        height: 3840,
+        fps: 60,
+      },
+      {
+        id: 'custom',
+        label: 'Personnalisé',
+        sub: 'Sur mesure',
+        width: 0,
+        height: 0,
+        fps: 0,
+      },
+    ];
+  }
+
+  // Format Carré 1:1 (Instagram Feed)
+  if (ratio === '1:1' || Math.abs(canvasWidth / canvasHeight - 1.0) < 0.05) {
+    return [
+      {
+        id: '1080p_sq',
+        label: '1080p Carré',
+        sub: '1080×1080 · 60 FPS (Instagram)',
+        width: 1080,
+        height: 1080,
+        fps: 60,
+      },
+      {
+        id: '720p_sq',
+        label: '720p Carré',
+        sub: '720×720 · 30 FPS',
+        width: 720,
+        height: 720,
+        fps: 30,
+      },
+      {
+        id: '4k_sq',
+        label: '4K Ultra HD Carré',
+        sub: '2160×2160 · 60 FPS',
+        width: 2160,
+        height: 2160,
+        fps: 60,
+      },
+      {
+        id: 'custom',
+        label: 'Personnalisé',
+        sub: 'Sur mesure',
+        width: 0,
+        height: 0,
+        fps: 0,
+      },
+    ];
+  }
+
+  // Format Portrait 4:5 (Instagram Feed)
+  if (ratio === '4:5' || Math.abs(canvasWidth / canvasHeight - 4 / 5) < 0.05) {
+    return [
+      {
+        id: '1080p_p',
+        label: '1080p Portrait 4:5',
+        sub: '1080×1350 · 60 FPS (Feed)',
+        width: 1080,
+        height: 1350,
+        fps: 60,
+      },
+      {
+        id: '720p_p',
+        label: '720p Portrait 4:5',
+        sub: '720×900 · 30 FPS',
+        width: 720,
+        height: 900,
+        fps: 30,
+      },
+      {
+        id: '4k_p',
+        label: '4K Ultra HD Portrait',
+        sub: '2160×2700 · 60 FPS',
+        width: 2160,
+        height: 2700,
+        fps: 60,
+      },
+      {
+        id: 'custom',
+        label: 'Personnalisé',
+        sub: 'Sur mesure',
+        width: 0,
+        height: 0,
+        fps: 0,
+      },
+    ];
+  }
+
+  // Format Cinéma 21:9
+  if (ratio === '21:9' || Math.abs(canvasWidth / canvasHeight - 21 / 9) < 0.1) {
+    return [
+      {
+        id: '1080p_uw',
+        label: '1080p Ultrawide',
+        sub: '2560×1080 · 60 FPS (Cinéma)',
+        width: 2560,
+        height: 1080,
+        fps: 60,
+      },
+      {
+        id: '1440p_uw',
+        label: '1440p Ultrawide QHD',
+        sub: '3440×1440 · 60 FPS',
+        width: 3440,
+        height: 1440,
+        fps: 60,
+      },
+      {
+        id: '720p_uw',
+        label: '720p Ultrawide',
+        sub: '1920×810 · 30 FPS',
+        width: 1920,
+        height: 810,
+        fps: 30,
+      },
+      {
+        id: 'custom',
+        label: 'Personnalisé',
+        sub: 'Sur mesure',
+        width: 0,
+        height: 0,
+        fps: 0,
+      },
+    ];
+  }
+
+  // Format Paysage standard 16:9
+  return [
+    {
+      id: '1080p',
+      label: '1080p Full HD',
+      sub: '1920×1080 · 60 FPS (YouTube/PC)',
+      width: 1920,
+      height: 1080,
+      fps: 60,
+    },
+    {
+      id: '720p',
+      label: '720p HD',
+      sub: '1280×720 · 30 FPS',
+      width: 1280,
+      height: 720,
+      fps: 30,
+    },
+    {
+      id: '4k',
+      label: '4K Ultra HD',
+      sub: '3840×2160 · 60 FPS',
+      width: 3840,
+      height: 2160,
+      fps: 60,
+    },
+    {
+      id: 'custom',
+      label: 'Personnalisé',
+      sub: 'Sur mesure',
+      width: 0,
+      height: 0,
+      fps: 0,
+    },
+  ];
+}
 
 export function ExportDialog() {
   const { project, isExportDialogOpen, closeExportDialog } = useProjectStore();
 
-  const [activePresetId, setActivePresetId] = useState<string>('1080p');
-  const [customWidth, setCustomWidth] = useState<number>(project.timeline_canvas?.viewport_width || 1920);
-  const [customHeight, setCustomHeight] = useState<number>(project.timeline_canvas?.viewport_height || 1080);
+  const canvasWidth = project.timeline_canvas?.viewport_width || 1920;
+  const canvasHeight = project.timeline_canvas?.viewport_height || 1080;
+  const currentRatio =
+    project.timeline_canvas?.aspect_ratio || detectAspectRatio(canvasWidth, canvasHeight);
+  const ratioPreset = CANVAS_RATIO_PRESETS[currentRatio as Exclude<CanvasAspectRatio, 'custom'>];
+
+  const presets = useMemo(() => {
+    return getResolutionPresetsForCanvas(canvasWidth, canvasHeight, currentRatio);
+  }, [canvasWidth, canvasHeight, currentRatio]);
+
+  const [activePresetId, setActivePresetId] = useState<string>(presets[0]?.id || '1080p');
+  const [customWidth, setCustomWidth] = useState<number>(canvasWidth);
+  const [customHeight, setCustomHeight] = useState<number>(canvasHeight);
   const [customFps, setCustomFps] = useState<number>(project.timeline_canvas?.frame_rate_fps || 60);
+
+  // Synchroniser le préréglage actif avec le ratio du projet lorsqu'il change
+  useEffect(() => {
+    if (presets.length > 0 && !presets.some((p) => p.id === activePresetId)) {
+      setActivePresetId(presets[0].id);
+    }
+  }, [presets, activePresetId]);
 
   const [videoCodec, setVideoCodec] = useState<'libx264' | 'libx265'>('libx264');
   const [preset, setPreset] = useState<'ultrafast' | 'veryfast' | 'fast' | 'medium' | 'slow'>('medium');
@@ -116,7 +297,7 @@ export function ExportDialog() {
   if (!isExportDialogOpen) return null;
 
   // Calcul des dimensions selon le preset choisi
-  const selectedPreset = PRESETS.find((p) => p.id === activePresetId && p.id !== 'custom');
+  const selectedPreset = presets.find((p) => p.id === activePresetId && p.id !== 'custom');
   const targetWidth = selectedPreset ? selectedPreset.width : customWidth;
   const targetHeight = selectedPreset ? selectedPreset.height : customHeight;
   const targetFps = selectedPreset ? selectedPreset.fps : customFps;
@@ -191,7 +372,9 @@ export function ExportDialog() {
         {/* ── En-tête ── */}
         <div className="kroma-export-header">
           <div className="kroma-export-header__title-group">
-            <span className="kroma-export-header__badge">Étape 7 MVP</span>
+            <span className="kroma-export-header__badge">
+              {currentRatio} · {ratioPreset ? ratioPreset.name : 'Multi-formats'}
+            </span>
             <h2 className="kroma-export-header__title">Exporter la vidéo (FFmpeg MP4)</h2>
           </div>
           <button
@@ -211,10 +394,12 @@ export function ExportDialog() {
             <div className="kroma-export-group">
               <label className="kroma-export-label">
                 <span>Résolution & Cadence</span>
-                <span className="kroma-export-label__hint">16:9 Standard</span>
+                <span className="kroma-export-label__hint">
+                  Format {currentRatio} {ratioPreset ? `(${ratioPreset.label})` : ''}
+                </span>
               </label>
               <div className="kroma-export-presets">
-                {PRESETS.map((p) => (
+                {presets.map((p) => (
                   <button
                     key={p.id}
                     className={`kroma-preset-btn ${activePresetId === p.id ? 'kroma-preset-btn--active' : ''}`}

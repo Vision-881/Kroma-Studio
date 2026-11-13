@@ -4,6 +4,7 @@ import {
   usToMs,
   escapeDrawText,
   buildAtempoFilter,
+  buildFFmpegKeyframeExpr,
   buildFFmpegCommand,
   generateWindowsBatch,
   generateBashScript,
@@ -537,6 +538,370 @@ describe('ffmpegCommandBuilder', () => {
       expect(shContent).toContain('#!/usr/bin/env bash');
       expect(shContent).toContain('rendu.mp4');
       expect(shContent).toContain('command -v ffmpeg');
+    });
+  });
+
+  describe('Ratios de Canevas Multi-formats (Étape 12)', () => {
+    it('génère un canevas et un cadrage adaptés au format vertical 9:16 (TikTok/Reels/Shorts)', () => {
+      const proj = createDefaultProject('Export 9_16');
+      proj.timeline_canvas.viewport_width = 1080;
+      proj.timeline_canvas.viewport_height = 1920;
+      proj.timeline_canvas.aspect_ratio = '9:16';
+
+      const videoAsset: MediaAsset = {
+        asset_id: 'vid1',
+        display_name: 'paysage.mp4',
+        media_kind: 'video',
+        source_path: 'C:/Vids/paysage.mp4',
+        duration_us: 10_000_000,
+        native_width: 1920,
+        native_height: 1080,
+        detected_fps: 30,
+        audio_channels: 2,
+        audio_sample_rate_hz: 48000,
+      };
+      proj.asset_catalog.push(videoAsset);
+
+      proj.sequence.lanes[0].items.push({
+        item_id: 'item_v1',
+        referenced_asset_id: 'vid1',
+        placement_time_us: 0,
+        play_duration_us: 5_000_000,
+        source_in_point_us: 0,
+        source_duration_us: 5_000_000,
+        item_gain: 1.0,
+      });
+      proj.sequence.total_length_us = 5_000_000;
+
+      const result = buildFFmpegCommand(proj);
+
+      expect(result.resolution).toEqual({ width: 1080, height: 1920 });
+      // Canevas de base 1080x1920
+      expect(result.filterComplex).toContain('color=c=0x000000:s=1080x1920');
+      // Scale contain & pad 1080x1920
+      expect(result.filterComplex).toContain('scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2');
+    });
+
+    it('génère un canevas et un cadrage adaptés au format carré 1:1 (Instagram Feed)', () => {
+      const proj = createDefaultProject('Export 1_1');
+      proj.timeline_canvas.viewport_width = 1080;
+      proj.timeline_canvas.viewport_height = 1080;
+      proj.timeline_canvas.aspect_ratio = '1:1';
+
+      const imgAsset: MediaAsset = {
+        asset_id: 'img1',
+        display_name: 'photo.jpg',
+        media_kind: 'image',
+        source_path: 'C:/Images/photo.jpg',
+        duration_us: 5_000_000,
+        native_width: 1920,
+        native_height: 1080,
+        detected_fps: 0,
+        audio_channels: 0,
+        audio_sample_rate_hz: 0,
+      };
+      proj.asset_catalog.push(imgAsset);
+
+      proj.sequence.lanes[0].items.push({
+        item_id: 'item_img1',
+        referenced_asset_id: 'img1',
+        placement_time_us: 0,
+        play_duration_us: 4_000_000,
+        source_in_point_us: 0,
+        source_duration_us: 4_000_000,
+        item_gain: 1.0,
+      });
+      proj.sequence.total_length_us = 4_000_000;
+
+      const result = buildFFmpegCommand(proj);
+
+      expect(result.resolution).toEqual({ width: 1080, height: 1080 });
+      expect(result.filterComplex).toContain('color=c=0x000000:s=1080x1080');
+      expect(result.filterComplex).toContain('scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2');
+    });
+
+    it('génère un canevas et un cadrage adaptés au format portrait 4:5 (Instagram)', () => {
+      const proj = createDefaultProject('Export 4_5');
+      proj.timeline_canvas.viewport_width = 1080;
+      proj.timeline_canvas.viewport_height = 1350;
+      proj.timeline_canvas.aspect_ratio = '4:5';
+
+      const result = buildFFmpegCommand(proj);
+
+      expect(result.resolution).toEqual({ width: 1080, height: 1350 });
+      expect(result.filterComplex).toContain('color=c=0x000000:s=1080x1350');
+    });
+  });
+
+  describe('Effets dynamiques & Transitions CapCut (Étape 13)', () => {
+    it('compile correctement les effets dynamiques de secousse FFmpeg (crop + sin + scale)', () => {
+      const proj = createDefaultProject('Export Shake');
+      const videoAsset: MediaAsset = {
+        asset_id: 'vid1',
+        display_name: 'test.mp4',
+        media_kind: 'video',
+        source_path: 'C:/Vids/test.mp4',
+        duration_us: 10_000_000,
+        native_width: 1920,
+        native_height: 1080,
+        detected_fps: 30,
+        audio_channels: 2,
+        audio_sample_rate_hz: 48000,
+      };
+      proj.asset_catalog.push(videoAsset);
+
+      proj.sequence.lanes[0].items.push({
+        item_id: 'item_shake',
+        referenced_asset_id: 'vid1',
+        placement_time_us: 0,
+        play_duration_us: 5_000_000,
+        source_in_point_us: 0,
+        source_duration_us: 5_000_000,
+        item_gain: 1.0,
+        video_effects: {
+          preset: 'x_shake',
+          intensity: 1.5,
+          speed: 1.2,
+        },
+      });
+      proj.sequence.total_length_us = 5_000_000;
+
+      const result = buildFFmpegCommand(proj);
+      // Doit inclure crop avec expression sinusoïdale x_shake et redimensionnement
+      expect(result.filterComplex).toContain('crop=w=in_w*0.92:h=in_h:x=\'(in_w-out_w)/2+sin(t*33.6)*27\'');
+      expect(result.filterComplex).toContain('scale=1920:1080');
+    });
+
+    it('compile les effets de vibration caméra et stroboscopiques FFmpeg (camera_shake, strobe_white, strobe_black)', () => {
+      const proj = createDefaultProject('Export Strobe');
+      const videoAsset: MediaAsset = {
+        asset_id: 'vid1',
+        display_name: 'test.mp4',
+        media_kind: 'video',
+        source_path: 'C:/Vids/test.mp4',
+        duration_us: 10_000_000,
+        native_width: 1920,
+        native_height: 1080,
+        detected_fps: 30,
+        audio_channels: 0,
+        audio_sample_rate_hz: 0,
+      };
+      proj.asset_catalog.push(videoAsset);
+
+      proj.sequence.lanes[0].items.push({
+        item_id: 'item_strobe',
+        referenced_asset_id: 'vid1',
+        placement_time_us: 0,
+        play_duration_us: 4_000_000,
+        source_in_point_us: 0,
+        source_duration_us: 4_000_000,
+        item_gain: 1.0,
+        video_effects: {
+          preset: 'strobe_white',
+          speed: 1.0,
+        },
+      });
+      proj.sequence.total_length_us = 4_000_000;
+
+      const result = buildFFmpegCommand(proj);
+      expect(result.filterComplex).toContain('drawbox=t=fill:c=white@0.70:enable=\'gt(sin(t*35.0),0.35)\'');
+    });
+
+    it('compile les transitions avancées CapCut (zoom_in, spin, strobe, balayages multidirectionnels)', () => {
+      const proj = createDefaultProject('Export Transitions Advanced');
+      const videoAsset: MediaAsset = {
+        asset_id: 'vid1',
+        display_name: 'test.mp4',
+        media_kind: 'video',
+        source_path: 'C:/Vids/test.mp4',
+        duration_us: 10_000_000,
+        native_width: 1920,
+        native_height: 1080,
+        detected_fps: 30,
+        audio_channels: 0,
+        audio_sample_rate_hz: 0,
+      };
+      proj.asset_catalog.push(videoAsset);
+
+      proj.sequence.lanes[0].items.push({
+        item_id: 'item_zoom',
+        referenced_asset_id: 'vid1',
+        placement_time_us: 0,
+        play_duration_us: 4_000_000,
+        source_in_point_us: 0,
+        source_duration_us: 4_000_000,
+        item_gain: 1.0,
+        transition_in: {
+          transition_type: 'zoom_in',
+          duration_us: 1_000_000,
+        },
+      });
+      proj.sequence.total_length_us = 4_000_000;
+
+      const result = buildFFmpegCommand(proj);
+      expect(result.filterComplex).toContain('fade=t=in:st=0.000:d=1.000:alpha=1');
+
+      // Test de la transition strobe
+      proj.sequence.lanes[0].items[0].transition_in = {
+        transition_type: 'strobe',
+        duration_us: 500_000,
+      };
+      const resultStrobe = buildFFmpegCommand(proj);
+      expect(resultStrobe.filterComplex).toContain('drawbox=t=fill:c=white@0.75:enable=\'between(t,0.000,0.500)');
+    });
+  });
+
+  describe('Animation par Images-Clés / Keyframing (Étape 14)', () => {
+    it('buildFFmpegKeyframeExpr() génère des expressions conditionnelles FFmpeg conformes', () => {
+      // 1. Liste vide
+      expect(buildFFmpegKeyframeExpr(undefined, 1.0, 0)).toBe('1.000');
+
+      // 2. Une seule image-clé
+      expect(buildFFmpegKeyframeExpr([{ id: '1', time_offset_us: 1_000_000, value: 2.5 }], 1.0, 0)).toBe('2.500');
+
+      // 3. Deux images-clés linéaires
+      const expr = buildFFmpegKeyframeExpr(
+        [
+          { id: '1', time_offset_us: 0, value: 1.0, interpolation: 'linear' },
+          { id: '2', time_offset_us: 2_000_000, value: 2.0, interpolation: 'linear' },
+        ],
+        1.0,
+        1.0, // clip commence à 1.0s
+      );
+      expect(expr).toContain('if(lt(t,1.000),1.000');
+      expect(expr).toContain('if(lt(t,3.000)');
+      expect(expr).toContain('(1.000+(2.000-1.000)*((t-1.000)/2.000))');
+    });
+
+    it('compile les animations par images-clés sur scale, position_x et rotation dans le filtre complexe', () => {
+      const proj = createDefaultProject('Export Keyframes');
+      const videoAsset: MediaAsset = {
+        asset_id: 'vid1',
+        display_name: 'clip.mp4',
+        media_kind: 'video',
+        source_path: 'C:/Vids/clip.mp4',
+        duration_us: 10_000_000,
+        native_width: 1920,
+        native_height: 1080,
+        detected_fps: 30,
+        audio_channels: 0,
+        audio_sample_rate_hz: 0,
+      };
+      proj.asset_catalog.push(videoAsset);
+
+      proj.sequence.lanes[0].items.push({
+        item_id: 'item_kf',
+        referenced_asset_id: 'vid1',
+        placement_time_us: 1_000_000,
+        play_duration_us: 4_000_000,
+        source_in_point_us: 0,
+        source_duration_us: 4_000_000,
+        item_gain: 1.0,
+        keyframes: {
+          scale: [
+            { id: 'k1', time_offset_us: 0, value: 1.0, interpolation: 'linear' },
+            { id: 'k2', time_offset_us: 2_000_000, value: 1.5, interpolation: 'linear' },
+          ],
+          rotation: [
+            { id: 'k3', time_offset_us: 0, value: 0, interpolation: 'linear' },
+            { id: 'k4', time_offset_us: 2_000_000, value: 90, interpolation: 'linear' },
+          ],
+          position_x: [
+            { id: 'k5', time_offset_us: 0, value: -100, interpolation: 'linear' },
+            { id: 'k6', time_offset_us: 2_000_000, value: 100, interpolation: 'linear' },
+          ],
+        },
+      });
+      proj.sequence.total_length_us = 5_000_000;
+
+      const result = buildFFmpegCommand(proj);
+
+      // Vérifie l'évaluation continue du zoom par image-clé
+      expect(result.filterComplex).toContain("scale=eval=frame:w='iw*(");
+
+      // Vérifie la rotation animée continue
+      expect(result.filterComplex).toContain("rotate='(");
+      expect(result.filterComplex).toContain(')*PI/180');
+
+      // Vérifie le positionnement overlay dynamique
+      expect(result.filterComplex).toContain("overlay=x='(W-w)/2+(");
+    });
+
+    it('génère le filtre colorkey avec similarité et blend pour le Chroma Key (Étape 15)', () => {
+      const proj = createDefaultProject('Projet Chroma Key Export');
+      const assetVid: MediaAsset = {
+        asset_id: 'vid-chroma',
+        source_path: 'C:/videos/greenscreen.mp4',
+        display_name: 'greenscreen.mp4',
+        media_kind: 'video',
+        duration_us: 4_000_000,
+        native_width: 1920,
+        native_height: 1080,
+        detected_fps: 30,
+        audio_channels: 2,
+        audio_sample_rate_hz: 48000,
+      };
+      proj.asset_catalog = [assetVid];
+
+      proj.sequence.lanes[0].items.push({
+        item_id: 'item-chroma-1',
+        referenced_asset_id: 'vid-chroma',
+        placement_time_us: 0,
+        play_duration_us: 4_000_000,
+        source_in_point_us: 0,
+        source_duration_us: 4_000_000,
+        item_gain: 1.0,
+        chroma_key: {
+          enabled: true,
+          target_color: '#00B140',
+          similarity: 0.35,
+          smoothness: 0.12,
+        },
+      });
+      proj.sequence.total_length_us = 4_000_000;
+
+      const result = buildFFmpegCommand(proj);
+      expect(result.filterComplex).toContain('colorkey=0x00B140:0.350:0.120');
+    });
+
+    it('génère le filtre geq pour un masque de détourage / PiP (Étape 16)', () => {
+      const proj = createDefaultProject('Projet Masque PiP Export');
+      const assetVid: MediaAsset = {
+        asset_id: 'vid-mask',
+        source_path: 'C:/videos/portrait.mp4',
+        display_name: 'portrait.mp4',
+        media_kind: 'video',
+        duration_us: 5_000_000,
+        native_width: 1920,
+        native_height: 1080,
+        detected_fps: 30,
+        audio_channels: 2,
+        audio_sample_rate_hz: 48000,
+      };
+      proj.asset_catalog = [assetVid];
+
+      proj.sequence.lanes[0].items.push({
+        item_id: 'item-mask-1',
+        referenced_asset_id: 'vid-mask',
+        placement_time_us: 0,
+        play_duration_us: 5_000_000,
+        source_in_point_us: 0,
+        source_duration_us: 5_000_000,
+        item_gain: 1.0,
+        mask: {
+          mask_type: 'circle',
+          width_percent: 70,
+          height_percent: 70,
+          center_x_percent: 0,
+          center_y_percent: 0,
+          inverted: false,
+        },
+      });
+      proj.sequence.total_length_us = 5_000_000;
+
+      const result = buildFFmpegCommand(proj);
+      expect(result.filterComplex).toContain('format=rgba,geq=');
+      expect(result.filterComplex).toContain('hypot');
     });
   });
 });

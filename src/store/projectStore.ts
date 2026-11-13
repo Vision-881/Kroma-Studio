@@ -5,8 +5,25 @@
  */
 import { create } from 'zustand';
 import type { MediaAsset } from '../core/types/asset';
-import { type KromaProject, createDefaultProject } from '../core/types/project';
-import type { SpatialPlacement, TextLayerData, ColorAdjustments, TransitionData, VideoEffects } from '../core/types/timeline';
+import {
+  type KromaProject,
+  createDefaultProject,
+  type CanvasAspectRatio,
+  CANVAS_RATIO_PRESETS,
+  detectAspectRatio,
+} from '../core/types/project';
+import type {
+  SpatialPlacement,
+  TextLayerData,
+  ColorAdjustments,
+  TransitionData,
+  VideoEffects,
+  KeyframeProperty,
+  KeyframeInterpolation,
+  ChromaKeyData,
+  MaskData,
+} from '../core/types/timeline';
+import { addOrUpdateKeyframe, removeKeyframe, moveKeyframesInList } from '../core/animation/keyframeInterpolation';
 import {
   createItemFromAsset,
   createTextItem,
@@ -88,11 +105,44 @@ interface ProjectState {
   toggleClipFlipHorizontal: (itemId: string) => void;
   toggleClipFlipVertical: (itemId: string) => void;
   updateClipEffects: (itemId: string, effects: Partial<VideoEffects> | undefined, commitHistory?: boolean) => void;
+  updateClipChromaKey: (itemId: string, chromaKey: Partial<ChromaKeyData> | undefined, commitHistory?: boolean) => void;
+  updateClipMask: (itemId: string, mask: Partial<MaskData> | undefined, commitHistory?: boolean) => void;
+  resetClipMask: (itemId: string) => void;
   addTextItem: (text?: string, placementTimeUs?: number) => void;
   updateTextLayerData: (itemId: string, updates: Partial<TextLayerData>) => void;
 
+  // --- Animation par Images-Clés / Keyframing (Étape 14) ---
+  addOrUpdateClipKeyframe: (
+    itemId: string,
+    property: KeyframeProperty,
+    timeOffsetUs: number,
+    value: number,
+    interpolation?: KeyframeInterpolation,
+    commitHistory?: boolean,
+  ) => void;
+  removeClipKeyframe: (
+    itemId: string,
+    property: KeyframeProperty,
+    keyframeId: string,
+    commitHistory?: boolean,
+  ) => void;
+  moveClipKeyframes: (
+    itemId: string,
+    keyframeIds: string[],
+    newOffsetUs: number,
+    commitHistory?: boolean,
+  ) => void;
+  clearClipPropertyKeyframes: (
+    itemId: string,
+    property: KeyframeProperty,
+    commitHistory?: boolean,
+  ) => void;
+  clearAllClipKeyframes: (itemId: string, commitHistory?: boolean) => void;
+
   // --- Gestion du Projet & Fichiers ---
   setProjectName: (name: string) => void;
+  setCanvasAspectRatio: (ratio: CanvasAspectRatio, customDimensions?: { width: number; height: number }) => void;
+  setCanvasDimensions: (width: number, height: number) => void;
   saveProjectToFile: () => void;
   loadProjectFromJson: (jsonString: string) => boolean;
   createNewProject: (name?: string) => void;
@@ -839,6 +889,314 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       };
     }),
 
+  // --- Incrustation Fond Vert / Chroma Key (Étape 15) ---
+  updateClipChromaKey: (
+    itemId: string,
+    chromaKey: Partial<ChromaKeyData> | undefined,
+    commitHistory: boolean = true,
+  ) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          if (!chromaKey) {
+            const { chroma_key: _removed, ...rest } = item;
+            return rest;
+          }
+          const current: ChromaKeyData = item.chroma_key || {
+            enabled: false,
+            target_color: '#00B140',
+            similarity: 0.3,
+            smoothness: 0.1,
+            spill_reduction: 0.5,
+          };
+          return {
+            ...item,
+            chroma_key: {
+              ...current,
+              ...chromaKey,
+            },
+          };
+        }),
+      }));
+
+      return {
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  // --- Masques Géométriques & Incrustation PiP (Étape 16) ---
+  updateClipMask: (
+    itemId: string,
+    mask: Partial<MaskData> | undefined,
+    commitHistory: boolean = true,
+  ) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          if (!mask || mask.mask_type === 'none') {
+            const { mask: _removed, ...rest } = item;
+            return rest;
+          }
+          const current: MaskData = item.mask || {
+            mask_type: 'rectangle',
+            width_percent: 75,
+            height_percent: 75,
+            center_x_percent: 0,
+            center_y_percent: 0,
+            roundness_px: 0,
+            rotation_degrees: 0,
+            feather_px: 0,
+            inverted: false,
+          };
+          return {
+            ...item,
+            mask: {
+              ...current,
+              ...mask,
+            },
+          };
+        }),
+      }));
+
+      return {
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  resetClipMask: (itemId: string) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          const { mask: _removed, ...rest } = item;
+          return rest;
+        }),
+      }));
+
+      return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  // --- Animation par Images-Clés / Keyframing (Étape 14) ---
+  addOrUpdateClipKeyframe: (
+    itemId: string,
+    property: KeyframeProperty,
+    timeOffsetUs: number,
+    value: number,
+    interpolation: KeyframeInterpolation = 'linear',
+    commitHistory: boolean = true,
+  ) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          const currentKeyframes = item.keyframes || {};
+          const currentList = currentKeyframes[property] || [];
+          const updatedList = addOrUpdateKeyframe(currentList, timeOffsetUs, value, interpolation);
+          return {
+            ...item,
+            keyframes: {
+              ...currentKeyframes,
+              [property]: updatedList,
+            },
+          };
+        }),
+      }));
+
+      return {
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  removeClipKeyframe: (
+    itemId: string,
+    property: KeyframeProperty,
+    keyframeId: string,
+    commitHistory: boolean = true,
+  ) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          const currentKeyframes = item.keyframes || {};
+          const currentList = currentKeyframes[property] || [];
+          const updatedList = removeKeyframe(currentList, keyframeId);
+          return {
+            ...item,
+            keyframes: {
+              ...currentKeyframes,
+              [property]: updatedList,
+            },
+          };
+        }),
+      }));
+
+      return {
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  moveClipKeyframes: (
+    itemId: string,
+    keyframeIds: string[],
+    newOffsetUs: number,
+    commitHistory: boolean = false,
+  ) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId || !item.keyframes) return item;
+          const currentKeyframes = item.keyframes;
+          const nextKeyframes: Record<string, any> = {};
+          let modified = false;
+
+          const props: KeyframeProperty[] = ['scale', 'position_x', 'position_y', 'rotation', 'opacity'];
+          for (const p of props) {
+            const list = currentKeyframes[p];
+            if (list && list.some((k) => keyframeIds.includes(k.id))) {
+              nextKeyframes[p] = moveKeyframesInList(list, keyframeIds, newOffsetUs);
+              modified = true;
+            } else {
+              nextKeyframes[p] = list;
+            }
+          }
+
+          if (!modified) return item;
+
+          return {
+            ...item,
+            keyframes: nextKeyframes,
+          };
+        }),
+      }));
+
+      return {
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  clearClipPropertyKeyframes: (
+    itemId: string,
+    property: KeyframeProperty,
+    commitHistory: boolean = true,
+  ) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          if (!item.keyframes) return item;
+          const currentKeyframes = { ...item.keyframes };
+          delete currentKeyframes[property];
+          return {
+            ...item,
+            keyframes: currentKeyframes,
+          };
+        }),
+      }));
+
+      return {
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  clearAllClipKeyframes: (itemId: string, commitHistory: boolean = true) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.map((item) => {
+          if (item.item_id !== itemId) return item;
+          const { keyframes: _removed, ...rest } = item;
+          return rest;
+        }),
+      }));
+
+      return {
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
   // --- Gestion du Projet & Fichiers ---
   setProjectName: (name: string) =>
     set((state) => ({
@@ -853,6 +1211,59 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       },
       isDirty: true,
     })),
+
+  setCanvasAspectRatio: (ratio: CanvasAspectRatio, customDimensions?: { width: number; height: number }) =>
+    set((state) => {
+      let width = 1920;
+      let height = 1080;
+      if (ratio === 'custom' && customDimensions) {
+        width = customDimensions.width;
+        height = customDimensions.height;
+      } else if (CANVAS_RATIO_PRESETS[ratio as Exclude<CanvasAspectRatio, 'custom'>]) {
+        width = CANVAS_RATIO_PRESETS[ratio as Exclude<CanvasAspectRatio, 'custom'>].width;
+        height = CANVAS_RATIO_PRESETS[ratio as Exclude<CanvasAspectRatio, 'custom'>].height;
+      }
+
+      return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
+        project: {
+          ...state.project,
+          timeline_canvas: {
+            ...state.project.timeline_canvas,
+            viewport_width: width,
+            viewport_height: height,
+            aspect_ratio: ratio,
+          },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  setCanvasDimensions: (width: number, height: number) =>
+    set((state) => {
+      const detected = detectAspectRatio(width, height);
+      return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
+        project: {
+          ...state.project,
+          timeline_canvas: {
+            ...state.project.timeline_canvas,
+            viewport_width: width,
+            viewport_height: height,
+            aspect_ratio: detected,
+          },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
 
   saveProjectToFile: () => {
     const { project } = get();

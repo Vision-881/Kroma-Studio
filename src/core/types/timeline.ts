@@ -111,6 +111,68 @@ export interface VideoEffects {
   speed?: number;
 }
 
+/** Configuration de l'incrustation fond vert / Chroma Key (Étape 15) */
+export interface ChromaKeyData {
+  /** Activation de l'effet d'incrustation */
+  enabled: boolean;
+  /** Couleur cible hexadécimale à soustraire (défaut '#00B140') */
+  target_color: string;
+  /** Tolérance / Similarité (0.01 à 1.0, défaut 0.3) */
+  similarity: number;
+  /** Lissage des bords / Dégradé progressif (0.0 à 1.0, défaut 0.1) */
+  smoothness: number;
+  /** Réduction des franges et reflets colorés (0.0 à 1.0, défaut 0.5) */
+  spill_reduction?: number;
+}
+
+/** Forme géométrique pour le masque de détourage / incrustation PiP (Étape 16) */
+export type MaskType = 'none' | 'rectangle' | 'circle' | 'star' | 'heart' | 'linear';
+
+/** Données de configuration du masque géométrique (Étape 16) */
+export interface MaskData {
+  /** Forme géométrique du masque ('none' = désactivé) */
+  mask_type: MaskType;
+  /** Largeur relative du masque en pourcentage (10% à 100%, défaut 80%) */
+  width_percent: number;
+  /** Hauteur relative du masque en pourcentage (10% à 100%, défaut 80%) */
+  height_percent: number;
+  /** Décalage horizontal du centre en pourcentage (-50% à +50%, défaut 0%) */
+  center_x_percent: number;
+  /** Décalage vertical du centre en pourcentage (-50% à +50%, défaut 0%) */
+  center_y_percent: number;
+  /** Rayon d'arrondi des coins en pixels (principalement pour rectangle, 0 à 100px) */
+  roundness_px?: number;
+  /** Angle de rotation du masque en degrés (-180° à +180°, défaut 0) */
+  rotation_degrees?: number;
+  /** Adoucissement des contours / dégradé progressif en pixels (Feather, 0 à 50px) */
+  feather_px?: number;
+  /** Si vrai, inverse le masque (l'intérieur de la forme devient transparent) */
+  inverted?: boolean;
+}
+
+export type KeyframeInterpolation = 'linear' | 'ease_in' | 'ease_out' | 'ease_in_out' | 'hold';
+
+export interface Keyframe<T = number> {
+  /** Identifiant unique de l'image-clé */
+  id: string;
+  /** Décalage temporel relatif au début du clip en microsecondes (0 <= time_offset_us <= play_duration_us) */
+  time_offset_us: number;
+  /** Valeur de la propriété à cet instant */
+  value: T;
+  /** Méthode d'interpolation vers l'image-clé suivante (défaut 'linear') */
+  interpolation?: KeyframeInterpolation;
+}
+
+export type KeyframeProperty = 'position_x' | 'position_y' | 'scale' | 'rotation' | 'opacity';
+
+export interface ItemKeyframes {
+  position_x?: Keyframe<number>[];
+  position_y?: Keyframe<number>[];
+  scale?: Keyframe<number>[];
+  rotation?: Keyframe<number>[];
+  opacity?: Keyframe<number>[];
+}
+
 export interface TimelineItem {
   /** Identifiant unique du segment sur la timeline */
   item_id: string;
@@ -136,6 +198,12 @@ export interface TimelineItem {
   transition_in?: TransitionData;
   /** Effets vidéo artistiques et créatifs (Étape 11) */
   video_effects?: VideoEffects;
+  /** Animation par images-clés (Étape 14) */
+  keyframes?: ItemKeyframes;
+  /** Incrustation fond vert / Chroma Key (Étape 15) */
+  chroma_key?: ChromaKeyData;
+  /** Masque géométrique de détourage / Picture-in-Picture (Étape 16) */
+  mask?: MaskData;
   /** Gain audio individuel du clip (1.0 = volume original) */
   item_gain: number;
   /** Durée du fondu audio d'entrée en microsecondes (0 = pas de fondu) */

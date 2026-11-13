@@ -1,6 +1,86 @@
 import type { MediaAsset } from './asset';
 import type { TimelineSequence } from './timeline';
 
+export type CanvasAspectRatio = '16:9' | '9:16' | '1:1' | '4:5' | '4:3' | '21:9' | 'custom';
+
+export interface AspectRatioPreset {
+  id: CanvasAspectRatio;
+  label: string;
+  name: string;
+  sublabel: string;
+  width: number;
+  height: number;
+}
+
+export const CANVAS_RATIO_PRESETS: Record<Exclude<CanvasAspectRatio, 'custom'>, AspectRatioPreset> = {
+  '16:9': {
+    id: '16:9',
+    label: '16:9',
+    name: 'YouTube / Paysage',
+    sublabel: '1920×1080',
+    width: 1920,
+    height: 1080,
+  },
+  '9:16': {
+    id: '9:16',
+    label: '9:16',
+    name: 'TikTok / Shorts / Reels',
+    sublabel: '1080×1920',
+    width: 1080,
+    height: 1920,
+  },
+  '1:1': {
+    id: '1:1',
+    label: '1:1',
+    name: 'Carré / Feed Instagram',
+    sublabel: '1080×1080',
+    width: 1080,
+    height: 1080,
+  },
+  '4:5': {
+    id: '4:5',
+    label: '4:5',
+    name: 'Portrait Instagram',
+    sublabel: '1080×1350',
+    width: 1080,
+    height: 1350,
+  },
+  '4:3': {
+    id: '4:3',
+    label: '4:3',
+    name: 'Standard / Rétro',
+    sublabel: '1440×1080',
+    width: 1440,
+    height: 1080,
+  },
+  '21:9': {
+    id: '21:9',
+    label: '21:9',
+    name: 'Cinéma / Ultrawide',
+    sublabel: '2560×1080',
+    width: 2560,
+    height: 1080,
+  },
+};
+
+/**
+ * Détecte le ratio d'aspect correspondant à des dimensions données,
+ * avec une tolérance pour les arrondis de résolutions.
+ */
+export function detectAspectRatio(width: number, height: number): CanvasAspectRatio {
+  if (width <= 0 || height <= 0) return '16:9';
+  const ratio = width / height;
+
+  if (Math.abs(ratio - 16 / 9) < 0.02) return '16:9';
+  if (Math.abs(ratio - 9 / 16) < 0.02) return '9:16';
+  if (Math.abs(ratio - 1.0) < 0.02) return '1:1';
+  if (Math.abs(ratio - 4 / 5) < 0.02) return '4:5';
+  if (Math.abs(ratio - 4 / 3) < 0.02) return '4:3';
+  if (Math.abs(ratio - 21 / 9) < 0.05 || Math.abs(ratio - 2560 / 1080) < 0.02) return '21:9';
+
+  return 'custom';
+}
+
 export interface TimelineCanvasSettings {
   /** Largeur de la composition vidéo en pixels */
   viewport_width: number;
@@ -12,6 +92,8 @@ export interface TimelineCanvasSettings {
   audio_sample_rate_hz: number;
   /** Couleur d'arrière-plan du canevas en hexadécimal */
   background_color_hex: string;
+  /** Format ou ratio d'aspect cible */
+  aspect_ratio?: CanvasAspectRatio;
 }
 
 export interface KromaProject {
@@ -44,6 +126,7 @@ export function createDefaultProject(name: string = 'Nouveau Projet Kroma'): Kro
     timeline_canvas: {
       viewport_width: 1920,
       viewport_height: 1080,
+      aspect_ratio: '16:9',
       frame_rate_fps: 60.0,
       audio_sample_rate_hz: 48000,
       background_color_hex: '#000000',

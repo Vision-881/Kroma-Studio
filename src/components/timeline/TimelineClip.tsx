@@ -3,10 +3,11 @@
  * Supporte la sélection, le déplacement temporel, le rognage (trim) gauche/droite,
  * et la découpe directe au rasoir.
  */
-import { useRef } from 'react';
-import type { TimelineItem, LaneType } from '../../core/types/timeline';
+import { useRef, useState, useCallback } from 'react';
+import type { TimelineItem, LaneType, KeyframeProperty } from '../../core/types/timeline';
 import { useProjectStore } from '../../store/projectStore';
 import { formatDurationHuman } from '../../core/time/timeUtils';
+import { hasKeyframes, getAllKeyframeOffsets } from '../../core/animation/keyframeInterpolation';
 import { AudioWaveform } from '../audio/AudioWaveform';
 
 interface TimelineClipProps {
@@ -28,10 +29,89 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
     trimTimelineItem,
     setCurrentTimeUs,
     splitTimelineItemAtCurrentTime,
+    moveClipKeyframes,
+    pushHistorySnapshot,
   } = useProjectStore();
 
   const isSelected = selectedItemId === item.item_id;
   const clipRef = useRef<HTMLDivElement>(null);
+
+  // État du losange en cours de déplacement : offset courant affiché pendant le drag
+  const [draggingKf, setDraggingKf] = useState<{ startOffsetUs: number; currentOffsetUs: number } | null>(null);
+
+  /**
+   * Démarre le drag d'un losange d'image-clé sur la timeline (style CapCut).
+   * - Permet de déplacer l'instant temporel (time_offset_us) de toutes les images-clés associées.
+   * - Met à jour la position en temps réel avec synchronisation du moniteur Canvas et de l'Inspecteur.
+   * - Enregistre un snapshot d'historique au premier mouvement effectif pour un Undo/Redo propre.
+   * - Un simple clic sélectionne le clip et place la tête de lecture sur l'image-clé.
+   */
+  const handleKfMouseDown = useCallback(
+    (e: React.MouseEvent, originalOffsetUs: number) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (isLocked) return;
+
+      const startClientX = e.clientX;
+      const kfPropKeys: KeyframeProperty[] = ['scale', 'position_x', 'position_y', 'rotation', 'opacity'];
+
+      // Identifier les identifiants de toutes les images-clés regroupées sous ce losange
+      const targetIds: string[] = [];
+      for (const prop of kfPropKeys) {
+        const propList = item.keyframes?.[prop];
+        if (!propList) continue;
+        const match = propList.find((k) => Math.abs(k.time_offset_us - originalOffsetUs) <= 40_000);
+        if (match) {
+          targetIds.push(match.id);
+        }
+      }
+
+      if (targetIds.length === 0) return;
+
+      let hasMoved = false;
+      let lastOffsetUs = originalOffsetUs;
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        const deltaPx = moveEvent.clientX - startClientX;
+        if (!hasMoved && Math.abs(deltaPx) >= 2) {
+          hasMoved = true;
+          pushHistorySnapshot();
+        }
+        if (!hasMoved) return;
+
+        const deltaSeconds = deltaPx / zoomPixelsPerSecond;
+        const deltaUs = Math.round(deltaSeconds * 1_000_000);
+        const newOffsetUs = Math.max(0, Math.min(item.play_duration_us, originalOffsetUs + deltaUs));
+
+        if (newOffsetUs === lastOffsetUs) return;
+        lastOffsetUs = newOffsetUs;
+
+        // Déplacement temps réel de toutes les propriétés liées à cette image-clé
+        moveClipKeyframes(item.item_id, targetIds, newOffsetUs, false);
+        setDraggingKf({ startOffsetUs: originalOffsetUs, currentOffsetUs: newOffsetUs });
+
+        // Synchronisation de la tête de lecture pour rafraîchir en direct le Canvas et l'Inspecteur
+        setCurrentTimeUs(item.placement_time_us + newOffsetUs);
+      };
+
+      const onMouseUp = () => {
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+
+        if (!hasMoved) {
+          // Clic sans déplacement : jump tête de lecture + sélection du clip
+          setSelectedItemId(item.item_id);
+          setCurrentTimeUs(item.placement_time_us + originalOffsetUs);
+        }
+
+        setDraggingKf(null);
+      };
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    },
+    [isLocked, item, zoomPixelsPerSecond, pushHistorySnapshot, moveClipKeyframes, setCurrentTimeUs, setSelectedItemId],
+  );
 
   // Recherche de l'asset source lié pour le nom et la miniature
   const sourceAsset = project.asset_catalog.find(
@@ -205,35 +285,80 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
               (item.transition_in.duration_us || 1_000_000) / 1_000_000
             ).toFixed(1)}s)`}
           >
-            <span>✨</span>
             <span>
-              {item.transition_in.transition_type === 'crossfade'
-                ? 'Fondu'
-                : item.transition_in.transition_type === 'fade_to_black'
-                ? 'Noir'
-                : item.transition_in.transition_type === 'dip_to_white'
-                ? 'Flash'
-                : 'Wipe'}
+              {(() => {
+                switch (item.transition_in.transition_type) {
+                  case 'crossfade': return '✨ Fondu';
+                  case 'fade_to_black': return '🌑 Noir';
+                  case 'dip_to_white': return '⚡ Flash';
+                  case 'strobe': return '⚡ Strobe';
+                  case 'zoom_in': return '🔍 Zoom In';
+                  case 'zoom_out': return '🔎 Zoom Out';
+                  case 'spin': return '🌀 Spin';
+                  case 'wipe_left': return '👈 Wipe G';
+                  case 'wipe_right': return '👉 Wipe D';
+                  case 'wipe_up': return '👆 Wipe H';
+                  case 'wipe_down': return '👇 Wipe B';
+                  default: return '✨ Trans';
+                }
+              })()}
             </span>
           </div>
         </>
       )}
 
-      {/* Badge Effets FX / Miroir (Étape 11) */}
+      {/* Badge Effets FX / Dynamiques / Miroir (Étape 11 & 13) */}
       {(() => {
         const hasFlip = item.spatial_placement?.flip_horizontal || item.spatial_placement?.flip_vertical;
         const fxPreset = item.video_effects?.preset;
         const hasFx = fxPreset && fxPreset !== 'none';
-        if (!hasFlip && !hasFx) return null;
+        const hasVignetteOnly = !hasFx && item.video_effects?.vignette_amount && item.video_effects.vignette_amount > 0;
+        if (!hasFlip && !hasFx && !hasVignetteOnly) return null;
+
+        const isDynamic =
+          fxPreset === 'x_shake' ||
+          fxPreset === 'y_shake' ||
+          fxPreset === 'camera_shake' ||
+          fxPreset === 'tremor_strobe' ||
+          fxPreset === 'strobe_white' ||
+          fxPreset === 'strobe_black';
 
         let fxLabel = '';
-        if (hasFlip && hasFx) {
+        if (hasFlip && isDynamic) {
+          fxLabel = '🪞+⚡';
+        } else if (hasFlip && (hasFx || hasVignetteOnly)) {
           fxLabel = '🪞+🪄';
         } else if (hasFlip) {
-          fxLabel = item.spatial_placement?.flip_horizontal && item.spatial_placement?.flip_vertical ? '🪞 H+V' : item.spatial_placement?.flip_horizontal ? '🪞 Miroir' : '↕️ Flip V';
+          fxLabel = item.spatial_placement?.flip_horizontal && item.spatial_placement?.flip_vertical
+            ? '🪞 H+V'
+            : item.spatial_placement?.flip_horizontal
+            ? '🪞 Miroir'
+            : '↕️ Flip V';
+        } else if (isDynamic) {
+          switch (fxPreset) {
+            case 'x_shake': fxLabel = '⚡ Shake X'; break;
+            case 'y_shake': fxLabel = '↕️ Shake Y'; break;
+            case 'camera_shake': fxLabel = '📳 Cam Shake'; break;
+            case 'tremor_strobe': fxLabel = '⚡ Tremor'; break;
+            case 'strobe_white': fxLabel = '⚡ Flash B.'; break;
+            case 'strobe_black': fxLabel = '🖤 Strobe N.'; break;
+            default: fxLabel = '⚡ Shake'; break;
+          }
         } else {
-          fxLabel = fxPreset === 'monochrome' ? '🪄 N&B' : fxPreset === 'sepia' ? '🪄 Sépia' : fxPreset === 'vintage' ? '🪄 Rétro' : fxPreset === 'invert' ? '🪄 Négatif' : '🪄 Vignet.';
+          switch (fxPreset) {
+            case 'monochrome': fxLabel = '🪄 N&B'; break;
+            case 'sepia': fxLabel = '🪄 Sépia'; break;
+            case 'vintage': fxLabel = '🪄 Rétro'; break;
+            case 'invert': fxLabel = '🪄 Négatif'; break;
+            default: fxLabel = '🎬 Vignet.'; break;
+          }
         }
+
+        const badgeBg = isDynamic
+          ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.95), rgba(217, 119, 6, 0.9))'
+          : hasFlip && !hasFx
+          ? 'rgba(99, 102, 241, 0.9)'
+          : 'rgba(236, 72, 153, 0.85)';
 
         return (
           <div
@@ -247,7 +372,7 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
               gap: 2,
               padding: '1px 5px',
               borderRadius: 3,
-              background: 'rgba(236, 72, 153, 0.85)',
+              background: badgeBg,
               color: '#ffffff',
               fontSize: 9,
               fontWeight: 700,
@@ -261,6 +386,175 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
           </div>
         );
       })()}
+
+      {/* Marqueurs et Badge Images-Clés / Keyframing (Étape 14) */}
+      {hasKeyframes(item) && (
+        <>
+          {/* Ligne de repères losanges sur le clip — déplaçables par drag */}
+          <div
+            className="timeline-clip__keyframes-track"
+            style={{
+              position: 'absolute',
+              top: 3,
+              left: 0,
+              right: 0,
+              height: 14,
+              pointerEvents: 'none',
+              zIndex: 5,
+            }}
+          >
+            {getAllKeyframeOffsets(item).map((offsetUs) => {
+              // Pendant le drag, afficher la position courante du losange glissé
+              const displayOffsetUs =
+                draggingKf && Math.abs(offsetUs - draggingKf.startOffsetUs) <= 40_000
+                  ? draggingKf.currentOffsetUs
+                  : offsetUs;
+
+              const kfLeftPercent = Math.max(0, Math.min(100, (displayOffsetUs / item.play_duration_us) * 100));
+              const isDraggingThis =
+                draggingKf !== null && Math.abs(offsetUs - draggingKf.startOffsetUs) <= 40_000;
+
+              return (
+                <div
+                  key={offsetUs}
+                  style={{
+                    position: 'absolute',
+                    left: `${kfLeftPercent}%`,
+                    top: '50%',
+                    transform: 'translate(-50%, -50%) rotate(45deg)',
+                    width: isDraggingThis ? 13 : 9,
+                    height: isDraggingThis ? 13 : 9,
+                    backgroundColor: isDraggingThis ? '#22d3ee' : '#06b6d4',
+                    border: `${isDraggingThis ? 2 : 1.5}px solid #ffffff`,
+                    boxShadow: isDraggingThis
+                      ? '0 0 10px rgba(6, 182, 212, 1), 0 0 20px rgba(6, 182, 212, 0.6)'
+                      : '0 0 4px rgba(6, 182, 212, 0.9)',
+                    cursor: isLocked ? 'not-allowed' : 'ew-resize',
+                    pointerEvents: 'all',
+                    transition: isDraggingThis ? 'none' : 'width 0.1s, height 0.1s',
+                    zIndex: isDraggingThis ? 20 : 6,
+                  }}
+                  onMouseDown={(e) => handleKfMouseDown(e, offsetUs)}
+                  title={`Image-clé à +${(displayOffsetUs / 1_000_000).toFixed(2)}s — Glisser pour déplacer`}
+                >
+                  {isDraggingThis && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: '100%',
+                        left: '50%',
+                        transform: 'translateX(-50%) translateY(-6px) rotate(-45deg)',
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        color: '#22d3ee',
+                        padding: '2px 6px',
+                        borderRadius: 4,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
+                        border: '1px solid rgba(34, 211, 238, 0.6)',
+                        pointerEvents: 'none',
+                        zIndex: 25,
+                      }}
+                    >
+                      +{(displayOffsetUs / 1_000_000).toFixed(2)}s
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Badge Keyframes Cyan */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 4,
+              right: 6,
+              zIndex: 4,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              padding: '1px 5px',
+              borderRadius: 3,
+              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.95), rgba(14, 116, 144, 0.9))',
+              color: '#ffffff',
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: '0.02em',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
+              pointerEvents: 'none',
+            }}
+            title="Clip animé par images-clés"
+          >
+            <span>💎 Anim</span>
+          </div>
+        </>
+      )}
+
+      {/* Badge Incrustation Fond Vert / Chroma Key (Étape 15) */}
+      {item.chroma_key?.enabled && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 4,
+            left: 6,
+            zIndex: 4,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            padding: '1px 5px',
+            borderRadius: 3,
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.95), rgba(5, 150, 105, 0.9))',
+            color: '#ffffff',
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: '0.02em',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
+            pointerEvents: 'none',
+          }}
+          title={`Incrustation Fond Vert/Bleu active (${item.chroma_key.target_color})`}
+        >
+          <span>🟢 Chroma</span>
+        </div>
+      )}
+
+      {/* Badge Masque Géométrique / PiP (Étape 16) */}
+      {item.mask && item.mask.mask_type !== 'none' && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 4,
+            left: item.chroma_key?.enabled ? 76 : 6,
+            zIndex: 4,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            padding: '1px 5px',
+            borderRadius: 3,
+            background: 'linear-gradient(135deg, rgba(234, 88, 12, 0.95), rgba(194, 65, 12, 0.9))',
+            color: '#ffffff',
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: '0.02em',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
+            pointerEvents: 'none',
+          }}
+          title={`Masque PiP : ${item.mask.mask_type}${item.mask.inverted ? ' (inversé)' : ''}`}
+        >
+          <span>
+            {item.mask.mask_type === 'rectangle'
+              ? '🔲 Masque'
+              : item.mask.mask_type === 'circle'
+              ? '⚪ Cercle'
+              : item.mask.mask_type === 'star'
+              ? '⭐ Étoile'
+              : item.mask.mask_type === 'heart'
+              ? '❤️ Cœur'
+              : '✂️ Scission'}
+          </span>
+        </div>
+      )}
 
       {/* Rendu de la forme d'onde audio (Waveform) */}
       {hasAudio && (

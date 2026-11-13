@@ -508,4 +508,449 @@ describe('useProjectStore', () => {
       expect(item.video_effects?.vignette_amount).toBe(0.8);
     });
   });
+
+  describe('Ratios de Canevas Multi-formats (Étape 12)', () => {
+    it('setCanvasAspectRatio() met à jour les dimensions vers 9:16 (TikTok/Shorts) et gère Undo/Redo', () => {
+      // Canevas initial : 16:9 1920x1080
+      expect(useProjectStore.getState().project.timeline_canvas.viewport_width).toBe(1920);
+      expect(useProjectStore.getState().project.timeline_canvas.viewport_height).toBe(1080);
+      expect(useProjectStore.getState().project.timeline_canvas.aspect_ratio).toBe('16:9');
+
+      // Bascule vers 9:16 (format vertical)
+      useProjectStore.getState().setCanvasAspectRatio('9:16');
+      let canvas = useProjectStore.getState().project.timeline_canvas;
+      expect(canvas.viewport_width).toBe(1080);
+      expect(canvas.viewport_height).toBe(1920);
+      expect(canvas.aspect_ratio).toBe('9:16');
+      expect(useProjectStore.getState().canUndo).toBe(true);
+
+      // Bascule vers 1:1 (format carré)
+      useProjectStore.getState().setCanvasAspectRatio('1:1');
+      canvas = useProjectStore.getState().project.timeline_canvas;
+      expect(canvas.viewport_width).toBe(1080);
+      expect(canvas.viewport_height).toBe(1080);
+      expect(canvas.aspect_ratio).toBe('1:1');
+
+      // Bascule vers 4:5 (format portrait feed)
+      useProjectStore.getState().setCanvasAspectRatio('4:5');
+      canvas = useProjectStore.getState().project.timeline_canvas;
+      expect(canvas.viewport_width).toBe(1080);
+      expect(canvas.viewport_height).toBe(1350);
+      expect(canvas.aspect_ratio).toBe('4:5');
+
+      // Undo -> revient à 1:1
+      useProjectStore.getState().undo();
+      canvas = useProjectStore.getState().project.timeline_canvas;
+      expect(canvas.viewport_width).toBe(1080);
+      expect(canvas.viewport_height).toBe(1080);
+      expect(canvas.aspect_ratio).toBe('1:1');
+
+      // Undo -> revient à 9:16
+      useProjectStore.getState().undo();
+      canvas = useProjectStore.getState().project.timeline_canvas;
+      expect(canvas.viewport_width).toBe(1080);
+      expect(canvas.viewport_height).toBe(1920);
+      expect(canvas.aspect_ratio).toBe('9:16');
+
+      // Undo -> revient à 16:9
+      useProjectStore.getState().undo();
+      canvas = useProjectStore.getState().project.timeline_canvas;
+      expect(canvas.viewport_width).toBe(1920);
+      expect(canvas.viewport_height).toBe(1080);
+      expect(canvas.aspect_ratio).toBe('16:9');
+
+      // Redo -> réapplique 9:16
+      useProjectStore.getState().redo();
+      canvas = useProjectStore.getState().project.timeline_canvas;
+      expect(canvas.viewport_width).toBe(1080);
+      expect(canvas.viewport_height).toBe(1920);
+      expect(canvas.aspect_ratio).toBe('9:16');
+    });
+
+    it('setCanvasDimensions() ajuste des dimensions arbitraires et détecte le bon ratio', () => {
+      // Dimensions 4:3
+      useProjectStore.getState().setCanvasDimensions(1440, 1080);
+      let canvas = useProjectStore.getState().project.timeline_canvas;
+      expect(canvas.viewport_width).toBe(1440);
+      expect(canvas.viewport_height).toBe(1080);
+      expect(canvas.aspect_ratio).toBe('4:3');
+
+      // Dimensions personnalisées exotiques
+      useProjectStore.getState().setCanvasDimensions(800, 600);
+      canvas = useProjectStore.getState().project.timeline_canvas;
+      expect(canvas.viewport_width).toBe(800);
+      expect(canvas.viewport_height).toBe(600);
+      expect(canvas.aspect_ratio).toBe('4:3'); // 800/600 = 1.333 = 4:3
+
+      useProjectStore.getState().setCanvasDimensions(1200, 700);
+      canvas = useProjectStore.getState().project.timeline_canvas;
+      expect(canvas.viewport_width).toBe(1200);
+      expect(canvas.viewport_height).toBe(700);
+      expect(canvas.aspect_ratio).toBe('custom');
+    });
+  });
+
+  describe('Effets dynamiques & Transitions CapCut (Étape 13)', () => {
+    it('applique des effets dynamiques de secousse et stroboscope avec intensité et vitesse (Étape 13)', () => {
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      const laneId = useProjectStore.getState().project.sequence.lanes[0].lane_id;
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, laneId, 0);
+      const itemId = useProjectStore.getState().project.sequence.lanes[0].items[0].item_id;
+
+      // 1. Appliquer x_shake avec intensité 1.5 et vitesse 1.8
+      useProjectStore.getState().updateClipEffects(itemId, {
+        preset: 'x_shake',
+        intensity: 1.5,
+        speed: 1.8,
+      });
+
+      let item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.video_effects?.preset).toBe('x_shake');
+      expect(item.video_effects?.intensity).toBe(1.5);
+      expect(item.video_effects?.speed).toBe(1.8);
+
+      // 2. Modifier vers camera_shake
+      useProjectStore.getState().updateClipEffects(itemId, {
+        preset: 'camera_shake',
+        intensity: 2.0,
+        speed: 1.2,
+      });
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.video_effects?.preset).toBe('camera_shake');
+      expect(item.video_effects?.intensity).toBe(2.0);
+
+      // 3. Modifier vers tremor_strobe
+      useProjectStore.getState().updateClipEffects(itemId, {
+        preset: 'tremor_strobe',
+      });
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.video_effects?.preset).toBe('tremor_strobe');
+
+      // 4. Modifier vers strobe_white puis strobe_black
+      useProjectStore.getState().updateClipEffects(itemId, {
+        preset: 'strobe_white',
+      });
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.video_effects?.preset).toBe('strobe_white');
+
+      useProjectStore.getState().updateClipEffects(itemId, {
+        preset: 'strobe_black',
+      });
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.video_effects?.preset).toBe('strobe_black');
+
+      // 5. Undo revient à strobe_white
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.video_effects?.preset).toBe('strobe_white');
+
+      // 6. Undo revient à tremor_strobe
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.video_effects?.preset).toBe('tremor_strobe');
+
+      // 7. Redo réapplique strobe_white
+      useProjectStore.getState().redo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.video_effects?.preset).toBe('strobe_white');
+    });
+
+    it('applique les transitions avancées CapCut (zoom, spin, strobe, balayages) avec Undo/Redo (Étape 13)', () => {
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      const laneId = useProjectStore.getState().project.sequence.lanes[0].lane_id;
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, laneId, 0);
+      const itemId = useProjectStore.getState().project.sequence.lanes[0].items[0].item_id;
+
+      // 1. Transition zoom_in
+      useProjectStore.getState().updateClipTransition(itemId, {
+        transition_type: 'zoom_in',
+        duration_us: 800_000,
+      });
+      let item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.transition_in?.transition_type).toBe('zoom_in');
+      expect(item.transition_in?.duration_us).toBe(800_000);
+
+      // 2. Transition spin
+      useProjectStore.getState().updateClipTransition(itemId, {
+        transition_type: 'spin',
+        duration_us: 1_200_000,
+      });
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.transition_in?.transition_type).toBe('spin');
+      expect(item.transition_in?.duration_us).toBe(1_200_000);
+
+      // 3. Transition strobe
+      useProjectStore.getState().updateClipTransition(itemId, {
+        transition_type: 'strobe',
+        duration_us: 500_000,
+      });
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.transition_in?.transition_type).toBe('strobe');
+
+      // 4. Balayages multidirectionnels : wipe_right, wipe_up, wipe_down
+      useProjectStore.getState().updateClipTransition(itemId, {
+        transition_type: 'wipe_right',
+        duration_us: 600_000,
+      });
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.transition_in?.transition_type).toBe('wipe_right');
+
+      useProjectStore.getState().updateClipTransition(itemId, {
+        transition_type: 'wipe_up',
+        duration_us: 600_000,
+      });
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.transition_in?.transition_type).toBe('wipe_up');
+
+      useProjectStore.getState().updateClipTransition(itemId, {
+        transition_type: 'wipe_down',
+        duration_us: 600_000,
+      });
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.transition_in?.transition_type).toBe('wipe_down');
+
+      // 5. Annuler la transition (suppression)
+      useProjectStore.getState().updateClipTransition(itemId, undefined);
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.transition_in).toBeUndefined();
+
+      // 6. Undo rétablit wipe_down
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.transition_in?.transition_type).toBe('wipe_down');
+    });
+  });
+
+  describe('Animation par Images-Clés / Keyframing (Étape 14)', () => {
+    it('ajoute, met à jour et supprime des images-clés avec support complet Undo / Redo', () => {
+      useProjectStore.getState().createNewProject('Test Keyframing');
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, undefined, 0);
+
+      const itemId = useProjectStore.getState().project.sequence.lanes[0].items[0].item_id;
+
+      // 1. Ajouter deux images-clés d'échelle (Zoom en facteur : 1.0 = 100%, 2.0 = 200%)
+      useProjectStore.getState().addOrUpdateClipKeyframe(itemId, 'scale', 0, 1.0, 'linear');
+      useProjectStore.getState().addOrUpdateClipKeyframe(itemId, 'scale', 2_000_000, 2.0, 'ease_in');
+
+      let item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.keyframes?.scale).toBeDefined();
+      expect(item.keyframes?.scale).toHaveLength(2);
+      expect(item.keyframes?.scale?.[0].value).toBe(1.0);
+      expect(item.keyframes?.scale?.[1].value).toBe(2.0);
+      expect(item.keyframes?.scale?.[1].interpolation).toBe('ease_in');
+
+      // 2. Ajouter une image-clé de Position X
+      useProjectStore.getState().addOrUpdateClipKeyframe(itemId, 'position_x', 1_000_000, 50, 'ease_out');
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.keyframes?.position_x).toHaveLength(1);
+      expect(item.keyframes?.position_x?.[0].value).toBe(50);
+
+      // 3. Supprimer une image-clé
+      const scaleKfId = item.keyframes?.scale?.[1].id!;
+      useProjectStore.getState().removeClipKeyframe(itemId, 'scale', scaleKfId);
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.keyframes?.scale).toHaveLength(1);
+
+      // 4. Undo rétablit la 2ème image-clé
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.keyframes?.scale).toHaveLength(2);
+      expect(item.keyframes?.scale?.[1].value).toBe(2.0);
+
+      // 5. Redo re-supprime
+      useProjectStore.getState().redo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.keyframes?.scale).toHaveLength(1);
+
+      // 6. clearAllClipKeyframes supprime toutes les animations
+      useProjectStore.getState().clearAllClipKeyframes(itemId);
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.keyframes).toBeUndefined();
+
+      // 7. Undo rétablit les images-clés
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.keyframes?.position_x).toHaveLength(1);
+    });
+
+    it('une image-clé seule préserve la valeur par défaut sans déformation (zoom 100%), puis une seconde crée l\'interpolation', async () => {
+      useProjectStore.getState().createNewProject('Test Single Keyframe');
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, undefined, 0);
+
+      const itemId = useProjectStore.getState().project.sequence.lanes[0].items[0].item_id;
+
+      // Ajouter UNE SEULE image-clé à 1.5s avec zoom normal (1.0 = 100%)
+      useProjectStore.getState().addOrUpdateClipKeyframe(itemId, 'scale', 1_500_000, 1.0, 'linear');
+
+      let item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.keyframes?.scale).toHaveLength(1);
+      expect(item.keyframes?.scale?.[0].value).toBe(1.0);
+
+      // Résolution temporelle via getInterpolatedPlacement :
+      // À 0s (avant la keyframe) -> doit rester 1.0 (100%), pas 10000%
+      const { getInterpolatedPlacement } = await import('../core/animation/keyframeInterpolation');
+      let placementAt0 = getInterpolatedPlacement(item, 0);
+      expect(placementAt0.zoom_factor_x).toBe(1.0);
+
+      // À 1.5s (sur la keyframe) -> 1.0
+      let placementAt15 = getInterpolatedPlacement(item, 1_500_000);
+      expect(placementAt15.zoom_factor_x).toBe(1.0);
+
+      // À 4s (après la keyframe) -> 1.0
+      let placementAt4 = getInterpolatedPlacement(item, 4_000_000);
+      expect(placementAt4.zoom_factor_x).toBe(1.0);
+
+      // Maintenant, ajouter une deuxième image-clé à 3.0s avec zoom 1.8 (180%)
+      useProjectStore.getState().addOrUpdateClipKeyframe(itemId, 'scale', 3_000_000, 1.8, 'linear');
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.keyframes?.scale).toHaveLength(2);
+
+      // Vérifier l'interpolation progressive :
+      // À 1.5s -> 1.0
+      expect(getInterpolatedPlacement(item, 1_500_000).zoom_factor_x).toBe(1.0);
+      // À 2.25s (mi-chemin) -> 1.4 (140%)
+      expect(getInterpolatedPlacement(item, 2_250_000).zoom_factor_x).toBeCloseTo(1.4);
+      // À 3.0s -> 1.8 (180%)
+      expect(getInterpolatedPlacement(item, 3_000_000).zoom_factor_x).toBe(1.8);
+      // À 4.0s (après la 2ème keyframe) -> 1.8
+      expect(getInterpolatedPlacement(item, 4_000_000).zoom_factor_x).toBe(1.8);
+    });
+
+    it('moveClipKeyframes() déplace une image-clé dans le temps et supporte Undo / Redo', () => {
+      useProjectStore.getState().createNewProject('Test Move Keyframe');
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, undefined, 0);
+
+      const itemId = useProjectStore.getState().project.sequence.lanes[0].items[0].item_id;
+
+      // Ajouter une keyframe de scale à 1.0s
+      useProjectStore.getState().addOrUpdateClipKeyframe(itemId, 'scale', 1_000_000, 1.5, 'linear');
+      let item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      const kfId = item.keyframes?.scale?.[0].id!;
+
+      // Enregistrer un snapshot d'historique (comme fait au début du drag à la souris)
+      useProjectStore.getState().pushHistorySnapshot();
+
+      // Déplacer la keyframe vers 2.5s (drag en temps réel)
+      useProjectStore.getState().moveClipKeyframes(itemId, [kfId], 2_500_000, false);
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.keyframes?.scale?.[0].time_offset_us).toBe(2_500_000);
+      expect(item.keyframes?.scale?.[0].value).toBe(1.5);
+
+      // Undo -> revient à 1.0s
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.keyframes?.scale?.[0].time_offset_us).toBe(1_000_000);
+
+      // Redo -> ré-applique 2.5s
+      useProjectStore.getState().redo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.keyframes?.scale?.[0].time_offset_us).toBe(2_500_000);
+    });
+  });
+
+  describe('Incrustation Fond Vert / Chroma Key (Étape 15)', () => {
+    it('active, met à jour et désactive le Chroma Key avec support Undo / Redo', () => {
+      useProjectStore.getState().createNewProject('Test Chroma Key');
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, undefined, 0);
+
+      const itemId = useProjectStore.getState().project.sequence.lanes[0].items[0].item_id;
+
+      // 1. Activer le Chroma Key avec vert studio
+      useProjectStore.getState().updateClipChromaKey(itemId, {
+        enabled: true,
+        target_color: '#00B140',
+        similarity: 0.35,
+        smoothness: 0.12,
+        spill_reduction: 0.6,
+      });
+
+      let item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.chroma_key).toBeDefined();
+      expect(item.chroma_key?.enabled).toBe(true);
+      expect(item.chroma_key?.target_color).toBe('#00B140');
+      expect(item.chroma_key?.similarity).toBe(0.35);
+      expect(item.chroma_key?.smoothness).toBe(0.12);
+      expect(item.chroma_key?.spill_reduction).toBe(0.6);
+
+      // 2. Mettre à jour vers bleu studio
+      useProjectStore.getState().updateClipChromaKey(itemId, {
+        target_color: '#0047BB',
+      });
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.chroma_key?.target_color).toBe('#0047BB');
+
+      // 3. Undo rétablit le vert #00B140
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.chroma_key?.target_color).toBe('#00B140');
+
+      // 4. Désactiver le Chroma Key
+      useProjectStore.getState().updateClipChromaKey(itemId, { enabled: false });
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.chroma_key?.enabled).toBe(false);
+
+      // 5. Supprimer le chroma key
+      useProjectStore.getState().updateClipChromaKey(itemId, undefined);
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.chroma_key).toBeUndefined();
+    });
+
+    it('updateClipMask() et resetClipMask() configurent le masque géométrique avec Undo/Redo (Étape 16)', () => {
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      const laneId = useProjectStore.getState().project.sequence.lanes[0].lane_id;
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, laneId, 0);
+
+      const itemId = useProjectStore.getState().project.sequence.lanes[0].items[0].item_id;
+
+      // 1. Définir un masque circulaire
+      useProjectStore.getState().updateClipMask(itemId, {
+        mask_type: 'circle',
+        width_percent: 65,
+        height_percent: 65,
+        center_x_percent: 10,
+        center_y_percent: -5,
+        feather_px: 8,
+        inverted: false,
+      });
+
+      let item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.mask).toBeDefined();
+      expect(item.mask?.mask_type).toBe('circle');
+      expect(item.mask?.width_percent).toBe(65);
+      expect(item.mask?.height_percent).toBe(65);
+      expect(item.mask?.center_x_percent).toBe(10);
+      expect(item.mask?.center_y_percent).toBe(-5);
+      expect(item.mask?.feather_px).toBe(8);
+      expect(item.mask?.inverted).toBe(false);
+
+      // 2. Bascule en masque inversé
+      useProjectStore.getState().updateClipMask(itemId, { inverted: true });
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.mask?.inverted).toBe(true);
+
+      // 3. Undo rétablit inverted: false
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.mask?.inverted).toBe(false);
+
+      // 4. Redo réapplique inverted: true
+      useProjectStore.getState().redo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.mask?.inverted).toBe(true);
+
+      // 5. Réinitialiser le masque
+      useProjectStore.getState().resetClipMask(itemId);
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.mask).toBeUndefined();
+
+      // 6. Undo rétablit le masque
+      useProjectStore.getState().undo();
+      item = useProjectStore.getState().project.sequence.lanes[0].items[0];
+      expect(item.mask?.mask_type).toBe('circle');
+    });
+  });
 });

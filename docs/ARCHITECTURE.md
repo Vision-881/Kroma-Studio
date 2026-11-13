@@ -2,7 +2,7 @@
 
 Ce document détaille l'organisation structurelle, le découpage en modules et le format de fichier projet de l'éditeur vidéo **Kroma Studio**.
 
-Dernière mise à jour : 03/11/2026 (Étape 11 — Effets Vidéo, Filtres FX & Miroir H/V)
+Dernière mise à jour : 13/11/2026 (Étape 16 — Picture-in-Picture & Masques Géométriques, Étape 15 — Chroma Key)
 
 ---
 
@@ -54,10 +54,22 @@ L'application est conçue selon une séparation stricte des responsabilités ent
 ### 1.1 `src/core/types`
 Définit les interfaces TypeScript canoniques de l'application :
 - `asset.ts` : `MediaAsset`, `MediaKind` ('video' | 'audio' | 'image'). Représente les fichiers multimédias importés.
-- `timeline.ts` : `TimelineSequence`, `TimelineLane`, `TimelineItem`, `SpatialPlacement`, `TextLayerData`, `ColorAdjustments`, `TransitionType`, `TransitionData`, `VideoEffectPreset`, `VideoEffects`. Décrit l'agencement temporel et spatial des pistes et des segments de clips, y compris les durées de fondus sonores (`fade_in_duration_us`, `fade_out_duration_us`), l'état solo (`is_solo`), la vitesse de lecture (`playback_speed`), les transitions visuelles d'entrée (`transition_in`), la symétrie miroir (`flip_horizontal`, `flip_vertical`) et les effets artistiques FX (`video_effects`).
-- `project.ts` : `KromaProject`, `TimelineCanvasSettings`, fonction utilitaire `createDefaultProject()`.
+- `timeline.ts` : `TimelineSequence`, `TimelineLane`, `TimelineItem`, `SpatialPlacement`, `TextLayerData`, `ColorAdjustments`, `TransitionType`, `TransitionData`, `VideoEffectPreset`, `VideoEffects`, `Keyframe`, `KeyframeInterpolation`, `KeyframeProperty`, `ItemKeyframes`, `ChromaKeyData`, `MaskType`, `MaskData`. Décrit l'agencement temporel et spatial des pistes et des segments de clips, y compris les durées de fondus sonores (`fade_in_duration_us`, `fade_out_duration_us`), l'état solo (`is_solo`), la vitesse de lecture (`playback_speed`), les transitions visuelles d'entrée (`transition_in`), la symétrie miroir (`flip_horizontal`, `flip_vertical`), les effets artistiques FX (`video_effects`), l'animation par images-clés (`keyframes`), l'incrustation fond vert (`chroma_key`) et les masques géométriques PiP (`mask`).
+- `project.ts` : `KromaProject`, `TimelineCanvasSettings`, `CanvasAspectRatio` ('16:9' | '9:16' | '1:1' | '4:5' | '4:3' | '21:9' | 'custom'), `CANVAS_RATIO_PRESETS`, `detectAspectRatio()`, fonction utilitaire `createDefaultProject()`.
 
-### 1.2 `src/core/playback`
+### 1.2 `src/core/animation` (Étape 14)
+Moteur d'animation par images-clés :
+- `keyframeInterpolation.ts` : fonctions d'atténuation polynomiales et trigonométriques (`linear`, `ease_in`, `ease_out`, `ease_in_out`, `hold`), interpolation temporelle multi-segments, résolution spatiale instantanée `getInterpolatedPlacement()`, déplacement interactif de keyframes `moveKeyframesInList()` et recherche d'image-clé proche.
+
+### 1.3 `src/core/chromakey` (Étape 15)
+Moteur d'incrustation fond vert et fond bleu :
+- `chromaKeyFilter.ts` : soustraction par distance euclidienne dans l'espace RGB, tolérance de similarité, lissage progressif des contours (blend), neutralisation des reflets colorés (spill reduction), extraction Canvas 2D `applyChromaKeyToImageData()` et préréglages studio `CHROMA_PRESETS`.
+
+### 1.4 `src/core/mask` (Étape 16)
+Moteur de détourage géométrique et Picture-in-Picture :
+- `maskRenderer.ts` : tracés vectoriels de 6 formes géométriques (`rectangle`, `circle`, `star`, `heart`, `linear`, `none`), pochoir offscreen avec flou de contour gaussien (Feather), inversion géométrique, et compilation de filtres FFmpeg `geq` correspondants.
+
+### 1.5 `src/core/playback`
 Moteur de prévisualisation et de synchronisation :
 - `playbackEngine.ts` : calcule l'ensemble des segments visuels et audios actifs sous la tête de lecture à l'instant $T$, applique les règles d'isolation Solo/Mute et le mixage sommateur pondéré via la fonction `calculateFadeGain(offsetUs, durationUs, fadeInUs, fadeOutUs)`.
 
@@ -73,16 +85,16 @@ Module pur de manipulation des pistes et segments :
 ### 1.5 `src/components`
 Composants React modulaires organisés selon l'agencement CapCut :
 - `components/layout/Header.tsx` : barre supérieure avec boutons Nouveau, Ouvrir, Enregistrer (`.kproj`), Annuler / Rétablir, renommage du projet et bouton Export.
-- `components/player/PreviewMonitor.tsx` : écran `<canvas>` composite 16:9 haute performance avec contrôle du volume dynamique en temps réel et raccourcis claviers universels (`Espace`, `V`, `B`, `Ctrl+B`, `Ctrl+Z`, `Ctrl+Y`, `Ctrl+S`, `Ctrl+E`).
+- `components/player/PreviewMonitor.tsx` : écran `<canvas>` composite multi-formats haute performance avec recadrage adaptatif CSS/2D, sélecteur de format/ratio déroulant sous le moniteur, badge de format dynamique, contrôle du volume dynamique en temps réel et raccourcis claviers universels (`Espace`, `V`, `B`, `Ctrl+B`, `Ctrl+Z`, `Ctrl+Y`, `Ctrl+S`, `Ctrl+E`).
 - `components/media/MediaBin.tsx` : médiathèque avec onglets, recherche et drag & drop vers les pistes.
-- `components/inspector/InspectorPanel.tsx` : panneau de propriétés contextuel avec section Audio complète (volume, fondus Fade In/Out avec enveloppe), section Vitesse de lecture (ralenti/accéléré 0.25× à 4.0× avec réinitialisation 1×), section Réglages & Étalonnage Couleur (luminosité, contraste, saturation, teinte, flou), section Transition d'entrée (fondu enchaîné, fondu au noir, flash blanc, balayage gauche) et section Filtres & Effets FX (Miroir H/V, N&B, Sépia, Vintage, Négatif, Vignetage cinéma réglable).
+- `components/inspector/InspectorPanel.tsx` : panneau de propriétés contextuel avec section Audio complète (volume, fondus Fade In/Out avec enveloppe), section Vitesse de lecture (ralenti/accéléré 0.25× à 4.0× avec réinitialisation 1×), section Réglages & Étalonnage Couleur (luminosité, contraste, saturation, teinte, flou), section Transition d'entrée (fondu enchaîné, fondu au noir, flash blanc, balayage gauche), section Filtres & Effets FX (Miroir H/V, N&B, Sépia, Vintage, Négatif, Vignetage cinéma réglable) et section Composition avec sélecteur de ratio multi-formats synchronisé.
 - `components/audio/AudioWaveform.tsx` : générateur vectoriel haute performance de formes d'ondes audio harmoniques.
 - `components/timeline/` : suite complète de timeline (barre d'outils avec Annuler/Rétablir et bouton **Texte**, réglette graduée, tête de lecture, en-têtes avec Solo [S] et volume de piste, et clips avec visualisations de fondus, badges de transitions violettes et badges FX roses).
-- `components/export/ExportDialog.tsx` *(Étape 7)* : modal d'exportation avec préréglages (1080p, 720p, 4K, personnalisé), réglages fins d'encodage H.264/HEVC, aperçu de commandes CLI et téléchargement de scripts `.bat` et `.sh`.
+- `components/export/ExportDialog.tsx` *(Étape 7 & 12)* : modal d'exportation avec préréglages de résolution dynamiques calibrés sur le ratio actif du projet (1080p, 720p, 4K verticaux/carrés/paysage, personnalisé), réglages fins d'encodage H.264/HEVC, aperçu de commandes CLI et téléchargement de scripts `.bat` et `.sh`.
 
-### 1.6 `src/core/export` *(Étape 7)*
+### 1.6 `src/core/export` *(Étape 7 & 12)*
 Moteur d'exportation et compilation du graphe de filtrage FFmpeg :
-- `ffmpegCommandBuilder.ts` : analyse la structure complète du projet (`KromaProject`), génère les filtres de trim, contain/pad, transformations géométriques 2D, symétrie miroir (`hflip`, `vflip`), effets artistiques FX (`hue`, `colorchannelmixer`, `curves`, `negate`, `vignette`), filtres d'étalonnage (`eq`, `hue`, `gblur`), vitesses de lecture (`setpts`, `atempo`), transitions d'entrée (`fade`), overlays multi-pistes, calques `drawtext`, mixage audio `amix` avec `adelay` et `afade`, assemble la commande CLI complète et produit des scripts exécutables Windows (`.bat`) et Unix (`.sh`).
+- `ffmpegCommandBuilder.ts` : analyse la structure complète du projet (`KromaProject`), génère les filtres de trim, contain/pad calibrés sur les dimensions du canevas, transformations géométriques 2D, symétrie miroir (`hflip`, `vflip`), effets artistiques FX (`hue`, `colorchannelmixer`, `curves`, `negate`, `vignette`), filtres d'étalonnage (`eq`, `hue`, `gblur`), vitesses de lecture (`setpts`, `atempo`), transitions d'entrée (`fade`), overlays multi-pistes, calques `drawtext`, mixage audio `amix` avec `adelay` et `afade`, assemble la commande CLI complète et produit des scripts exécutables Windows (`.bat`) et Unix (`.sh`).
 
 ---
 
@@ -125,6 +137,15 @@ Moteur d'exportation et compilation du graphe de filtrage FFmpeg :
 11. **Symétrie miroir spatiale & Filtres créatifs FX :**
     L'inversion miroir (`flip_horizontal`, `flip_vertical`) est gérée par inversion matricielle directe sur le Canvas (`ctx.scale(-1, 1)`) et transcrite en filtres `hflip`/`vflip` sans perte de qualité. Les filtres artistiques (monochrome, sépia, argentique, négatif, vignettage) exploitent les capacités d'accélération matérielle du navigateur et de FFmpeg (`colorchannelmixer`, `curves`, `negate`, `vignette`) pour conférer une signature cinématographique professionnelle aux compositions.
 
+12. **Modélisation normalisée des ratios multi-formats et adaptation géométrique continue :**
+    Le ratio d'aspect est défini dans `timeline_canvas` sous forme de dimensions natives (`viewport_width`, `viewport_height`) et d'un type typé `aspect_ratio` (`16:9`, `9:16`, `1:1`, `4:5`, `4:3`, `21:9`, `custom`). Lors du changement de format, la surface d'affichage CSS adapte sa géométrie, le Canvas 2D applique une mise à l'échelle continue « contain » centrée, et le positionnement normalisé `(x_ratio, y_ratio)` maintient les titres et éléments visuels parfaitement en place sans recalcul destructif. L'exportateur FFmpeg hérite de ces dimensions exactes pour générer des fichiers vidéo natifs adaptés aux réseaux sociaux (TikTok/Shorts 1080×1920, Instagram Carré 1080×1080, etc.).
+
+13. **Moteur d'effets dynamiques oscillatoires & Matrices stroboscopiques FFmpeg :**
+    Les secousses dynamiques (`x_shake`, `y_shake`, `camera_shake`) et les impulsions stroboscopiques (`tremor_strobe`, `strobe_white`, `strobe_black`) sont calculées à partir de fonctions périodiques dépendant de l'instant de lecture local du clip, de son intensité ($I$) et de sa vitesse ($V$). Le lecteur Canvas 2D applique des translations oscillatoires sinusoïdales à 60 FPS avec masquage de bordure et des alternances d'opacité binaire. À l'exportation, FFmpeg compile ces mouvements via des filtres `crop` paramétrés par des formules trigonométriques périodiques et des filtres `drawbox` asservis à des expressions booléennes temporelles (`mod(floor(t*V*12),2)`). Les transitions avancées (zoom dynamique, rotation cinétique 360°, volets multi-axes) bénéficient du même niveau d'équivalence visuelle stricte.
+
+14. **Moteur d'animation par images-clés (Keyframing) & Interpolation continue :**
+    L'animation temporelle d'un clip est définie de manière déclarative par la structure `ItemKeyframes` stockant les listes ordonnées d'images-clés (`Keyframe<T>`) pour la position spatiale (X/Y), l'échelle, la rotation et l'opacité. Le moteur de composition `keyframeInterpolation.ts` évalue à 60 FPS la transformation spatiale continue en appliquant les fonctions d'atténuation temporelle (`linear`, `ease_in`, `ease_out`, `ease_in_out`, `hold`). À l'exportation FFmpeg, la fonction `buildFFmpegKeyframeExpr()` synthétise ces trajectoires sous forme d'expressions analytiques par morceaux (`if(lt(t, ...), ...)`) interprétées frame par frame par les filtres `scale=eval=frame`, `rotate` et `overlay`.
+
 ---
 
 ## 3. Format de projet JSON (`.kproj`)
@@ -143,6 +164,7 @@ Les fichiers de sauvegarde de Kroma Studio utilisent l'extension `.kproj` et son
   "timeline_canvas": {
     "viewport_width": 1920,
     "viewport_height": 1080,
+    "aspect_ratio": "16:9",
     "frame_rate_fps": 60.0,
     "audio_sample_rate_hz": 48000,
     "background_color_hex": "#000000"

@@ -11,8 +11,9 @@
  */
 
 import type { KromaProject } from '../types/project';
-import type { TimelineItem, TimelineLane } from '../types/timeline';
+import type { TimelineItem, TimelineLane, Keyframe } from '../types/timeline';
 import type { MediaAsset } from '../types/asset';
+import { buildFFmpegMaskFilter } from '../mask/maskRenderer';
 
 export interface ExportOptions {
   /** Résolution de sortie en pixels : largeur (défaut : valeur du projet ou 1920) */
@@ -77,6 +78,61 @@ export function escapeDrawText(text: string): string {
     .replace(/'/g, "\\'")
     .replace(/:/g, '\\:')
     .replace(/%/g, '%%');
+}
+
+/**
+ * Construit une expression mathématique d'interpolation temporelle par morceaux compatible FFmpeg (eval).
+ * Génère des expressions if(lt(t, t_i), v_i, ...) pour évaluer dynamiquement les images-clés sur chaque frame.
+ */
+export function buildFFmpegKeyframeExpr(
+  keyframes: Keyframe<number>[] | undefined,
+  defaultValue: number,
+  clipStartSec: number,
+): string {
+  if (!keyframes || keyframes.length === 0) {
+    return defaultValue.toFixed(3);
+  }
+  if (keyframes.length === 1) {
+    return keyframes[0].value.toFixed(3);
+  }
+
+  const sorted = [...keyframes].sort((a, b) => a.time_offset_us - b.time_offset_us);
+  const t0Sec = (clipStartSec + sorted[0].time_offset_us / 1_000_000).toFixed(3);
+  const v0 = sorted[0].value.toFixed(3);
+
+  const lastIndex = sorted.length - 1;
+  let currentNested = sorted[lastIndex].value.toFixed(3);
+
+  for (let i = lastIndex - 1; i >= 0; i--) {
+    const k1 = sorted[i];
+    const k2 = sorted[i + 1];
+    const t1Sec = (clipStartSec + k1.time_offset_us / 1_000_000).toFixed(3);
+    const t2Sec = (clipStartSec + k2.time_offset_us / 1_000_000).toFixed(3);
+    const dt = (k2.time_offset_us - k1.time_offset_us) / 1_000_000;
+    const v1 = k1.value.toFixed(3);
+    const v2 = k2.value.toFixed(3);
+
+    let segmentExpr = '';
+    if (dt <= 0.0001) {
+      segmentExpr = v2;
+    } else {
+      const interp = k1.interpolation || 'linear';
+      const normProgress = `((t-${t1Sec})/${dt.toFixed(3)})`;
+      if (interp === 'ease_in') {
+        segmentExpr = `(${v1}+(${v2}-${v1})*pow(${normProgress},2))`;
+      } else if (interp === 'ease_out') {
+        segmentExpr = `(${v1}+(${v2}-${v1})*(${normProgress}*(2-${normProgress})))`;
+      } else if (interp === 'hold') {
+        segmentExpr = v1;
+      } else {
+        segmentExpr = `(${v1}+(${v2}-${v1})*${normProgress})`;
+      }
+    }
+
+    currentNested = `if(lt(t,${t2Sec}),${segmentExpr},${currentNested})`;
+  }
+
+  return `if(lt(t,${t0Sec}),${v0},${currentNested})`;
 }
 
 /**
@@ -302,28 +358,53 @@ export function buildFFmpegCommand(
         `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=${bgColorHex}@0`,
       );
 
-      // Transformations spatiales
+      // Transformations spatiales & Images-Clés (Étape 14)
       const placement = item.spatial_placement;
-      if (placement) {
+      const keyframes = item.keyframes;
+
+      // Échelle (Zoom) : animée par images-clés ou statique
+      if (keyframes?.scale && keyframes.scale.length > 0) {
+        const normalizedScaleKfs = keyframes.scale.map((k) =>
+          k.value > 10 ? { ...k, value: k.value / 100 } : k,
+        );
+        const defaultScale = placement?.zoom_factor_x || 1.0;
+        const scaleExpr = buildFFmpegKeyframeExpr(normalizedScaleKfs, defaultScale, startSec);
+        clipSubFilters.push(`scale=eval=frame:w='iw*(${scaleExpr})':h='ih*(${scaleExpr})'`);
+      } else if (placement) {
         if (placement.zoom_factor_x !== 1.0 || placement.zoom_factor_y !== 1.0) {
           const zx = (placement.zoom_factor_x || 1.0).toFixed(3);
           const zy = (placement.zoom_factor_y || 1.0).toFixed(3);
           clipSubFilters.push(`scale=iw*${zx}:ih*${zy}`);
         }
-        if (placement.rotation_degrees && placement.rotation_degrees !== 0) {
-          const rad = ((placement.rotation_degrees * Math.PI) / 180).toFixed(4);
-          clipSubFilters.push(`rotate=${rad}:c=none:ow=rotw(iw):oh=roth(ih)`);
-        }
-        if (placement.opacity_ratio !== undefined && placement.opacity_ratio < 1.0) {
-          const alpha = Math.max(0, Math.min(1.0, placement.opacity_ratio)).toFixed(2);
-          clipSubFilters.push(`format=rgba,colorchannelmixer=aa=${alpha}`);
-        }
-        if (placement.flip_horizontal) {
-          clipSubFilters.push('hflip');
-        }
-        if (placement.flip_vertical) {
-          clipSubFilters.push('vflip');
-        }
+      }
+
+      // Rotation : animée par images-clés ou statique
+      if (keyframes?.rotation && keyframes.rotation.length > 0) {
+        const defaultRot = placement?.rotation_degrees || 0;
+        const rotExpr = buildFFmpegKeyframeExpr(keyframes.rotation, defaultRot, startSec);
+        clipSubFilters.push(`rotate='(${rotExpr})*PI/180':c=none:ow=rotw(iw):oh=roth(ih)`);
+      } else if (placement?.rotation_degrees && placement.rotation_degrees !== 0) {
+        const rad = ((placement.rotation_degrees * Math.PI) / 180).toFixed(4);
+        clipSubFilters.push(`rotate=${rad}:c=none:ow=rotw(iw):oh=roth(ih)`);
+      }
+
+      // Opacité
+      if (keyframes?.opacity && keyframes.opacity.length > 0) {
+        const normalizedOpacityKfs = keyframes.opacity.map((k) =>
+          k.value > 1.0 ? { ...k, value: k.value / 100 } : k,
+        );
+        const defaultAlpha = placement?.opacity_ratio !== undefined ? placement.opacity_ratio : 1.0;
+        const alphaExpr = buildFFmpegKeyframeExpr(normalizedOpacityKfs, defaultAlpha, startSec);
+        clipSubFilters.push(`format=rgba,colorchannelmixer=aa='${alphaExpr}'`);
+      } else if (placement?.opacity_ratio !== undefined && placement.opacity_ratio < 1.0) {
+        const alpha = Math.max(0, Math.min(1.0, placement.opacity_ratio)).toFixed(2);
+        clipSubFilters.push(`format=rgba,colorchannelmixer=aa=${alpha}`);
+      }
+      if (placement?.flip_horizontal) {
+        clipSubFilters.push('hflip');
+      }
+      if (placement?.flip_vertical) {
+        clipSubFilters.push('vflip');
       }
 
       // Filtres d'étalonnage et de couleur (Étape 8)
@@ -408,6 +489,27 @@ export function buildFFmpegCommand(
         }
       }
 
+      // Incrustation Fond Vert / Chroma Key (Étape 15)
+      if (item.chroma_key?.enabled) {
+        const hex = (item.chroma_key.target_color || '#00B140').replace(/^#/, '');
+        const sim = Math.max(0.01, Math.min(1.0, item.chroma_key.similarity ?? 0.3)).toFixed(3);
+        const blend = Math.max(0.0, Math.min(1.0, item.chroma_key.smoothness ?? 0.1)).toFixed(3);
+        clipSubFilters.push(`colorkey=0x${hex}:${sim}:${blend}`);
+      }
+
+      // Masque géométrique de détourage / PiP (Étape 16)
+      if (item.mask && item.mask.mask_type !== 'none') {
+        const asset = project.asset_catalog.find((a) => a.asset_id === item.referenced_asset_id);
+        const maskFilter = buildFFmpegMaskFilter(
+          item.mask,
+          asset?.native_width || width,
+          asset?.native_height || height,
+        );
+        if (maskFilter) {
+          clipSubFilters.push(maskFilter);
+        }
+      }
+
       // Transition d'entrée (Étape 10 & 12)
       if (item.transition_in && item.transition_in.transition_type !== 'none') {
         const transSec = usToSeconds(item.transition_in.duration_us || 1_000_000);
@@ -447,8 +549,21 @@ export function buildFFmpegCommand(
       const nextBaseTag = `[v_base_${videoStep + 1}]`;
       const offX = placement?.offset_x_px || 0;
       const offY = placement?.offset_y_px || 0;
-      const xExpr = offX === 0 ? '(W-w)/2' : `(W-w)/2+(${offX})`;
-      const yExpr = offY === 0 ? '(H-h)/2' : `(H-h)/2+(${offY})`;
+
+      const hasPosXKf = keyframes?.position_x && keyframes.position_x.length > 0;
+      const hasPosYKf = keyframes?.position_y && keyframes.position_y.length > 0;
+
+      const xExpr = hasPosXKf
+        ? `(W-w)/2+(${buildFFmpegKeyframeExpr(keyframes!.position_x, offX, startSec)})`
+        : offX === 0
+        ? '(W-w)/2'
+        : `(W-w)/2+(${offX})`;
+
+      const yExpr = hasPosYKf
+        ? `(H-h)/2+(${buildFFmpegKeyframeExpr(keyframes!.position_y, offY, startSec)})`
+        : offY === 0
+        ? '(H-h)/2'
+        : `(H-h)/2+(${offY})`;
 
       filterParts.push(
         `${currentVideoTag}${clipFilteredTag}overlay=x='${xExpr}':y='${yExpr}':enable='between(t,${startSec.toFixed(3)},${endSec.toFixed(3)})'${nextBaseTag}`,
@@ -466,17 +581,32 @@ export function buildFFmpegCommand(
       const offX = item.spatial_placement?.offset_x_px || 0;
       const offY = item.spatial_placement?.offset_y_px || 0;
 
+      const hasTextPosXKf = item.keyframes?.position_x && item.keyframes.position_x.length > 0;
+      const hasTextPosYKf = item.keyframes?.position_y && item.keyframes.position_y.length > 0;
+
+      const offXExpr = hasTextPosXKf
+        ? `+(${buildFFmpegKeyframeExpr(item.keyframes!.position_x, offX, startSec)})`
+        : offX === 0
+        ? ''
+        : `+(${offX})`;
+
+      const offYExpr = hasTextPosYKf
+        ? `+(${buildFFmpegKeyframeExpr(item.keyframes!.position_y, offY, startSec)})`
+        : offY === 0
+        ? ''
+        : `+(${offY})`;
+
       let xExpr: string;
       if (textData.text_align === 'left') {
-        xExpr = offX === 0 ? `w*${nc.x_ratio.toFixed(4)}` : `w*${nc.x_ratio.toFixed(4)}+(${offX})`;
+        xExpr = `w*${nc.x_ratio.toFixed(4)}${offXExpr}`;
       } else if (textData.text_align === 'right') {
-        xExpr = offX === 0 ? `w*${nc.x_ratio.toFixed(4)}-tw` : `w*${nc.x_ratio.toFixed(4)}-tw+(${offX})`;
+        xExpr = `w*${nc.x_ratio.toFixed(4)}-tw${offXExpr}`;
       } else {
         // center
-        xExpr = offX === 0 ? `w*${nc.x_ratio.toFixed(4)}-tw/2` : `w*${nc.x_ratio.toFixed(4)}-tw/2+(${offX})`;
+        xExpr = `w*${nc.x_ratio.toFixed(4)}-tw/2${offXExpr}`;
       }
 
-      const yExpr = offY === 0 ? `h*${nc.y_ratio.toFixed(4)}-th/2` : `h*${nc.y_ratio.toFixed(4)}-th/2+(${offY})`;
+      const yExpr = `h*${nc.y_ratio.toFixed(4)}-th/2${offYExpr}`;
 
       const borderPart =
         textData.outline_thickness_px > 0

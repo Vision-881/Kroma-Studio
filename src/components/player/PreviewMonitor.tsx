@@ -4,11 +4,34 @@
  * rendu Canvas 2D multi-couches et support complet des raccourcis clavier.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Pause, SkipBack, SkipForward, RotateCcw, Volume2, VolumeX } from 'lucide-react';
+import {
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  RotateCcw,
+  Volume2,
+  VolumeX,
+  Smartphone,
+  Monitor,
+  Square,
+  Tv,
+  Film,
+  ChevronDown,
+  Check,
+} from 'lucide-react';
 import { useProjectStore } from '../../store/projectStore';
 import { usToTimecode } from '../../core/time/timeUtils';
 import { getActiveItemsAtTime, type ActiveVisualItem, type ActiveAudioItem } from '../../core/playback/playbackEngine';
+import { getInterpolatedPlacement } from '../../core/animation/keyframeInterpolation';
+import { getChromaKeyedCanvas } from '../../core/chromakey/chromaKeyFilter';
+import { getMaskedCanvas } from '../../core/mask/maskRenderer';
 import { mediaSession } from '../../core/media/mediaSession';
+import {
+  CANVAS_RATIO_PRESETS,
+  detectAspectRatio,
+  type CanvasAspectRatio,
+} from '../../core/types/project';
 
 export function PreviewMonitor() {
   const {
@@ -23,11 +46,29 @@ export function PreviewMonitor() {
     redo,
     saveProjectToFile,
     openExportDialog,
+    setCanvasAspectRatio,
   } = useProjectStore();
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMasterMuted, setIsMasterMuted] = useState(false);
+  const [isRatioMenuOpen, setIsRatioMenuOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const ratioMenuRef = useRef<HTMLDivElement>(null);
+
+  // Fermer le menu de ratio lors d'un clic en dehors
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ratioMenuRef.current && !ratioMenuRef.current.contains(e.target as Node)) {
+        setIsRatioMenuOpen(false);
+      }
+    };
+    if (isRatioMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isRatioMenuOpen]);
 
   const animationFrameRef = useRef<number | null>(null);
   const lastWallTimeRef = useRef<number | null>(null);
@@ -63,14 +104,7 @@ export function PreviewMonitor() {
 
         const item = active.item;
         const asset = active.asset;
-        const placement = item.spatial_placement || {
-          offset_x_px: 0,
-          offset_y_px: 0,
-          zoom_factor_x: 1.0,
-          zoom_factor_y: 1.0,
-          rotation_degrees: 0,
-          opacity_ratio: 1.0,
-        };
+        const placement = getInterpolatedPlacement(item, currentTimeUs);
 
         ctx.save();
 
@@ -253,7 +287,23 @@ export function PreviewMonitor() {
               }
             }
 
-            ctx.drawImage(sourceElement, -drawW / 2, -drawH / 2, drawW, drawH);
+            let finalSource: CanvasImageSource = sourceElement;
+            if (item.chroma_key?.enabled) {
+              const chromaCanvas = getChromaKeyedCanvas(sourceElement, drawW, drawH, item.chroma_key);
+              if (chromaCanvas) {
+                finalSource = chromaCanvas;
+              }
+            }
+
+            // Masque géométrique de détourage / PiP (Étape 16)
+            if (item.mask && item.mask.mask_type !== 'none') {
+              const maskedCanvas = getMaskedCanvas(finalSource, drawW, drawH, item.mask);
+              if (maskedCanvas) {
+                finalSource = maskedCanvas;
+              }
+            }
+
+            ctx.drawImage(finalSource, -drawW / 2, -drawH / 2, drawW, drawH);
 
             // Voiles pour fondus et flashs de transition (Étape 10 & 12)
             if (transitionType === 'fade_to_black' && transitionProgress < 1.0) {
@@ -662,11 +712,35 @@ export function PreviewMonitor() {
   const currentTimecode = usToTimecode(currentTimeUs, fps);
   const totalTimecode = usToTimecode(project.sequence.total_length_us, fps);
 
+  const currentRatio =
+    project.timeline_canvas.aspect_ratio || detectAspectRatio(canvasWidth, canvasHeight);
+  const currentRatioPreset = CANVAS_RATIO_PRESETS[currentRatio as Exclude<CanvasAspectRatio, 'custom'>];
+  const ratioLabel = currentRatioPreset ? currentRatioPreset.label : `${canvasWidth}:${canvasHeight}`;
+
+  const renderRatioIcon = (ratio: CanvasAspectRatio, size = 14) => {
+    switch (ratio) {
+      case '9:16':
+      case '4:5':
+        return <Smartphone size={size} />;
+      case '1:1':
+        return <Square size={size} />;
+      case '21:9':
+        return <Film size={size} />;
+      case '16:9':
+        return <Monitor size={size} />;
+      default:
+        return <Tv size={size} />;
+    }
+  };
+
   return (
     <div className="preview-monitor">
-      {/* Écran Canvas vidéo 16:9 */}
+      {/* Écran Canvas vidéo multi-formats (Étape 12) */}
       <div className="preview-monitor__screen-container">
-        <div className="preview-monitor__screen">
+        <div
+          className="preview-monitor__screen"
+          style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}` }}
+        >
           <canvas
             ref={canvasRef}
             width={canvasWidth}
@@ -675,7 +749,9 @@ export function PreviewMonitor() {
           />
 
           {/* Badge format et ratio */}
-          <div className="preview-monitor__ratio-badge">16:9 · 1080p</div>
+          <div className="preview-monitor__ratio-badge">
+            {ratioLabel} · {canvasWidth}×{canvasHeight}
+          </div>
         </div>
       </div>
 
@@ -722,6 +798,63 @@ export function PreviewMonitor() {
           >
             {isMasterMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
           </button>
+        </div>
+
+        {/* Sélecteur de ratio multi-formats (Étape 12) */}
+        <div className="preview-monitor__ratio-selector" ref={ratioMenuRef}>
+          <button
+            className={`preview-monitor__ratio-btn${isRatioMenuOpen ? ' preview-monitor__ratio-btn--active' : ''}`}
+            onClick={() => setIsRatioMenuOpen((prev) => !prev)}
+            title="Modifier le format d'image (YouTube 16:9, TikTok 9:16, Carré 1:1, Portrait 4:5...)"
+          >
+            {renderRatioIcon(currentRatio, 13)}
+            <span className="preview-monitor__ratio-btn-label">{ratioLabel}</span>
+            <ChevronDown
+              size={12}
+              className={`preview-monitor__ratio-chevron${isRatioMenuOpen ? ' preview-monitor__ratio-chevron--open' : ''}`}
+            />
+          </button>
+
+          {isRatioMenuOpen && (
+            <div className="preview-monitor__ratio-dropdown">
+              <div className="preview-monitor__ratio-dropdown-header">
+                Format d'affichage (Ratio)
+              </div>
+              <div className="preview-monitor__ratio-dropdown-list">
+                {Object.values(CANVAS_RATIO_PRESETS).map((preset) => {
+                  const isSelected = currentRatio === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      className={`preview-monitor__ratio-option${isSelected ? ' preview-monitor__ratio-option--active' : ''}`}
+                      onClick={() => {
+                        setCanvasAspectRatio(preset.id);
+                        setIsRatioMenuOpen(false);
+                      }}
+                    >
+                      <div className="preview-monitor__ratio-option-icon">
+                        {renderRatioIcon(preset.id, 15)}
+                      </div>
+                      <div className="preview-monitor__ratio-option-info">
+                        <div className="preview-monitor__ratio-option-title">
+                          <span className="ratio-tag">{preset.label}</span>
+                          <span className="ratio-name">{preset.name}</span>
+                        </div>
+                        <div className="preview-monitor__ratio-option-sub">
+                          {preset.sublabel}
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <div className="preview-monitor__ratio-option-check">
+                          <Check size={14} />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Compteur temporel SMPTE double */}

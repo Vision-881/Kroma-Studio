@@ -11,7 +11,7 @@ interface TimelineRulerProps {
 }
 
 export function TimelineRuler({ totalWidthPx }: TimelineRulerProps) {
-  const { zoomPixelsPerSecond, currentTimeUs, setCurrentTimeUs } = useProjectStore();
+  const { zoomPixelsPerSecond, setCurrentTimeUs } = useProjectStore();
   const rulerRef = useRef<HTMLDivElement>(null);
 
   // Intervalle de graduation en secondes selon le zoom
@@ -65,8 +65,6 @@ export function TimelineRuler({ totalWidthPx }: TimelineRulerProps) {
     window.addEventListener('mouseup', onMouseUp);
   };
 
-  const playheadX = (currentTimeUs / 1_000_000) * zoomPixelsPerSecond;
-
   return (
     <div
       ref={rulerRef}
@@ -88,12 +86,6 @@ export function TimelineRuler({ totalWidthPx }: TimelineRulerProps) {
           )}
         </div>
       ))}
-
-      {/* Pointeur supérieur de la tête de lecture sur la réglette */}
-      <div
-        className="timeline-ruler__playhead-head"
-        style={{ transform: `translateX(${playheadX}px)` }}
-      />
     </div>
   );
 }
