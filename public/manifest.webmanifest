@@ -1,0 +1,16 @@
+{
+  "name": "Kroma Studio",
+  "short_name": "Kroma",
+  "description": "Éditeur vidéo créatif multipiste et d'effets visuels",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090a0f",
+  "theme_color": "#090a0f",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

@@ -31,11 +31,21 @@ cd D:\REA\mon-editeur
 npm install
 ```
 
-### Étape 3 : Lancer le serveur de développement
+### Étape 3 : Lancer l'application
+
+#### Option A — Mode Application de Bureau Windows (Recommandé, hors-navigateur) :
+```powershell
+npm run app:dist
+```
+*Ou faites simplement un double-clic sur le fichier **`Lancer-Kroma-Studio.bat`** situé à la racine du projet.*  
+L'application s'ouvre directement dans sa propre fenêtre Windows autonome sans barre d'adresse ni onglet.
+
+#### Option B — Mode Web Navigateur :
 ```powershell
 npm run dev
 ```
-Ouvrez l'adresse indiquée dans votre navigateur (généralement [http://localhost:5173/](http://localhost:5173/)).
+Ouvrez l'adresse indiquée dans votre navigateur (généralement [http://localhost:5173/](http://localhost:5173/)).  
+*(Pour en savoir plus sur les différentes options de passage en application de bureau, consultez le [Guide Application de Bureau](file:///f:/REA/mon-editeur/docs/GUIDE_APPLICATION_BUREAU.md)).*
 
 ---
 
