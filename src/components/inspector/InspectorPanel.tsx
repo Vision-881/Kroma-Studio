@@ -24,15 +24,18 @@ import {
   ChevronLeft,
   ChevronRight,
   Crop,
+  Bookmark,
+  BookmarkPlus,
 } from 'lucide-react';
 import { useProjectStore } from '../../store/projectStore';
 import { formatDurationHuman, usToTimecode } from '../../core/time/timeUtils';
-import type {
-  TransitionType,
-  VideoEffectPreset,
-  KeyframeProperty,
-  KeyframeInterpolation,
-  TimelineItem,
+import {
+  MARKER_PRESET_COLORS,
+  type TransitionType,
+  type VideoEffectPreset,
+  type KeyframeProperty,
+  type KeyframeInterpolation,
+  type TimelineItem,
 } from '../../core/types/timeline';
 import {
   getInterpolatedPlacement,
@@ -76,6 +79,10 @@ export function InspectorPanel() {
     updateClipTransition,
     addItemFromAsset,
     setCanvasAspectRatio,
+    addTimelineMarker,
+    updateTimelineMarker,
+    removeTimelineMarker,
+    clearTimelineMarkers,
   } = useProjectStore();
 
   // 1. Cas : Un clip de la timeline est sélectionné
@@ -1789,6 +1796,119 @@ export function InspectorPanel() {
               {formatDurationHuman(project.sequence.total_length_us)}
             </span>
           </div>
+        </div>
+
+        {/* Marqueurs de Timeline (Étape 17) */}
+        <div className="inspector-section">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <h4 className="inspector-section__title" style={{ margin: 0 }}>
+              <Bookmark size={14} />
+              <span>Marqueurs de Timeline</span>
+            </h4>
+            {(project.sequence.markers?.length || 0) > 0 && (
+              <button
+                type="button"
+                className="inspector-reset-btn"
+                style={{ color: '#f87171' }}
+                onClick={() => clearTimelineMarkers()}
+                title="Effacer tous les marqueurs"
+              >
+                <span>Tout effacer</span>
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="kroma-btn kroma-btn-primary"
+            style={{ width: '100%', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 11 }}
+            onClick={() => addTimelineMarker(currentTimeUs)}
+            title="Ajouter un marqueur à la tête de lecture"
+          >
+            <BookmarkPlus size={13} />
+            <span>+ Poser un marqueur à {usToTimecode(currentTimeUs, project.timeline_canvas.frame_rate_fps)}</span>
+          </button>
+
+          {(!project.sequence.markers || project.sequence.markers.length === 0) ? (
+            <div style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', padding: '8px 0' }}>
+              Aucun marqueur posé. Appuyez sur [M] pour marquer le rythme.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {project.sequence.markers.map((marker) => (
+                <div
+                  key={marker.marker_id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    padding: '4px 6px',
+                    borderRadius: 4,
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                  }}
+                >
+                  {/* Pastille de couleur (clic pour changer de couleur) */}
+                  <button
+                    type="button"
+                    style={{
+                      width: 14,
+                      height: 14,
+                      borderRadius: 3,
+                      backgroundColor: marker.color,
+                      border: '1px solid #ffffff',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                    }}
+                    onClick={() => {
+                      const currentIndex = MARKER_PRESET_COLORS.findIndex((c) => c.hex === marker.color);
+                      const nextIndex = (currentIndex + 1) % MARKER_PRESET_COLORS.length;
+                      updateTimelineMarker(marker.marker_id, { color: MARKER_PRESET_COLORS[nextIndex].hex });
+                    }}
+                    title="Cliquer pour changer de couleur"
+                  />
+
+                  {/* Champ d'édition du nom */}
+                  <input
+                    type="text"
+                    value={marker.label}
+                    onChange={(e) => updateTimelineMarker(marker.marker_id, { label: e.target.value })}
+                    style={{
+                      flex: 1,
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#f1f5f9',
+                      fontSize: 11,
+                      outline: 'none',
+                    }}
+                    placeholder="Nom du marqueur"
+                  />
+
+                  {/* Bouton de saut au timecode */}
+                  <button
+                    type="button"
+                    className="inspector-reset-btn"
+                    style={{ fontSize: 10, padding: '2px 5px' }}
+                    onClick={() => setCurrentTimeUs(marker.time_us)}
+                    title="Placer la tête de lecture sur ce marqueur"
+                  >
+                    {formatDurationHuman(marker.time_us)}
+                  </button>
+
+                  {/* Bouton supprimer */}
+                  <button
+                    type="button"
+                    className="kroma-icon-btn"
+                    style={{ width: 20, height: 20, color: '#94a3b8' }}
+                    onClick={() => removeTimelineMarker(marker.marker_id)}
+                    title="Supprimer ce marqueur"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="inspector-section inspector-section--tip">

@@ -22,6 +22,7 @@ import type {
   KeyframeInterpolation,
   ChromaKeyData,
   MaskData,
+  TimelineMarker,
 } from '../core/types/timeline';
 import { addOrUpdateKeyframe, removeKeyframe, moveKeyframesInList } from '../core/animation/keyframeInterpolation';
 import {
@@ -140,6 +141,19 @@ interface ProjectState {
   ) => void;
   clearAllClipKeyframes: (itemId: string, commitHistory?: boolean) => void;
 
+  // --- Aimantation Temporelle & Marqueurs (Étape 17) ---
+  isSnappingEnabled: boolean;
+  activeSnapLineUs: number | null;
+  toggleSnapping: () => void;
+  setSnappingEnabled: (enabled: boolean) => void;
+  setActiveSnapLineUs: (timeUs: number | null) => void;
+  addTimelineMarker: (timeUs: number, label?: string, color?: string, commitHistory?: boolean) => void;
+  updateTimelineMarker: (markerId: string, updates: Partial<TimelineMarker>, commitHistory?: boolean) => void;
+  removeTimelineMarker: (markerId: string, commitHistory?: boolean) => void;
+  clearTimelineMarkers: (commitHistory?: boolean) => void;
+  jumpToNextMarker: () => void;
+  jumpToPrevMarker: () => void;
+
   // --- Gestion du Projet & Fichiers ---
   setProjectName: (name: string) => void;
   setCanvasAspectRatio: (ratio: CanvasAspectRatio, customDimensions?: { width: number; height: number }) => void;
@@ -164,6 +178,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   currentTimeUs: 0,
   zoomPixelsPerSecond: 60, // 60 pixels = 1 seconde par défaut
   activeTool: 'select',
+  isSnappingEnabled: true,
+  activeSnapLineUs: null,
   isExportDialogOpen: false,
   openExportDialog: () => set({ isExportDialogOpen: true }),
   closeExportDialog: () => set({ isExportDialogOpen: false }),
@@ -1234,6 +1250,137 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       };
     }),
 
+  // --- Aimantation Temporelle & Marqueurs (Étape 17) ---
+  toggleSnapping: () =>
+    set((state) => ({ isSnappingEnabled: !state.isSnappingEnabled })),
+
+  setSnappingEnabled: (enabled: boolean) =>
+    set({ isSnappingEnabled: enabled }),
+
+  setActiveSnapLineUs: (timeUs: number | null) =>
+    set({ activeSnapLineUs: timeUs }),
+
+  addTimelineMarker: (
+    timeUs: number,
+    label: string = 'Marqueur',
+    color: string = '#eab308',
+    commitHistory: boolean = true,
+  ) =>
+    set((state) => {
+      const existing = state.project.sequence.markers || [];
+      const newMarker: TimelineMarker = {
+        marker_id: 'marker_' + Math.random().toString(36).substring(2, 9),
+        time_us: Math.max(0, timeUs),
+        label: label.trim() || 'Marqueur',
+        color,
+      };
+
+      const updatedMarkers = [...existing, newMarker].sort((a, b) => a.time_us - b.time_us);
+
+      return {
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
+        project: {
+          ...state.project,
+          sequence: {
+            ...state.project.sequence,
+            markers: updatedMarkers,
+          },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  updateTimelineMarker: (
+    markerId: string,
+    updates: Partial<TimelineMarker>,
+    commitHistory: boolean = true,
+  ) =>
+    set((state) => {
+      const existing = state.project.sequence.markers || [];
+      const updatedMarkers = existing
+        .map((m) => (m.marker_id === markerId ? { ...m, ...updates } : m))
+        .sort((a, b) => a.time_us - b.time_us);
+
+      return {
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
+        project: {
+          ...state.project,
+          sequence: {
+            ...state.project.sequence,
+            markers: updatedMarkers,
+          },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  removeTimelineMarker: (markerId: string, commitHistory: boolean = true) =>
+    set((state) => {
+      const existing = state.project.sequence.markers || [];
+      const updatedMarkers = existing.filter((m) => m.marker_id !== markerId);
+
+      return {
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
+        project: {
+          ...state.project,
+          sequence: {
+            ...state.project.sequence,
+            markers: updatedMarkers,
+          },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  clearTimelineMarkers: (commitHistory: boolean = true) =>
+    set((state) => {
+      return {
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
+        project: {
+          ...state.project,
+          sequence: {
+            ...state.project.sequence,
+            markers: [],
+          },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  jumpToNextMarker: () => {
+    const state = get();
+    const markers = state.project.sequence.markers || [];
+    const next = markers.find((m) => m.time_us > state.currentTimeUs + 20_000);
+    if (next) {
+      set({ currentTimeUs: next.time_us });
+    }
+  },
+
+  jumpToPrevMarker: () => {
+    const state = get();
+    const markers = state.project.sequence.markers || [];
+    const prev = [...markers].reverse().find((m) => m.time_us < state.currentTimeUs - 20_000);
+    if (prev) {
+      set({ currentTimeUs: prev.time_us });
+    }
+  },
+
   // --- Gestion du Projet & Fichiers ---
   setProjectName: (name: string) =>
     set((state) => ({
@@ -1330,6 +1477,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       if (!parsed.kroma_version || !parsed.project_uuid) return false;
       if (!parsed.sequence || !Array.isArray(parsed.sequence.lanes)) return false;
       if (!Array.isArray(parsed.asset_catalog)) return false;
+
+      // Garantir l'initialisation des marqueurs pour la rétrocompatibilité
+      parsed.sequence.markers = Array.isArray(parsed.sequence.markers) ? parsed.sequence.markers : [];
 
       set({
         project: parsed,

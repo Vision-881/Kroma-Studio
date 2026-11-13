@@ -1147,10 +1147,13 @@ input {
   overflow-y: hidden;
   background: #111118;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .timeline-tracks-canvas {
   position: relative;
+  flex: 1;
   min-height: 100%;
 }
 
@@ -1550,4 +1553,195 @@ input {
   border-color: #06b6d4;
   color: #fff;
   font-weight: 600;
+}
+
+/* ── Étape 17 : Aimantation Magnétique & Marqueurs Temporels ── */
+.timeline-tool-btn--snapping-active {
+  color: #06b6d4 !important;
+  background: rgba(6, 182, 212, 0.15) !important;
+  border-color: rgba(6, 182, 212, 0.4) !important;
+}
+
+/* Guide d'aimantation magnétique en direct */
+.timeline-snap-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  z-index: 54;
+  pointer-events: none;
+}
+
+.timeline-snap-guide__head {
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  background: #06b6d4;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #06b6d4;
+}
+
+.timeline-snap-guide__line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -1px;
+  width: 2px;
+  background: #06b6d4;
+  box-shadow: 0 0 8px #06b6d4;
+}
+
+/* Marqueurs temporels sur la réglette */
+.timeline-marker-pin {
+  position: absolute;
+  top: 0;
+  height: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  z-index: 50;
+  user-select: none;
+  padding: 0 4px;
+}
+
+.timeline-marker-pin:hover .timeline-marker-pin__diamond {
+  transform: scale(1.25);
+  box-shadow: 0 0 8px currentColor;
+}
+
+.timeline-marker-pin__diamond {
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+  border: 1.5px solid #ffffff;
+  border-radius: 2px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  transition: transform 100ms ease;
+  margin-top: 2px;
+}
+
+.timeline-marker-pin__label {
+  font-size: 8px;
+  font-weight: 600;
+  color: #f1f5f9;
+  background: rgba(15, 23, 42, 0.85);
+  padding: 1px 4px;
+  border-radius: 2px;
+  white-space: nowrap;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Popover d'édition d'un marqueur */
+.timeline-marker-edit-popover {
+  position: absolute;
+  top: 32px;
+  width: 240px;
+  background: #1e1e2d;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  padding: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+  z-index: 99;
+  cursor: default;
+}
+
+.timeline-marker-edit-popover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.timeline-marker-edit-input {
+  width: 100%;
+  background: #0f0f18;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: #ffffff;
+  padding: 5px 8px;
+  font-size: 12px;
+  outline: none;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+
+.timeline-marker-edit-input:focus {
+  border-color: #06b6d4;
+}
+
+.timeline-marker-color-grid {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.timeline-marker-color-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: transform 100ms ease, border-color 100ms ease;
+}
+
+.timeline-marker-color-btn:hover {
+  transform: scale(1.15);
+  border-color: #ffffff;
+}
+
+.timeline-marker-color-btn--active {
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+}
+
+.timeline-marker-edit-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.timeline-marker-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.timeline-marker-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.timeline-marker-save-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #06b6d4;
+  border: none;
+  color: #000000;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.timeline-marker-save-btn:hover {
+  background: #22d3ee;
 }

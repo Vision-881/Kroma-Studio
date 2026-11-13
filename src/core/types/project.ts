@@ -134,6 +134,7 @@ export function createDefaultProject(name: string = 'Nouveau Projet Kroma'): Kro
     asset_catalog: [],
     sequence: {
       total_length_us: 0,
+      markers: [],
       lanes: [
         {
           lane_id: 'lane_video_1',

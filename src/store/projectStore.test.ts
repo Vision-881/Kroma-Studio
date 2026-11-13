@@ -991,5 +991,72 @@ describe('useProjectStore', () => {
       item = useProjectStore.getState().project.sequence.lanes[0].items[0];
       expect(item.mask?.mask_type).toBe('circle');
     });
+
+    it('gère l\'aimantation (snapping) et les marqueurs temporels avec Undo/Redo (Étape 17)', () => {
+      // 1. Snapping toggle
+      expect(useProjectStore.getState().isSnappingEnabled).toBe(true);
+      useProjectStore.getState().toggleSnapping();
+      expect(useProjectStore.getState().isSnappingEnabled).toBe(false);
+      useProjectStore.getState().setSnappingEnabled(true);
+      expect(useProjectStore.getState().isSnappingEnabled).toBe(true);
+
+      // 2. Ajout de marqueurs
+      useProjectStore.getState().addTimelineMarker(2_000_000, 'Intro', '#eab308');
+      useProjectStore.getState().addTimelineMarker(5_000_000, 'Drop', '#ef4444');
+      useProjectStore.getState().addTimelineMarker(1_000_000, 'Titre', '#06b6d4');
+
+      let markers = useProjectStore.getState().project.sequence.markers || [];
+      expect(markers.length).toBe(3);
+      // Doivent être triés par ordre croissant de time_us
+      expect(markers[0].time_us).toBe(1_000_000);
+      expect(markers[0].label).toBe('Titre');
+      expect(markers[1].time_us).toBe(2_000_000);
+      expect(markers[2].time_us).toBe(5_000_000);
+
+      // 3. Navigation entre marqueurs (jumpToNextMarker / jumpToPrevMarker)
+      useProjectStore.getState().setCurrentTimeUs(0);
+      useProjectStore.getState().jumpToNextMarker();
+      expect(useProjectStore.getState().currentTimeUs).toBe(1_000_000);
+
+      useProjectStore.getState().jumpToNextMarker();
+      expect(useProjectStore.getState().currentTimeUs).toBe(2_000_000);
+
+      useProjectStore.getState().jumpToPrevMarker();
+      expect(useProjectStore.getState().currentTimeUs).toBe(1_000_000);
+
+      // 4. Mise à jour de marqueur
+      const markerId = markers[1].marker_id; // Marqueur à 2.0s
+      useProjectStore.getState().updateTimelineMarker(markerId, { label: 'Intro Modifiée', color: '#22c55e' });
+      markers = useProjectStore.getState().project.sequence.markers || [];
+      const updated = markers.find((m) => m.marker_id === markerId);
+      expect(updated?.label).toBe('Intro Modifiée');
+      expect(updated?.color).toBe('#22c55e');
+
+      // 5. Suppression d'un marqueur
+      useProjectStore.getState().removeTimelineMarker(markerId);
+      markers = useProjectStore.getState().project.sequence.markers || [];
+      expect(markers.length).toBe(2);
+      expect(markers.some((m) => m.marker_id === markerId)).toBe(false);
+
+      // 6. Undo restaure le marqueur supprimé
+      useProjectStore.getState().undo();
+      markers = useProjectStore.getState().project.sequence.markers || [];
+      expect(markers.length).toBe(3);
+      expect(markers.some((m) => m.marker_id === markerId)).toBe(true);
+
+      // 7. Redo réapplique la suppression
+      useProjectStore.getState().redo();
+      markers = useProjectStore.getState().project.sequence.markers || [];
+      expect(markers.length).toBe(2);
+
+      // 8. Tout effacer avec Undo
+      useProjectStore.getState().clearTimelineMarkers();
+      markers = useProjectStore.getState().project.sequence.markers || [];
+      expect(markers.length).toBe(0);
+
+      useProjectStore.getState().undo();
+      markers = useProjectStore.getState().project.sequence.markers || [];
+      expect(markers.length).toBe(2);
+    });
   });
 });

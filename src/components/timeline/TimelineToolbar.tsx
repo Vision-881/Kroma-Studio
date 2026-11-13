@@ -3,6 +3,7 @@
  * Fournit les outils Sélection, Découpe (Rasoir), Suppression,
  * le bouton d'ajout de calque Texte, ainsi que le contrôle du zoom temporel.
  */
+import { useEffect } from 'react';
 import {
   MousePointer2,
   Scissors,
@@ -14,6 +15,10 @@ import {
   Type,
   Undo2,
   Redo2,
+  Magnet,
+  BookmarkPlus,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useProjectStore, type TimelineTool } from '../../store/projectStore';
 import { usToTimecode } from '../../core/time/timeUtils';
@@ -34,7 +39,41 @@ export function TimelineToolbar() {
     undo,
     redo,
     project,
+    isSnappingEnabled,
+    toggleSnapping,
+    addTimelineMarker,
+    jumpToNextMarker,
+    jumpToPrevMarker,
   } = useProjectStore();
+
+  const markersCount = project.sequence.markers?.length || 0;
+
+  // Raccourcis clavier N (Aimant) et M (Marqueur)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isInput =
+        activeEl instanceof HTMLInputElement ||
+        activeEl instanceof HTMLTextAreaElement ||
+        (activeEl as HTMLElement)?.isContentEditable;
+      if (isInput) return;
+
+      if (e.key === 'n' || e.key === 'N') {
+        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault();
+          toggleSnapping();
+        }
+      } else if (e.key === 'm' || e.key === 'M') {
+        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault();
+          addTimelineMarker(currentTimeUs);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleSnapping, addTimelineMarker, currentTimeUs]);
 
   const handleToolChange = (tool: TimelineTool) => {
     setActiveTool(tool);
@@ -153,6 +192,63 @@ export function TimelineToolbar() {
           <Type size={15} />
           <span className="timeline-tool-btn__label">Texte</span>
         </button>
+
+        <div className="timeline-toolbar__separator" />
+
+        {/* Aimantation magnétique (Snapping) */}
+        <button
+          className={`timeline-tool-btn${isSnappingEnabled ? ' timeline-tool-btn--snapping-active' : ''}`}
+          onClick={toggleSnapping}
+          title={`Aimantation magnétique (N) : ${isSnappingEnabled ? 'ACTIVÉE' : 'DÉSACTIVÉE'}`}
+        >
+          <Magnet size={15} />
+          <span className="timeline-tool-btn__label">Aimant</span>
+        </button>
+
+        {/* Marqueurs de timeline */}
+        <button
+          className="timeline-tool-btn"
+          onClick={() => addTimelineMarker(currentTimeUs)}
+          title="Ajouter un marqueur à la tête de lecture (M)"
+        >
+          <BookmarkPlus size={15} />
+          <span className="timeline-tool-btn__label">Marqueur</span>
+        </button>
+
+        {markersCount > 0 && (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2, marginLeft: 2 }}>
+            <button
+              className="timeline-tool-btn"
+              style={{ minWidth: 24, padding: '4px 4px' }}
+              onClick={jumpToPrevMarker}
+              title="Aller au marqueur précédent"
+            >
+              <ChevronLeft size={13} />
+            </button>
+            <span
+              style={{
+                fontSize: 10,
+                color: '#eab308',
+                fontWeight: 700,
+                padding: '0 4px',
+                background: 'rgba(234, 179, 8, 0.15)',
+                borderRadius: 3,
+                border: '1px solid rgba(234, 179, 8, 0.3)',
+              }}
+              title={`${markersCount} marqueur(s) posé(s)`}
+            >
+              {markersCount}
+            </span>
+            <button
+              className="timeline-tool-btn"
+              style={{ minWidth: 24, padding: '4px 4px' }}
+              onClick={jumpToNextMarker}
+              title="Aller au marqueur suivant"
+            >
+              <ChevronRight size={13} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Timecode courant au centre */}

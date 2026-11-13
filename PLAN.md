@@ -2,7 +2,7 @@
 
 Ce document consigne l'avancement du projet, la feuille de route du MVP, les étapes réalisées, en cours et à venir, ainsi que les décisions d'architecture prises au fil du développement.
 
-Dernière mise à jour : 13/11/2026 (Phase 2 — Étape 14 : Animation par Images-Clés (Keyframing) terminée)
+Dernière mise à jour : 13/11/2026 (Phase 2 — Étape 17 : Aimantation Magnétique Intelligente (Smart Snapping) & Marqueurs Temporels terminée)
 
 ---
 
@@ -25,8 +25,10 @@ Dernière mise à jour : 13/11/2026 (Phase 2 — Étape 14 : Animation par Image
 | **Étape 12** | Ratios de Canevas Multi-formats | ✅ Terminé | Sélecteur de ratio sous le moniteur (16:9 YouTube, 9:16 TikTok/Reels/Shorts, 1:1 Carré, 4:5 Portrait, 4:3 Standard, 21:9 Cinéma), recadrage automatique du Canvas CSS & 2D, repositionnement normalisé immédiat de tous les clips et textes, sélecteur synchronisé dans l'Inspecteur, boîte d'exportation FFmpeg pré-calibrée au format cible avec présélections dédiées, intégration Undo/Redo complète, 70 tests unitaires. |
 | **Étape 13** | Effets dynamiques & Transitions CapCut | ✅ Terminé | Secousses dynamiques (X-Shake, Y-Shake, Caméra Shake), flashs stroboscopiques (Tremor Strobe, Strobe Blanc/Noir) avec curseurs d'intensité et de vitesse, transitions avancées (Zoom In/Out, Spin, Strobe Cut, Wipes multidirectionnels), badges distinctifs couleur sur timeline, aperçu Canvas 2D 60 FPS, export FFmpeg équivalent, intégration Undo/Redo, 75 tests unitaires. |
 | **Étape 14** | Animation par Images-Clés (Keyframing) | ✅ Terminé | Modèle d'images-clés (`position_x`, `position_y`, `scale`, `rotation`, `opacity`), atténuations (linéaire, ease-in, ease-out, ease-in-out, hold), boutons losanges CapCut, navigation (`< `>`), déplacement interactif par glisser-déposer à la souris sur la timeline (drag & drop), bulle temporelle temps réel, rendu Canvas 2D 60 FPS, expressions FFmpeg continues (`scale=eval=frame`, `rotate`, `overlay`), Undo/Redo, 98 tests unitaires. |
-| **Étape 15** | Incrustation Fond Vert (Chroma Key) | 🔜 À venir | Filtre de découpe chromatique par sélection de couleur cible (Green/Blue screen), tolérance, lissage des bords et masque alpha temps réel Canvas 2D + export FFmpeg avec filtres `colorkey` / `chromakey`. |
-| **Étape 16** | Empilement & Rendu Multi-pistes Vidéo PiP (Picture-in-Picture) | 🔜 À venir | Composition multipiste simultanée sans restriction, incrustations d'écrans superposés, masques géométriques de détourage (cercle, rectangle, étoile). |
+| **Étape 15** | Incrustation Fond Vert (Chroma Key) | ✅ Terminé | Filtre de découpe chromatique par sélection de couleur cible (Green/Blue screen), tolérance, lissage des bords et suppression des reflets (spill reduction) temps réel Canvas 2D + export FFmpeg avec filtre natif `colorkey`, badge 🟢 Chroma, 11 tests unitaires. |
+| **Étape 16** | Empilement & Rendu Multi-pistes Vidéo PiP (Picture-in-Picture) | ✅ Terminé | Composition multipiste simultanée, 6 masques géométriques vectoriels (rectangle arrondi, cercle, étoile, cœur, scission linéaire), contour progressif (feather), inversion, Canvas 2D 60 FPS, export FFmpeg `geq`, 7 tests unitaires. |
+| **Étape 17** | Aimantation Magnétique Intelligente & Marqueurs Temporels | ✅ Terminé | Aimantation magnétique (Snapping) sur tête de lecture, coupes de clips et repères (raccourci `N`), guide visuel cyan en temps réel, pose de marqueurs temporels (raccourci `M`), fanions réglette avec popover d'édition, navigation `<` `>`, gestionnaire Inspecteur, Undo/Redo, 9 tests unitaires. |
+| **Étape 18** | Gestionnaire de Sous-titres & Légendes (Subtitles Engine) | 🔜 À venir | Piste de sous-titres dédiée, import/export `.srt` / `.vtt`, éditeur séquentiel et incrustation vidéo. |
 
 ---
 
@@ -109,6 +111,10 @@ Dernière mise à jour : 13/11/2026 (Phase 2 — Étape 14 : Animation par Image
 ### 2.18 Découpe vectorielle par masques géométriques & Incrustation Picture-in-Picture (PiP)
 - **Décision :** Le masquage géométrique supporte 6 formes canoniques (`rectangle`, `circle`, `star`, `heart`, `linear`, `none`) avec contrôles de dimensions relatives (largeur/hauteur 10%-100%), décalage de centre $X/Y$, adoucissement de contour (`feather_px`), arrondi des angles (`roundness_px`), rotation angulaire et inversion booléenne (`inverted`). Dans le Canvas 2D (`PreviewMonitor.tsx`), un pochoir offscreen combiné en `destination-in` (ou `destination-out` pour l'inversion) applique le masque avec un flou de contour progressif. À l'exportation FFmpeg, le filtre `geq` génère les masques de transparence alpha correspondants (`format=rgba,geq=...:a='...'`).
 - **Justification :** Offre des incrustations superposées créatives (vignettes rondes, masques d'accentuation, scissions d'écrans) conformes aux codes de montage vidéo modernes (CapCut Desktop, TikTok).
+
+### 2.19 Moteur d'aimantation prédictive multi-repères et indexation temporelle des marqueurs
+- **Décision :** L'aimantation magnétique (Snapping) est calculée de manière pure (`snapping.ts`) en évaluant une fenêtre de tolérance dynamique proportionnelle au niveau de zoom ($\Delta t_{\text{seuil}} = \frac{14\,\text{px}}{\text{zoom}} \times 10^6\,\mu\text{s}$). Les cibles d'aimantation hiérarchisées englobent la tête de lecture ($T_{\text{playhead}}$), les marqueurs de rythme ($T_{\text{marker}}$), les points d'entrée et de sortie de tous les clips adjacents et l'origine ($0\,\mu\text{s}$). Lors du déplacement ou du rognage, le guide magnétique en surimpression (ligne cyan verticale) offre un retour visuel instantané. Les marqueurs de timeline sont indexés directement dans la séquence (`sequence.markers`), persistés dans les projets `.kproj` et pilotables par raccourcis universels (`N` pour basculer l'aimant, `M` pour poser un marqueur).
+- **Justification :** Élimine les décalages d'un pixel ou d'une frame lors de l'assemblage de clips, facilite le découpage rythmique au tempo musical et reproduit l'ergonomie phare des éditeurs de bureau de référence (CapCut, Premiere, DaVinci Resolve).
 
 ## 3. Historique des étapes
 
@@ -373,3 +379,33 @@ Dernière mise à jour : 13/11/2026 (Phase 2 — Étape 14 : Animation par Image
   - Bouton de bascule **Inverser le masque** et bouton de réinitialisation contextuelle.
   - Badge distinctif orange sur les clips de la timeline (`🔲 Masque`, `⚪ Cercle`, `⭐ Étoile`, `❤️ Cœur`, `✂️ Scission`).
 - **Tests unitaires :** Suite complète portée à **120 tests unitaires validés (100% succès)** sur 9 fichiers de test (dont 7 tests dans `maskRenderer.test.ts`, tests d'actions Zustand et tests d'exportation FFmpeg).
+
+### Étape 17 — Aimantation Magnétique Intelligente (Smart Snapping) & Marqueurs Temporels (13/11/2026) ✅ Terminé
+
+- **Modèle de données & Types canoniques (`src/core/types/timeline.ts` & `project.ts`) :**
+  - Interface `TimelineMarker` : `marker_id`, `time_us`, `label`, `color`.
+  - Palette officielle `MARKER_PRESET_COLORS` (Jaune rythme `#eab308`, Cyan repère `#06b6d4`, Rouge coupe `#ef4444`, Vert clé `#22c55e`, Violet effet `#a855f7`, Orange action `#f97316`).
+  - Champ `markers?: TimelineMarker[]` sur `TimelineSequence`, initialisé à `[]` dans `createDefaultProject`.
+- **Moteur d'Aimantation Temporelle (`src/core/timeline/snapping.ts`) :**
+  - Fonction pure `findNearestSnap(candidateTimeUs, targets, thresholdUs)` avec départage par ordre de priorité hiérarchique (`playhead` > `marker` > `clip_start` / `clip_end` > `origin`).
+  - Fonction `collectSnapTargets(project, options)` extrayant dynamiquement l'ensemble des repères de la timeline avec exclusion du clip manipulé.
+  - Fonction `snapClipMovement(candidatePlacementUs, clipDurationUs, targets, thresholdUs)` assurant l'alignement magnétique instantané du bord gauche (début) ou du bord droit (fin) du clip.
+- **Gestion d'état Zustand & Undo/Redo (`src/store/projectStore.ts`) :**
+  - États : `isSnappingEnabled: boolean` (actif par défaut), `activeSnapLineUs: number | null`.
+  - Actions : `toggleSnapping`, `setSnappingEnabled`, `setActiveSnapLineUs`, `addTimelineMarker`, `updateTimelineMarker`, `removeTimelineMarker`, `clearTimelineMarkers`, `jumpToNextMarker`, `jumpToPrevMarker`.
+  - Intégration complète à la pile d'historique `past[]` / `future[]` avec compatibilité totale `Ctrl+Z` / `Ctrl+Y`.
+- **Réglette graduée & Marqueurs interactifs (`TimelineRuler.tsx`) :**
+  - Fanions losanges colorés en surimpression sur la réglette graduée.
+  - Clic simple pour caler instantanément la tête de lecture sur le marqueur (`setCurrentTimeUs`).
+  - Double-clic ouvrant un popover d'édition ergonomique pour renommer le marqueur, choisir sa pastille de couleur parmi les 6 teintes studio ou le supprimer.
+- **Barre d'outils de timeline (`TimelineToolbar.tsx`) :**
+  - Bouton **Aimant (Magnet)** avec mise en surbrillance cyan lorsque l'aimantation est active, basculable par le raccourci universel **« N »**.
+  - Bouton **Marqueur (+M)** pour insérer un marqueur à l'instant de la tête de lecture, activable par le raccourci universel **« M »**.
+  - Boutons de navigation compacts `<` et `>` permettant de sauter instantanément d'un marqueur à l'autre avec badge numérique du nombre de marqueurs actifs.
+- **Aimantation dans la timeline (`TimelineClip.tsx` & `Timeline.tsx`) :**
+  - Déplacement magnétique de clips et rognage (Trim) gauche/droite magnétiquement aimantés sur les repères clés (tête de lecture, coupes de pistes voisines, marqueurs de rythme).
+  - Guide d'aimantation en direct : ligne verticale cyan lumineuse (`.timeline-snap-guide`) apparaissant instantanément sur la timeline au contact d'un repère magnétique.
+- **Section Inspecteur dédiée (`InspectorPanel.tsx`) :**
+  - Nouvelle section **« Marqueurs de Timeline »** affichant la liste complète des marqueurs, leur pastille couleur cliquable, leur libellé modifiable en direct, leur timecode avec bouton de saut direct et bouton de suppression.
+  - Boutons d'ajout rapide au timecode courant et d'effacement complet.
+- **Tests unitaires :** Suite complète portée à **131 tests unitaires validés (100% succès)** sur 10 fichiers de test (dont 9 tests dédiés dans `snapping.test.ts` et tests d'actions Zustand dans `projectStore.test.ts`).

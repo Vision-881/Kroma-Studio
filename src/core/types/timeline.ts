@@ -233,10 +233,32 @@ export interface TimelineLane {
   items: TimelineItem[];
 }
 
+export interface TimelineMarker {
+  /** Identifiant unique du marqueur */
+  marker_id: string;
+  /** Position temporelle absolue sur la timeline en microsecondes */
+  time_us: number;
+  /** Libellé ou annotation du marqueur (ex: "Beat drop", "Intro", "Changement de plan") */
+  label: string;
+  /** Couleur hexadécimale du marqueur (ex: #eab308, #06b6d4, #ef4444) */
+  color: string;
+}
+
+export const MARKER_PRESET_COLORS = [
+  { name: 'Jaune (Rythme)', hex: '#eab308' },
+  { name: 'Cyan (Repère)', hex: '#06b6d4' },
+  { name: 'Rouge (Coupe)', hex: '#ef4444' },
+  { name: 'Vert (Point clé)', hex: '#22c55e' },
+  { name: 'Violet (Effet)', hex: '#a855f7' },
+  { name: 'Orange (Action)', hex: '#f97316' },
+] as const;
+
 export interface TimelineSequence {
   /** Durée totale de la timeline en microsecondes */
   total_length_us: number;
   /** Ensemble des pistes de montage */
   lanes: TimelineLane[];
+  /** Marqueurs temporels de timeline (Étape 17) */
+  markers?: TimelineMarker[];
 }
 

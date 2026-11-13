@@ -2,17 +2,29 @@
  * Réglette graduée de la timeline (style CapCut).
  * Affiche l'échelle temporelle dynamique et permet le déplacement interactif (scrubbing).
  */
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState } from 'react';
 import { useProjectStore } from '../../store/projectStore';
 import { formatDurationHuman } from '../../core/time/timeUtils';
+import { MARKER_PRESET_COLORS, type TimelineMarker } from '../../core/types/timeline';
+import { Trash2, Check, X } from 'lucide-react';
 
 interface TimelineRulerProps {
   totalWidthPx: number;
 }
 
 export function TimelineRuler({ totalWidthPx }: TimelineRulerProps) {
-  const { zoomPixelsPerSecond, setCurrentTimeUs } = useProjectStore();
+  const {
+    zoomPixelsPerSecond,
+    setCurrentTimeUs,
+    project,
+    updateTimelineMarker,
+    removeTimelineMarker,
+  } = useProjectStore();
   const rulerRef = useRef<HTMLDivElement>(null);
+
+  const [editingMarker, setEditingMarker] = useState<TimelineMarker | null>(null);
+  const [editLabel, setEditLabel] = useState('');
+  const [editColor, setEditColor] = useState('');
 
   // Intervalle de graduation en secondes selon le zoom
   let stepSeconds = 1;
@@ -65,6 +77,31 @@ export function TimelineRuler({ totalWidthPx }: TimelineRulerProps) {
     window.addEventListener('mouseup', onMouseUp);
   };
 
+  const handleOpenEdit = (marker: TimelineMarker, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingMarker(marker);
+    setEditLabel(marker.label);
+    setEditColor(marker.color);
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMarker) return;
+    updateTimelineMarker(editingMarker.marker_id, {
+      label: editLabel.trim() || 'Marqueur',
+      color: editColor,
+    });
+    setEditingMarker(null);
+  };
+
+  const handleDeleteMarker = (markerId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeTimelineMarker(markerId);
+    setEditingMarker(null);
+  };
+
+  const markers = project.sequence.markers || [];
+
   return (
     <div
       ref={rulerRef}
@@ -86,6 +123,103 @@ export function TimelineRuler({ totalWidthPx }: TimelineRulerProps) {
           )}
         </div>
       ))}
+
+      {/* Marqueurs temporels (Étape 17) */}
+      {markers.map((marker) => {
+        const markerX = (marker.time_us / 1_000_000) * zoomPixelsPerSecond;
+        return (
+          <div
+            key={marker.marker_id}
+            className="timeline-marker-pin"
+            style={{
+              left: `${markerX}px`,
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setCurrentTimeUs(marker.time_us);
+            }}
+            onDoubleClick={(e) => handleOpenEdit(marker, e)}
+            title={`Marqueur : "${marker.label}" (${formatDurationHuman(marker.time_us)})\nClic : sauter ici · Double-clic : éditer`}
+          >
+            <div
+              className="timeline-marker-pin__diamond"
+              style={{
+                backgroundColor: marker.color,
+                borderColor: '#ffffff',
+              }}
+            />
+            <span className="timeline-marker-pin__label">{marker.label}</span>
+          </div>
+        );
+      })}
+
+      {/* Popover d'édition d'un marqueur */}
+      {editingMarker && (() => {
+        const markerX = (editingMarker.time_us / 1_000_000) * zoomPixelsPerSecond;
+        return (
+          <div
+            className="timeline-marker-edit-popover"
+            style={{
+              left: `${Math.max(10, Math.min(totalWidthPx - 260, markerX - 100))}px`,
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="timeline-marker-edit-popover__header">
+              <span>Éditer le marqueur</span>
+              <button
+                type="button"
+                className="kroma-icon-btn"
+                style={{ width: 20, height: 20 }}
+                onClick={() => setEditingMarker(null)}
+              >
+                <X size={12} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit}>
+              <input
+                type="text"
+                className="timeline-marker-edit-input"
+                value={editLabel}
+                onChange={(e) => setEditLabel(e.target.value)}
+                placeholder="Nom du marqueur..."
+                autoFocus
+              />
+
+              {/* Palette de couleurs */}
+              <div className="timeline-marker-color-grid">
+                {MARKER_PRESET_COLORS.map((c) => (
+                  <button
+                    key={c.hex}
+                    type="button"
+                    className={`timeline-marker-color-btn${editColor === c.hex ? ' timeline-marker-color-btn--active' : ''}`}
+                    style={{ backgroundColor: c.hex }}
+                    onClick={() => setEditColor(c.hex)}
+                    title={c.name}
+                  />
+                ))}
+              </div>
+
+              <div className="timeline-marker-edit-actions">
+                <button
+                  type="button"
+                  className="timeline-marker-delete-btn"
+                  onClick={(e) => handleDeleteMarker(editingMarker.marker_id, e)}
+                  title="Supprimer ce marqueur"
+                >
+                  <Trash2 size={12} />
+                  <span>Supprimer</span>
+                </button>
+                <button type="submit" className="timeline-marker-save-btn">
+                  <Check size={12} />
+                  <span>Enregistrer</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        );
+      })()}
     </div>
   );
 }

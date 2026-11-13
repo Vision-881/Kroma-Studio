@@ -2,7 +2,7 @@
 
 Ce document détaille l'organisation structurelle, le découpage en modules et le format de fichier projet de l'éditeur vidéo **Kroma Studio**.
 
-Dernière mise à jour : 13/11/2026 (Étape 16 — Picture-in-Picture & Masques Géométriques, Étape 15 — Chroma Key)
+Dernière mise à jour : 13/11/2026 (Étape 17 — Aimantation Magnétique Intelligente & Marqueurs Temporels, Étape 16 — Picture-in-Picture & Masques Géométriques, Étape 15 — Chroma Key)
 
 ---
 
@@ -54,7 +54,7 @@ L'application est conçue selon une séparation stricte des responsabilités ent
 ### 1.1 `src/core/types`
 Définit les interfaces TypeScript canoniques de l'application :
 - `asset.ts` : `MediaAsset`, `MediaKind` ('video' | 'audio' | 'image'). Représente les fichiers multimédias importés.
-- `timeline.ts` : `TimelineSequence`, `TimelineLane`, `TimelineItem`, `SpatialPlacement`, `TextLayerData`, `ColorAdjustments`, `TransitionType`, `TransitionData`, `VideoEffectPreset`, `VideoEffects`, `Keyframe`, `KeyframeInterpolation`, `KeyframeProperty`, `ItemKeyframes`, `ChromaKeyData`, `MaskType`, `MaskData`. Décrit l'agencement temporel et spatial des pistes et des segments de clips, y compris les durées de fondus sonores (`fade_in_duration_us`, `fade_out_duration_us`), l'état solo (`is_solo`), la vitesse de lecture (`playback_speed`), les transitions visuelles d'entrée (`transition_in`), la symétrie miroir (`flip_horizontal`, `flip_vertical`), les effets artistiques FX (`video_effects`), l'animation par images-clés (`keyframes`), l'incrustation fond vert (`chroma_key`) et les masques géométriques PiP (`mask`).
+- `timeline.ts` : `TimelineSequence`, `TimelineLane`, `TimelineItem`, `SpatialPlacement`, `TextLayerData`, `ColorAdjustments`, `TransitionType`, `TransitionData`, `VideoEffectPreset`, `VideoEffects`, `Keyframe`, `KeyframeInterpolation`, `KeyframeProperty`, `ItemKeyframes`, `ChromaKeyData`, `MaskType`, `MaskData`, `TimelineMarker`, `MARKER_PRESET_COLORS`. Décrit l'agencement temporel et spatial des pistes et des segments de clips, y compris les durées de fondus sonores (`fade_in_duration_us`, `fade_out_duration_us`), l'état solo (`is_solo`), la vitesse de lecture (`playback_speed`), les transitions visuelles d'entrée (`transition_in`), la symétrie miroir (`flip_horizontal`, `flip_vertical`), les effets artistiques FX (`video_effects`), l'animation par images-clés (`keyframes`), l'incrustation fond vert (`chroma_key`), les masques géométriques PiP (`mask`) et les marqueurs temporels (`markers`).
 - `project.ts` : `KromaProject`, `TimelineCanvasSettings`, `CanvasAspectRatio` ('16:9' | '9:16' | '1:1' | '4:5' | '4:3' | '21:9' | 'custom'), `CANVAS_RATIO_PRESETS`, `detectAspectRatio()`, fonction utilitaire `createDefaultProject()`.
 
 ### 1.2 `src/core/animation` (Étape 14)
@@ -79,8 +79,9 @@ Gestion et décodage multimédia :
 - `mediaProbe.ts` : extraction asynchrone des métadonnées (dimensions, durée, framerate) et vignettes lors de l'importation.
 
 ### 1.4 `src/core/timeline`
-Module pur de manipulation des pistes et segments :
+Module pur de manipulation des pistes, segments et repères d'aimantation :
 - `timelineOps.ts` : fonctions d'adjonction, de déplacement temporel/inter-pistes, de scission (split) au temps de coupe exact, de rognage interactif (trim) et de création de calques texte (`createTextItem`).
+- `snapping.ts` *(Étape 17)* : moteur de calcul d'aimantation intelligente (`findNearestSnap`, `collectSnapTargets`, `snapClipMovement`) avec priorité hiérarchique (tête de lecture > marqueurs > coupes > origine) et calcul dynamique de fenêtre de tolérance selon le zoom.
 
 ### 1.5 `src/components`
 Composants React modulaires organisés selon l'agencement CapCut :

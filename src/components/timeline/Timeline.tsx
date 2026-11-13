@@ -19,6 +19,7 @@ export function Timeline() {
     setSelectedItemId,
     currentTimeUs,
     setCurrentTimeUs,
+    activeSnapLineUs,
   } = useProjectStore();
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -134,6 +135,22 @@ export function Timeline() {
 
             {/* Tête de lecture rouge CapCut unifiée */}
             <TimelinePlayhead />
+
+            {/* Guide d'aimantation magnétique en direct (Étape 17) */}
+            {activeSnapLineUs !== null && (() => {
+              const snapLineX = (activeSnapLineUs / 1_000_000) * zoomPixelsPerSecond;
+              return (
+                <div
+                  className="timeline-snap-guide"
+                  style={{
+                    left: `${snapLineX}px`,
+                  }}
+                >
+                  <div className="timeline-snap-guide__head" />
+                  <div className="timeline-snap-guide__line" />
+                </div>
+              );
+            })()}
 
             {/* Rangées de pistes */}
             <div className="timeline-lanes-list">

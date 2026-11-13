@@ -4,7 +4,7 @@ Bienvenue dans le guide d'utilisation de **Kroma Studio**, un éditeur vidéo mo
 
 Ce guide est spécialement conçu pour les débutants. Chaque manipulation est décrite étape par étape, avec des instructions numérotées claires.
 
-> **Note de version :** Ce document correspond à la version **v0.16.0-alpha (Étape 16 : Picture-in-Picture & Masques Géométriques, Étape 15 : Chroma Key, Curseur de Timeline interactif)**. Il décrit l'ensemble des fonctionnalités du studio : l'importation de fichiers médias, l'agencement 4 quadrants, le montage sur la timeline (déplacement, scission au rasoir, rognage par poignées, suppression), l'ajout et l'édition complète de calques texte superposés, le **panneau d'étalonnage des couleurs en temps réel (luminosité, contraste, saturation, teinte, flou)**, la **vitesse variable par clip (ralenti/accéléré de 0.25× à 4.0×)**, les **transitions visuelles d'entrée**, la **symétrie miroir H/V & effets créatifs FX**, les **ratios de canevas multi-formats (YouTube 16:9, TikTok/Shorts 9:16, Carré 1:1, Portrait 4:5, 4:3, Cinéma 21:9)** avec recadrage dynamique et pré-calibrage de l'exportation FFmpeg, l'**incrustation Fond Vert / Bleu (Chroma Key)** avec pipette et curseurs de similarité/lissage/spill, l'**incrustation Picture-in-Picture (PiP) avec masques géométriques (rectangle, cercle, étoile, cœur, scission)** avec adoucissement et inversion, le **curseur de timeline unifié et interactif (scrubbing par glisser sur la tête ou la ligne, saut par clic sur la piste)**, le mixage audio complet (volume par clip et par piste, mode Solo/Mute, fondus Fade In/Fade Out avec courbe d'enveloppe, visualisations d'ondes Waveform sur clips), l'**historique Annuler / Rétablir illimité (`Ctrl+Z` / `Ctrl+Y`)**, la **sauvegarde et l'ouverture de projets au format ouvert `.kproj`**, le **moteur d'exportation MP4 via FFmpeg CLI (`Ctrl+E`)**, le moteur de prévisualisation vidéo en temps réel sur Canvas composite synchronisé à la frame, la lecture Play/Pause avec la barre d'espace et l'ajustement dynamique des propriétés visuelles (zoom, rotation, opacité).
+> **Note de version :** Ce document correspond à la version **v0.17.0-alpha (Étape 17 : Aimantation Magnétique Intelligente & Marqueurs Temporels, Étape 16 : Picture-in-Picture & Masques Géométriques, Étape 15 : Chroma Key, Curseur de Timeline interactif)**. Il décrit l'ensemble des fonctionnalités du studio : l'importation de fichiers médias, l'agencement 4 quadrants, le montage sur la timeline (déplacement, scission au rasoir, rognage par poignées, suppression), l'**aimantation magnétique intelligente (Smart Snapping)** avec guide visuel cyan en temps réel (raccourci `N`), les **marqueurs temporels de timeline** (raccourci `M`) avec fanions colorés sur la réglette, popover d'édition, navigation `<` `>` et gestionnaire Inspecteur, l'ajout et l'édition complète de calques texte superposés, le **panneau d'étalonnage des couleurs en temps réel (luminosité, contraste, saturation, teinte, flou)**, la **vitesse variable par clip (ralenti/accéléré de 0.25× à 4.0×)**, les **transitions visuelles d'entrée**, la **symétrie miroir H/V & effets créatifs FX**, les **ratios de canevas multi-formats (YouTube 16:9, TikTok/Shorts 9:16, Carré 1:1, Portrait 4:5, 4:3, Cinéma 21:9)** avec recadrage dynamique et pré-calibrage de l'exportation FFmpeg, l'**incrustation Fond Vert / Bleu (Chroma Key)** avec pipette et curseurs de similarité/lissage/spill, l'**incrustation Picture-in-Picture (PiP) avec masques géométriques (rectangle, cercle, étoile, cœur, scission)** avec adoucissement et inversion, le **curseur de timeline unifié et interactif (scrubbing par glisser sur la tête ou la ligne, saut par clic sur la piste)**, le mixage audio complet (volume par clip et par piste, mode Solo/Mute, fondus Fade In/Fade Out avec courbe d'enveloppe, visualisations d'ondes Waveform sur clips), l'**historique Annuler / Rétablir illimité (`Ctrl+Z` / `Ctrl+Y`)**, la **sauvegarde et l'ouverture de projets au format ouvert `.kproj`**, le **moteur d'exportation MP4 via FFmpeg CLI (`Ctrl+E`)**, le moteur de prévisualisation vidéo en temps réel sur Canvas composite synchronisé à la frame, la lecture Play/Pause avec la barre d'espace et l'ajustement dynamique des propriétés visuelles (zoom, rotation, opacité).
 
 ---
 
@@ -289,7 +289,23 @@ L'espace de travail est structuré en 4 zones complémentaires :
 3. **Badge visuel sur la timeline :**
    - Les clips masqués affichent un badge orange distinctif (`🔲 Masque`, `⚪ Cercle`, `⭐ Étoile`, `❤️ Cœur`, `✂️ Scission`).
 
-### Étape 17 : Curseur de Timeline unifié, Scrubbing & Navigation fluide
+### Étape 17 : Aimantation Magnétique Intelligente (Smart Snapping) & Marqueurs Temporels
+1. **Activer ou désactiver l'aimantation magnétique (Snapping) :**
+   - Cliquez sur le bouton **« Aimant »** dans la barre d'outils de timeline ou appuyez sur la touche **« N »** de votre clavier.
+   - Lorsque l'aimant est actif (éclairé en bleu-cyan), le déplacement de clips ou le rognage des poignées s'aimante automatiquement sur :
+     - La position de la tête de lecture.
+     - Les coupes (début et fin) des autres clips sur toutes les pistes adjacentes.
+     - Les marqueurs temporels posés sur la timeline.
+     - L'origine (00:00).
+   - **Guide visuel cyan en temps réel :** Dès qu'un clip ou une poignée s'aligne magnétiquement, une fine ligne verticale cyan lumineuse apparaît en surimpression sur toute la hauteur de la timeline pour confirmer l'alignement parfait.
+2. **Poser et gérer des marqueurs temporels (Timeline Markers) :**
+   - **Poser un marqueur :** Placez la tête de lecture à l'instant souhaité et appuyez sur la touche **« M »** (ou cliquez sur le bouton **« Marqueur »** dans la barre d'outils).
+   - **Fanions colorés sur la réglette :** Un fanion losange apparaît sur la réglette graduée. Cliquez dessus pour caler immédiatement la tête de lecture à cet endroit.
+   - **Édition rapide (Double-clic) :** Double-cliquez sur un fanion de la réglette pour ouvrir le popover d'édition. Vous pouvez renommer le marqueur (ex: *Refrain*, *Drop*, *B-Roll*), lui attribuer une couleur parmi 6 teintes studio (Jaune, Cyan, Rouge, Vert, Violet, Orange), ou le supprimer.
+   - **Navigation entre marqueurs :** Utilisez les petits boutons de chevrons `<` et `>` situés à côté du bouton Marqueur dans la barre d'outils pour sauter instantanément d'un marqueur à l'autre le long de votre montage.
+   - **Gestionnaire complet dans l'Inspecteur :** Lorsqu'aucun clip n'est sélectionné, l'Inspecteur affiche la section **« Marqueurs de Timeline »** avec la liste intégrale, les pastilles de couleur cliquables, les timecodes cliquables et la possibilité de tout effacer en un clic.
+
+### Étape 18 : Curseur de Timeline unifié, Scrubbing & Navigation fluide
 1. **Curseur unifié traversant toute la hauteur :**
    - La tête de lecture rouge comporte un curseur supérieur fléché dans la réglette et une ligne verticale continue s'étirant jusqu'au bas complet de la timeline sans interruption.
 2. **Saut direct par clic sur piste :**
@@ -298,7 +314,7 @@ L'espace de travail est structuré en 4 zones complémentaires :
    - Survolez la tête rouge ou la ligne verticale : le curseur de souris se transforme en double flèche horizontale (`ew-resize`).
    - Cliquez et glissez pour parcourir la vidéo en direct avec un rendu Canvas 2D composite 60 FPS immédiat.
 
-### Étape 18 : Adapter le format et le ratio de canevas (Multi-formats 16:9, 9:16, 1:1, 4:5, 4:3, 21:9)
+### Étape 19 : Adapter le format et le ratio de canevas (Multi-formats 16:9, 9:16, 1:1, 4:5, 4:3, 21:9)
 1. **Changer de format directement sous le moniteur :**
    - Repérez le bouton de format d'image situé au centre de la barre de transport sous la vidéo (ex: `[ 📱 16:9 ▾ ]`).
    - Cliquez dessus pour ouvrir le menu déroulant des formats optimisés pour les plateformes :
@@ -320,7 +336,7 @@ L'espace de travail est structuré en 4 zones complémentaires :
 5. **Exportation calibrée automatique :**
    - Lorsque vous ouvrez la boîte d'exportation (`Ctrl + E`), les résolutions d'encodage proposées s'adaptent automatiquement au format actif (ex: présélections 1080×1920 Full HD Vertical, 720×1280 HD pour 9:16) et FFmpeg produit une vidéo aux dimensions cibles exactes.
 
-### Étape 19 : Annuler, Rétablir et Sauvegarder/Ouvrir votre projet
+### Étape 20 : Annuler, Rétablir et Sauvegarder/Ouvrir votre projet
 1. **Annuler une erreur (Undo) :**
    - Appuyez sur `Ctrl + Z` sur votre clavier (ou cliquez sur le bouton de flèche retour dans l'en-tête ou la timeline).
    - Vos clips découpés, déplacés ou modifiés reviennent instantanément à leur état antérieur.
@@ -334,7 +350,7 @@ L'espace de travail est structuré en 4 zones complémentaires :
 5. **Ouvrir un projet existant :**
    - Cliquez sur l'icône de dossier **Ouvrir** dans la barre supérieure et sélectionnez votre fichier `.kproj`. Votre montage complet, vos pistes, vos textes et vos réglages sont restaurés instantanément !
 
-### Étape 20 : Exporter la vidéo finale en MP4 via FFmpeg
+### Étape 21 : Exporter la vidéo finale en MP4 via FFmpeg
 1. Cliquez sur le bouton vert **« Exporter »** dans l'en-tête supérieur droit, ou appuyez sur `Ctrl + E`.
 2. La boîte de dialogue d'exportation professionnelle s'ouvre :
    - **Préréglage de résolution :** Les résolutions sont calibrées sur le format de votre vidéo (ex: 1080×1920 pour 9:16, 1080×1080 pour 1:1, 1080p pour 16:9, ou Personnalisé).
@@ -367,7 +383,9 @@ L'espace de travail est structuré en 4 zones complémentaires :
 | **Outil Sélection** | Touche `V` |
 | **Outil Rasoir / Découpe** | Touche `B` |
 | **Diviser le clip à la tête de lecture** | `Ctrl + B` ou `Ctrl + K` |
-| **Couper / Réactiver le son master** | Touche `M` ou icône de haut-parleur sous la vidéo |
+| **Aimantation magnétique (Snapping)** | Touche `N` ou bouton Aimant dans la barre d'outils |
+| **Poser un marqueur temporel** | Touche `M` ou bouton Marqueur dans la barre d'outils |
+| **Couper / Réactiver le son master** | Icône de haut-parleur sous la vidéo |
 | **Naviguer dans le temps (Scrubbing)** | Cliquez ou glissez sur la réglette graduée au-dessus des pistes |
 | **Zoomer sur la timeline** | Glissez le curseur de zoom à droite de la barre d'outils, ou utilisez les boutons `+` et `-` |
 | **Ajuster la vue globale** | Cliquez sur l'icône carrée **Ajuster** pour embrasser l'ensemble du montage |
@@ -402,7 +420,7 @@ Un flyer de présentation complet au format standard A4 (210×297 mm) prêt à i
 
 ## 8. Bilan du Projet & Fonctionnalités Disponibles
 
-L'ensemble des **16 étapes de Kroma Studio** sont désormais **100 % opérationnelles, intégrées dans l'architecture déclarative et validées par la suite de 120 tests automatisés** :
+L'ensemble des **17 étapes de Kroma Studio** sont désormais **100 % opérationnelles, intégrées dans l'architecture déclarative et validées par la suite de 131 tests automatisés** :
 - ✅ **Étape 0 :** Socle technique Vite + React 19 + TypeScript strict.
 - ✅ **Étape 1 :** Import de médias & Médiathèque avec drag & drop et vignettes.
 - ✅ **Étape 2 :** Timeline multipiste avec ergonomie 4 quadrants style CapCut.
@@ -420,6 +438,7 @@ L'ensemble des **16 étapes de Kroma Studio** sont désormais **100 % opération
 - ✅ **Étape 14 :** Animation par Images-Clés / Keyframing (Position X/Y, Zoom, Rotation, Opacité, interpolation, losanges timeline déplaçables à la souris, Canvas 2D 60 FPS et export FFmpeg continu).
 - ✅ **Étape 15 :** Incrustation Fond Vert / Bleu (Chroma Key, pipette, tolérance, lissage blend, suppression des reflets spill, Canvas 2D 60 FPS, export FFmpeg colorkey, badge 🟢 Chroma).
 - ✅ **Étape 16 :** Picture-in-Picture (PiP) Multi-pistes & Masques de Détourage Géométriques (Rectangle arrondi, Cercle/Ovale, Étoile, Cœur, Scission linéaire, contour progressif Feather, mode Inversé, Canvas 2D composite 60 FPS, export FFmpeg geq, badge orange timeline).
+- ✅ **Étape 17 :** Aimantation Magnétique Intelligente & Marqueurs Temporels (Smart Snapping sur tête de lecture, coupes et marqueurs avec guide visuel cyan en direct, raccourci `N`, pose de marqueurs de rythme avec raccourci `M`, fanions réglette, popover d'édition, navigation `<` `>` et section Inspecteur dédiée).
 - ✅ **Amélioration Ergonomique :** Curseur de timeline unifié et interactif (étiré sur 100% de la hauteur sans coupure, saisissable et déplaçable avec curseur `ew-resize`, clic direct sur piste pour seek).
 
 Perspectives pour les versions ultérieures : intégration native via Tauri 2 (binaire desktop autonome avec FFmpeg embarqué).

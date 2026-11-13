@@ -8,6 +8,11 @@ import type { TimelineItem, LaneType, KeyframeProperty } from '../../core/types/
 import { useProjectStore } from '../../store/projectStore';
 import { formatDurationHuman } from '../../core/time/timeUtils';
 import { hasKeyframes, getAllKeyframeOffsets } from '../../core/animation/keyframeInterpolation';
+import {
+  collectSnapTargets,
+  snapClipMovement,
+  findNearestSnap,
+} from '../../core/timeline/snapping';
 import { AudioWaveform } from '../audio/AudioWaveform';
 
 interface TimelineClipProps {
@@ -31,6 +36,9 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
     splitTimelineItemAtCurrentTime,
     moveClipKeyframes,
     pushHistorySnapshot,
+    currentTimeUs,
+    isSnappingEnabled,
+    setActiveSnapLineUs,
   } = useProjectStore();
 
   const isSelected = selectedItemId === item.item_id;
@@ -161,17 +169,44 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
     const startClientX = e.clientX;
     let accumulatedDeltaPx = 0;
 
+    const snapThresholdUs = Math.round((14 / zoomPixelsPerSecond) * 1_000_000);
+    const snapTargets = isSnappingEnabled
+      ? collectSnapTargets(project, { excludeItemId: item.item_id, playheadTimeUs: currentTimeUs })
+      : [];
+
     const onMouseMove = (moveEvent: MouseEvent) => {
       const deltaPx = moveEvent.clientX - startClientX - accumulatedDeltaPx;
       if (Math.abs(deltaPx) >= 2) {
         const deltaSeconds = deltaPx / zoomPixelsPerSecond;
-        const deltaUs = Math.round(deltaSeconds * 1_000_000);
+        let deltaUs = Math.round(deltaSeconds * 1_000_000);
+
+        if (isSnappingEnabled) {
+          const currentEdgeUs =
+            handle === 'start'
+              ? item.placement_time_us + deltaUs
+              : item.placement_time_us + item.play_duration_us + deltaUs;
+
+          const snap = findNearestSnap(currentEdgeUs, snapTargets, snapThresholdUs);
+          if (snap) {
+            deltaUs =
+              handle === 'start'
+                ? snap.snapped_time_us - item.placement_time_us
+                : snap.snapped_time_us - (item.placement_time_us + item.play_duration_us);
+            setActiveSnapLineUs(snap.snapped_time_us);
+          } else {
+            setActiveSnapLineUs(null);
+          }
+        }
+
         trimTimelineItem(item.item_id, handle, deltaUs);
         accumulatedDeltaPx += deltaPx;
       }
     };
 
     const onMouseUp = () => {
+      if (isSnappingEnabled) {
+        setActiveSnapLineUs(null);
+      }
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
@@ -191,15 +226,34 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
     const startClientX = e.clientX;
     const initialPlacementUs = item.placement_time_us;
 
+    const snapThresholdUs = Math.round((14 / zoomPixelsPerSecond) * 1_000_000);
+    const snapTargets = isSnappingEnabled
+      ? collectSnapTargets(project, { excludeItemId: item.item_id, playheadTimeUs: currentTimeUs })
+      : [];
+
     const onMouseMove = (moveEvent: MouseEvent) => {
       const deltaPx = moveEvent.clientX - startClientX;
       const deltaSeconds = deltaPx / zoomPixelsPerSecond;
       const deltaUs = Math.round(deltaSeconds * 1_000_000);
-      const newPlacementUs = Math.max(0, initialPlacementUs + deltaUs);
+      let newPlacementUs = Math.max(0, initialPlacementUs + deltaUs);
+
+      if (isSnappingEnabled) {
+        const snap = snapClipMovement(newPlacementUs, item.play_duration_us, snapTargets, snapThresholdUs);
+        if (snap) {
+          newPlacementUs = snap.placementUs;
+          setActiveSnapLineUs(snap.snapLineUs);
+        } else {
+          setActiveSnapLineUs(null);
+        }
+      }
+
       moveTimelineItem(item.item_id, laneId, newPlacementUs);
     };
 
     const onMouseUp = () => {
+      if (isSnappingEnabled) {
+        setActiveSnapLineUs(null);
+      }
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
