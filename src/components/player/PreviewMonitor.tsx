@@ -353,31 +353,78 @@ export function PreviewMonitor() {
           }
         }
 
-        // Rendu Calque de Texte
+        // Rendu Calque de Texte & Sous-titres (Étape 4 & Étape 18)
         if (item.text_layer_data) {
           const textData = item.text_layer_data;
+          const lane = project.sequence.lanes.find((l) => l.lane_id === active.laneId);
+          const isSubtitle = lane?.lane_type === 'subtitles';
+          const subStyle = project.sequence.subtitle_style;
 
           // Position normalisée → coordonnées canvas absolues
           // normalized_center : 0.0 = bord gauche/haut, 1.0 = bord droit/bas
-          const nc = textData.normalized_center || { x_ratio: 0.5, y_ratio: 0.5 };
-          // On remet ctx en coordonnées canvas brutes (on a déjà fait ctx.translate au centre)
-          // → on compense la translation courante et on repositionne au ratio absolu
+          const nc = textData.normalized_center || {
+            x_ratio: 0.5,
+            y_ratio: isSubtitle ? (subStyle?.position_y_ratio ?? 0.88) : 0.5,
+          };
+
           const textAbsX = nc.x_ratio * canvasWidth - canvasWidth / 2 - placement.offset_x_px;
           const textAbsY = nc.y_ratio * canvasHeight - canvasHeight / 2 - placement.offset_y_px;
 
-          ctx.font = `${textData.is_bold ? 'bold ' : ''}${textData.font_size_pt * 2}px ${textData.font_name || 'sans-serif'}`;
+          const fontSizePx = (textData.font_size_pt || 24) * 2;
+          const fontName = textData.font_name || subStyle?.font_name || 'sans-serif';
+          const isBold = textData.is_bold ?? subStyle?.is_bold ?? true;
+          ctx.font = `${isBold ? 'bold ' : ''}${fontSizePx}px ${fontName}`;
           ctx.textAlign = textData.text_align || 'center';
           ctx.textBaseline = 'middle';
 
-          if (textData.outline_thickness_px > 0) {
-            ctx.strokeStyle = textData.outline_color_hex || '#000000';
-            ctx.lineWidth = textData.outline_thickness_px * 2;
-            ctx.lineJoin = 'round';
-            ctx.strokeText(textData.raw_string, textAbsX, textAbsY);
+          const lines = (textData.raw_string || '').split('\n');
+          const lineHeight = fontSizePx * 1.25;
+          const totalTextHeight = lines.length * lineHeight;
+          const startY = textAbsY - (totalTextHeight / 2) + (lineHeight / 2);
+
+          // Si c'est un sous-titre avec fond ou si fond activé
+          const hasBg = isSubtitle ? (subStyle?.has_background_box ?? true) : false;
+          if (hasBg && lines.length > 0) {
+            let maxLineWidth = 0;
+            for (const line of lines) {
+              const metrics = ctx.measureText(line);
+              if (metrics.width > maxLineWidth) maxLineWidth = metrics.width;
+            }
+
+            const padX = 18;
+            const padY = 10;
+            const boxWidth = maxLineWidth + padX * 2;
+            const boxHeight = totalTextHeight + padY * 2;
+            const boxX =
+              textAbsX - (ctx.textAlign === 'center' ? boxWidth / 2 : ctx.textAlign === 'right' ? boxWidth : 0);
+            const boxY = textAbsY - (totalTextHeight / 2) - padY;
+
+            ctx.save();
+            ctx.fillStyle = subStyle?.background_color_rgba || 'rgba(0, 0, 0, 0.72)';
+            if (typeof ctx.roundRect === 'function') {
+              ctx.beginPath();
+              ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 8);
+              ctx.fill();
+            } else {
+              ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+            }
+            ctx.restore();
           }
 
-          ctx.fillStyle = textData.fill_color_hex || '#FFFFFF';
-          ctx.fillText(textData.raw_string, textAbsX, textAbsY);
+          // Dessin ligne par ligne avec support des contours nets
+          lines.forEach((line, lineIdx) => {
+            const lineY = startY + lineIdx * lineHeight;
+
+            if (textData.outline_thickness_px > 0) {
+              ctx.strokeStyle = textData.outline_color_hex || '#000000';
+              ctx.lineWidth = textData.outline_thickness_px * 2;
+              ctx.lineJoin = 'round';
+              ctx.strokeText(line, textAbsX, lineY);
+            }
+
+            ctx.fillStyle = textData.fill_color_hex || '#FFFFFF';
+            ctx.fillText(line, textAbsX, lineY);
+          });
         }
 
         ctx.restore();

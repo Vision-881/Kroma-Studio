@@ -23,16 +23,22 @@ import type {
   ChromaKeyData,
   MaskData,
   TimelineMarker,
+  TimelineLane,
 } from '../core/types/timeline';
+import type { SubtitleCue, SubtitleStyle } from '../core/subtitles/subtitles';
+import { DEFAULT_SUBTITLE_STYLE } from '../core/subtitles/subtitles';
+import { exportSrt, exportVtt } from '../core/subtitles/srtParser';
 import { addOrUpdateKeyframe, removeKeyframe, moveKeyframesInList } from '../core/animation/keyframeInterpolation';
 import {
   createItemFromAsset,
   createTextItem,
+  createSubtitleItem,
   addItemToLane,
   removeItemFromSequence,
   moveItemInSequence,
   splitItemInSequence,
   trimItemInSequence,
+  calculateSequenceDurationUs,
 } from '../core/timeline/timelineOps';
 
 export type TimelineTool = 'select' | 'split' | 'delete';
@@ -171,6 +177,18 @@ interface ProjectState {
   createNewProject: (name?: string) => void;
   resetProject: () => void;
 
+  // --- Moteur de Sous-titres & Légendes (Étape 18) ---
+  isSubtitlePanelOpen: boolean;
+  openSubtitlePanel: () => void;
+  closeSubtitlePanel: () => void;
+  toggleSubtitlePanel: () => void;
+  addSubtitleCue: (text?: string, startUs?: number, durationUs?: number) => void;
+  importSubtitles: (cues: SubtitleCue[], replaceExisting?: boolean) => void;
+  exportSubtitles: (format: 'srt' | 'vtt') => string;
+  updateSubtitleText: (itemId: string, newText: string) => void;
+  updateSubtitlesStyle: (updates: Partial<SubtitleStyle>) => void;
+  clearSubtitlesLane: () => void;
+
   // --- Exportation FFmpeg ---
   isExportDialogOpen: boolean;
   openExportDialog: () => void;
@@ -189,6 +207,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   activeTool: 'select',
   isSnappingEnabled: true,
   activeSnapLineUs: null,
+  isSubtitlePanelOpen: false,
+  openSubtitlePanel: () => set({ isSubtitlePanelOpen: true }),
+  closeSubtitlePanel: () => set({ isSubtitlePanelOpen: false }),
+  toggleSubtitlePanel: () => set((s) => ({ isSubtitlePanelOpen: !s.isSubtitlePanelOpen })),
   isExportDialogOpen: false,
   openExportDialog: () => set({ isExportDialogOpen: true }),
   closeExportDialog: () => set({ isExportDialogOpen: false }),
@@ -1068,6 +1090,259 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           sequence: { ...state.project.sequence, lanes: updatedLanes },
           modified_timestamp_utc: Date.now() * 1000,
         },
+        isDirty: true,
+      };
+    }),
+
+  // --- Moteur de Sous-titres & Légendes (Étape 18) ---
+  addSubtitleCue: (text?: string, startUs?: number, durationUs?: number) => {
+    const state = get();
+    let currentProject = state.project;
+    let subLane = currentProject.sequence.lanes.find((l) => l.lane_type === 'subtitles');
+
+    if (!subLane) {
+      const newLaneId = 'lane_subtitles_1';
+      const newLane: TimelineLane = {
+        lane_id: newLaneId,
+        lane_title: 'Sous-titres',
+        lane_type: 'subtitles',
+        stack_index: currentProject.sequence.lanes.length,
+        is_muted: false,
+        is_solo: false,
+        is_locked: false,
+        gain_level: 0,
+        items: [],
+      };
+      currentProject = {
+        ...currentProject,
+        sequence: {
+          ...currentProject.sequence,
+          lanes: [...currentProject.sequence.lanes, newLane],
+          subtitle_style: currentProject.sequence.subtitle_style || DEFAULT_SUBTITLE_STYLE,
+        },
+      };
+      subLane = newLane;
+    }
+
+    const posUs = startUs !== undefined ? Math.max(0, startUs) : state.currentTimeUs;
+    const durUs = durationUs !== undefined ? Math.max(200_000, durationUs) : 2_500_000;
+    const style = currentProject.sequence.subtitle_style || DEFAULT_SUBTITLE_STYLE;
+    const newItem = createSubtitleItem(text || 'Nouveau sous-titre', posUs, durUs, style);
+
+    const updatedSequence = addItemToLane(currentProject.sequence, subLane.lane_id, newItem);
+
+    set({
+      past: pushPast(state.past, state.project),
+      future: [],
+      canUndo: true,
+      canRedo: false,
+      project: {
+        ...currentProject,
+        sequence: updatedSequence,
+        modified_timestamp_utc: Date.now() * 1000,
+      },
+      selectedItemId: newItem.item_id,
+      selectedItemIds: [newItem.item_id],
+      selectedAssetId: null,
+      isDirty: true,
+    });
+  },
+
+  importSubtitles: (cues: SubtitleCue[], replaceExisting: boolean = true) => {
+    if (!cues || cues.length === 0) return;
+    const state = get();
+    let currentProject = state.project;
+    let subLane = currentProject.sequence.lanes.find((l) => l.lane_type === 'subtitles');
+
+    if (!subLane) {
+      const newLaneId = 'lane_subtitles_1';
+      const newLane: TimelineLane = {
+        lane_id: newLaneId,
+        lane_title: 'Sous-titres',
+        lane_type: 'subtitles',
+        stack_index: currentProject.sequence.lanes.length,
+        is_muted: false,
+        is_solo: false,
+        is_locked: false,
+        gain_level: 0,
+        items: [],
+      };
+      currentProject = {
+        ...currentProject,
+        sequence: {
+          ...currentProject.sequence,
+          lanes: [...currentProject.sequence.lanes, newLane],
+          subtitle_style: currentProject.sequence.subtitle_style || DEFAULT_SUBTITLE_STYLE,
+        },
+      };
+      subLane = newLane;
+    }
+
+    const style = currentProject.sequence.subtitle_style || DEFAULT_SUBTITLE_STYLE;
+    const newItems = cues.map((cue) => {
+      const durationUs = Math.max(200_000, cue.end_time_us - cue.start_time_us);
+      return createSubtitleItem(cue.text, cue.start_time_us, durationUs, style);
+    });
+
+    const updatedLanes = currentProject.sequence.lanes.map((lane) => {
+      if (lane.lane_id !== subLane!.lane_id) return lane;
+      return {
+        ...lane,
+        items: replaceExisting
+          ? newItems
+          : [...lane.items, ...newItems].sort((a, b) => a.placement_time_us - b.placement_time_us),
+      };
+    });
+
+    const updatedSequence = {
+      ...currentProject.sequence,
+      lanes: updatedLanes,
+      total_length_us: calculateSequenceDurationUs({ ...currentProject.sequence, lanes: updatedLanes }),
+    };
+
+    set({
+      past: pushPast(state.past, state.project),
+      future: [],
+      canUndo: true,
+      canRedo: false,
+      project: {
+        ...currentProject,
+        sequence: updatedSequence,
+        modified_timestamp_utc: Date.now() * 1000,
+      },
+      selectedItemId: newItems[0]?.item_id || null,
+      selectedItemIds: newItems[0] ? [newItems[0].item_id] : [],
+      isDirty: true,
+    });
+  },
+
+  exportSubtitles: (format: 'srt' | 'vtt'): string => {
+    const state = get();
+    const subLane = state.project.sequence.lanes.find((l) => l.lane_type === 'subtitles');
+    if (!subLane || subLane.items.length === 0) return '';
+
+    const cues: SubtitleCue[] = subLane.items
+      .map((item, idx) => ({
+        cue_id: item.item_id,
+        start_time_us: item.placement_time_us,
+        end_time_us: item.placement_time_us + item.play_duration_us,
+        text: item.text_layer_data?.raw_string || '',
+        index: idx + 1,
+      }))
+      .sort((a, b) => a.start_time_us - b.start_time_us);
+
+    return format === 'vtt' ? exportVtt(cues) : exportSrt(cues);
+  },
+
+  updateSubtitleText: (itemId: string, newText: string) =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => {
+        if (lane.lane_type !== 'subtitles') return lane;
+        return {
+          ...lane,
+          items: lane.items.map((item) => {
+            if (item.item_id !== itemId || !item.text_layer_data) return item;
+            return {
+              ...item,
+              text_layer_data: {
+                ...item.text_layer_data,
+                raw_string: newText,
+              },
+            };
+          }),
+        };
+      });
+
+      return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
+        project: {
+          ...state.project,
+          sequence: { ...state.project.sequence, lanes: updatedLanes },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  updateSubtitlesStyle: (updates: Partial<SubtitleStyle>) =>
+    set((state) => {
+      const currentStyle = state.project.sequence.subtitle_style || DEFAULT_SUBTITLE_STYLE;
+      const updatedStyle: SubtitleStyle = { ...currentStyle, ...updates };
+
+      const updatedLanes = state.project.sequence.lanes.map((lane) => {
+        if (lane.lane_type !== 'subtitles') return lane;
+        return {
+          ...lane,
+          items: lane.items.map((item) => {
+            if (!item.text_layer_data) return item;
+            return {
+              ...item,
+              text_layer_data: {
+                ...item.text_layer_data,
+                font_name: updatedStyle.font_name,
+                font_size_pt: updatedStyle.font_size_pt,
+                is_bold: updatedStyle.is_bold,
+                fill_color_hex: updatedStyle.fill_color_hex,
+                outline_color_hex: updatedStyle.outline_color_hex,
+                outline_thickness_px: updatedStyle.outline_thickness_px,
+                text_align: updatedStyle.text_align,
+                normalized_center: {
+                  ...item.text_layer_data.normalized_center,
+                  y_ratio: updatedStyle.position_y_ratio,
+                },
+              },
+            };
+          }),
+        };
+      });
+
+      return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
+        project: {
+          ...state.project,
+          sequence: {
+            ...state.project.sequence,
+            lanes: updatedLanes,
+            subtitle_style: updatedStyle,
+          },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  clearSubtitlesLane: () =>
+    set((state) => {
+      const updatedLanes = state.project.sequence.lanes.map((lane) => {
+        if (lane.lane_type !== 'subtitles') return lane;
+        return {
+          ...lane,
+          items: [],
+        };
+      });
+
+      return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
+        project: {
+          ...state.project,
+          sequence: {
+            ...state.project.sequence,
+            lanes: updatedLanes,
+            total_length_us: calculateSequenceDurationUs({ ...state.project.sequence, lanes: updatedLanes }),
+          },
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        selectedItemId: null,
+        selectedItemIds: [],
         isDirty: true,
       };
     }),

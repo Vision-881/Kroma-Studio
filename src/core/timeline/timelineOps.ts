@@ -4,6 +4,7 @@
  */
 import type { TimelineSequence, TimelineItem, LaneType } from '../types/timeline';
 import type { MediaAsset } from '../types/asset';
+import type { SubtitleStyle } from '../subtitles/subtitles';
 
 /**
  * Recalcule la durée totale de la séquence en microsecondes.
@@ -94,6 +95,49 @@ export function createTextItem(
       normalized_center: {
         x_ratio: 0.5,
         y_ratio: 0.5,
+      },
+    },
+  };
+}
+
+/**
+ * Crée un nouveau segment de sous-titre calibré (Étape 18).
+ */
+export function createSubtitleItem(
+  text: string = 'Nouveau sous-titre',
+  placementTimeUs: number = 0,
+  durationUs: number = 2_500_000,
+  style?: SubtitleStyle,
+): TimelineItem {
+  const itemId = 'item_sub_' + Math.random().toString(36).substring(2, 9);
+  return {
+    item_id: itemId,
+    referenced_asset_id: null,
+    placement_time_us: Math.max(0, Math.round(placementTimeUs)),
+    play_duration_us: Math.max(200_000, Math.round(durationUs)),
+    source_in_point_us: 0,
+    source_duration_us: Math.max(200_000, Math.round(durationUs)),
+    item_gain: 0,
+    spatial_placement: {
+      offset_x_px: 0,
+      offset_y_px: 0,
+      zoom_factor_x: 1.0,
+      zoom_factor_y: 1.0,
+      rotation_degrees: 0,
+      opacity_ratio: 1.0,
+    },
+    text_layer_data: {
+      raw_string: text,
+      font_name: style?.font_name || 'Inter, system-ui, sans-serif',
+      font_size_pt: style?.font_size_pt || 24,
+      is_bold: style?.is_bold ?? true,
+      fill_color_hex: style?.fill_color_hex || '#FFFFFF',
+      outline_color_hex: style?.outline_color_hex || '#000000',
+      outline_thickness_px: style?.outline_thickness_px ?? 2,
+      text_align: style?.text_align || 'center',
+      normalized_center: {
+        x_ratio: 0.5,
+        y_ratio: style?.position_y_ratio ?? 0.88,
       },
     },
   };

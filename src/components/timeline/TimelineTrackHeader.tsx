@@ -3,7 +3,7 @@
  * Affiche le titre de la piste, son type, les contrôles Mute/Solo/Lock
  * ainsi que le curseur de réglage du volume de la piste.
  */
-import { Film, Type, Music, Volume2, VolumeX, Lock, Unlock } from 'lucide-react';
+import { Film, Type, Music, Captions, Volume2, VolumeX, Lock, Unlock } from 'lucide-react';
 import type { TimelineLane } from '../../core/types/timeline';
 import { useProjectStore } from '../../store/projectStore';
 
@@ -24,6 +24,8 @@ export function TimelineTrackHeader({ lane }: TimelineTrackHeaderProps) {
         return <Film size={13} className="track-icon track-icon--visual" />;
       case 'text_overlay':
         return <Type size={13} className="track-icon track-icon--text" />;
+      case 'subtitles':
+        return <Captions size={13} className="track-icon track-icon--subtitles" />;
       case 'audio':
         return <Music size={13} className="track-icon track-icon--audio" />;
     }
@@ -78,7 +80,7 @@ export function TimelineTrackHeader({ lane }: TimelineTrackHeaderProps) {
         </div>
 
         {/* Curseur de volume de la piste (pistes vidéo & audio) */}
-        {lane.lane_type !== 'text_overlay' && (
+        {lane.lane_type !== 'text_overlay' && lane.lane_type !== 'subtitles' && (
           <div className="track-volume-slider-wrap" title={`Volume de la piste : ${gainPercent}%`}>
             <input
               type="range"

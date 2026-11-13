@@ -121,7 +121,7 @@ export function getActiveItemsAtTime(
         const clipGain = item.item_gain ?? 1.0;
         const effectiveGain = isLaneAudible ? clipGain * laneGain * fadeGain : 0;
 
-        if (lane.lane_type === 'visual' || lane.lane_type === 'text_overlay') {
+        if (lane.lane_type === 'visual' || lane.lane_type === 'text_overlay' || lane.lane_type === 'subtitles') {
           visualItems.push({
             item,
             asset,

@@ -13,6 +13,7 @@ import {
   Maximize2,
   Split,
   Type,
+  Captions,
   Undo2,
   Redo2,
   Magnet,
@@ -36,6 +37,7 @@ export function TimelineToolbar() {
     removeTimelineItem,
     removeSelectedItems,
     addTextItem,
+    openSubtitlePanel,
     canUndo,
     canRedo,
     undo,
@@ -201,6 +203,16 @@ export function TimelineToolbar() {
         >
           <Type size={15} />
           <span className="timeline-tool-btn__label">Texte</span>
+        </button>
+
+        {/* Bouton Gestionnaire de Sous-titres (Étape 18) */}
+        <button
+          className="timeline-tool-btn timeline-tool-btn--subtitles"
+          onClick={openSubtitlePanel}
+          title="Ouvrir le gestionnaire de sous-titres & légendes (Import/Export .SRT, .VTT)"
+        >
+          <Captions size={15} />
+          <span className="timeline-tool-btn__label">Sous-titres</span>
         </button>
 
         <div className="timeline-toolbar__separator" />

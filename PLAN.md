@@ -28,7 +28,8 @@ Dernière mise à jour : 13/11/2026 (Phase 2 — Étape 17 : Aimantation Magnét
 | **Étape 15** | Incrustation Fond Vert (Chroma Key) | ✅ Terminé | Filtre de découpe chromatique par sélection de couleur cible (Green/Blue screen), tolérance, lissage des bords et suppression des reflets (spill reduction) temps réel Canvas 2D + export FFmpeg avec filtre natif `colorkey`, badge 🟢 Chroma, 11 tests unitaires. |
 | **Étape 16** | Empilement & Rendu Multi-pistes Vidéo PiP (Picture-in-Picture) | ✅ Terminé | Composition multipiste simultanée, 6 masques géométriques vectoriels (rectangle arrondi, cercle, étoile, cœur, scission linéaire), contour progressif (feather), inversion, Canvas 2D 60 FPS, export FFmpeg `geq`, 7 tests unitaires. |
 | **Étape 17** | Aimantation Magnétique Intelligente & Marqueurs Temporels | ✅ Terminé | Aimantation magnétique (Snapping) sur tête de lecture, coupes de clips et repères (raccourci `N`), guide visuel cyan en temps réel, pose de marqueurs temporels (raccourci `M`), fanions réglette avec popover d'édition, navigation `<` `>`, gestionnaire Inspecteur, Undo/Redo, 9 tests unitaires. |
-| **Étape 18** | Gestionnaire de Sous-titres & Légendes (Subtitles Engine) | 🔜 À venir | Piste de sous-titres dédiée, import/export `.srt` / `.vtt`, éditeur séquentiel et incrustation vidéo. |
+| **Étape 18** | Gestionnaire de Sous-titres & Légendes (Subtitles Engine) | ✅ Terminé | Piste de sous-titres dédiée, parsing et export `.srt` / `.vtt`, éditeur séquentiel synchronisé avec timecodes In/Out, saut instantané, personnalisation typographique et boîte de fond protectrice, Canvas 2D 60 FPS multi-lignes, export FFmpeg drawtext burn-in, compatibilité 100% Web & Desktop App, 150 tests unitaires. |
+| **Étape 19** | Scission Audio-Vidéo (Détacher l'Audio) & Extraction de Bande Son | 🔜 À venir | Séparation en un clic du flux audio d'un clip vidéo sur une piste audio dédiée (style CapCut « Extraire l'audio »), édition audio indépendante, ré-alignement automatique. |
 
 ---
 
@@ -417,3 +418,39 @@ Dernière mise à jour : 13/11/2026 (Phase 2 — Étape 17 : Aimantation Magnét
   - Liste interactive des clips sélectionnés avec badges de couleur par type de piste (`Vidéo`, `Audio`, `Texte`).
   - Boutons d'action globale : `Désélectionner tout` et `Supprimer la sélection`.
 - **Tests unitaires :** Suite complète portée à **135 tests unitaires validés (100% succès)** sur 10 fichiers de test (dont 12 tests dans `snapping.test.ts` et tests de multi-sélection/déplacement groupé dans `projectStore.test.ts`).
+
+### Étape 18 — Gestionnaire de Sous-titres & Légendes (Subtitles Engine) (13/11/2026) ✅ Terminé
+
+- **Modèle de données & Types canoniques (`src/core/subtitles/subtitles.ts` & `src/core/types/timeline.ts`) :**
+  - Interfaces `SubtitleCue` (`cue_id`, `start_time_us`, `end_time_us`, `text`, `index`) et `SubtitleStyle` (`font_name`, `font_size_pt`, `is_bold`, `fill_color_hex`, `outline_color_hex`, `outline_thickness_px`, `has_background_box`, `background_color_rgba`, `position_y_ratio`, `text_align`).
+  - Ajout du type de piste canonique `'subtitles'` à `LaneType` : `export type LaneType = 'visual' | 'audio' | 'text_overlay' | 'subtitles';`.
+  - Champ optionnel `subtitle_style?: SubtitleStyle` sur `TimelineSequence`.
+- **Moteur de Parsing & Exportation SRT & WebVTT (`src/core/subtitles/srtParser.ts`) :**
+  - Fonctions pures bidirectionnelles : `parseSrt`, `exportSrt`, `parseVtt`, `exportVtt`.
+  - Conversion stricte en microsecondes entières : `timecodeToMicroseconds`, `microsecondsToSrtTimecode` (`HH:MM:SS,mmm`), `microsecondsToVttTimecode` (`HH:MM:SS.mmm`).
+  - Tolérance aux fins de ligne Windows CRLF, nettoyage des balises HTML simples (`<i>`, `<b>`), rejet des timings inversés.
+  - 14 tests unitaires dédiés dans `src/core/subtitles/srtParser.test.ts`.
+- **Actions Zustand du Store (`src/store/projectStore.ts`) :**
+  - Création dynamique et automatique de la piste `lane_subtitles_1` dès l'insertion ou l'import de sous-titres.
+  - Actions : `addSubtitleCue`, `importSubtitles`, `exportSubtitles`, `updateSubtitleText`, `updateSubtitlesStyle`, `clearSubtitlesLane`.
+  - Prise en charge intégrale de l'historique non-destructif Undo/Redo (`Ctrl+Z` / `Ctrl+Y`).
+- **Rendu Canvas 2D Temps Réel 60 FPS (`PreviewMonitor.tsx`) :**
+  - Support du texte multi-lignes (séparateurs `\n`) avec calcul précis de la hauteur de ligne et centrage vertical.
+  - Rendu de boîte de fond protectrice translucide arrondie (`ctx.roundRect` avec fond `rgba(0, 0, 0, 0.72)`) pour une lisibilité parfaite sur tous les arrière-plans vidéo (style CapCut / YouTube / Netflix).
+  - Contour net (`strokeText`) et texte franc (`fillText`) synchronisés à la frame près sous la tête de lecture.
+- **Panneau & Modale de Gestion Séquentielle (`SubtitleManagerModal.tsx`) :**
+  - Interface complète accessible via le bouton dédié **« Sous-titres »** de la barre d'outils.
+  - Import direct par sélection de fichier local `.srt` ou `.vtt`.
+  - Export direct en 1 clic vers `.srt` ou `.vtt`.
+  - Liste séquentielle synchronisée : numéro de segment, bouton de saut temporel instantané vers le sous-titre (`start ➔ end`), zone de saisie textuelle éditable en direct et bouton de suppression par segment.
+  - Volet de personnalisation du style visuel (taille de police, couleur, contour, boîte noire de fond).
+- **Intégration Timeline & Inspecteur :**
+  - En-tête de piste avec icône `Captions` et couleur ambrée `#f59e0b`.
+  - Clips de sous-titres distinctifs sur la timeline (`.timeline-clip--subtitles`), déplaçables, rognables et aimantables avec le Smart Snapping.
+  - Section dédiée dans l'Inspecteur lorsqu'un sous-titre est sélectionné avec édition rapide et bouton d'ouverture de la vue d'ensemble.
+- **Exportation FFmpeg (`ffmpegCommandBuilder.ts`) :**
+  - Prise en compte de la piste `subtitles` dans le graphe complexe vidéo FFmpeg.
+  - Génération de filtres `drawtext` avec boîte de fond `:box=1:boxcolor=black@0.75:boxborderw=8`.
+- **Compatibilité Parallèle Web & Application de Bureau (Electron) :**
+  - Fonctionne de manière 100% identique dans le navigateur web et dans la fenêtre d'application de bureau Electron.
+- **Tests unitaires :** Suite complète portée à **150 tests unitaires validés (100% succès)** sur 11 fichiers de test.

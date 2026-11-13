@@ -449,7 +449,8 @@ L'ensemble des **17 étapes de Kroma Studio** sont désormais **100 % opération
 - ✅ **Étape 15 :** Incrustation Fond Vert / Bleu (Chroma Key, pipette, tolérance, lissage blend, suppression des reflets spill, Canvas 2D 60 FPS, export FFmpeg colorkey, badge 🟢 Chroma).
 - ✅ **Étape 16 :** Picture-in-Picture (PiP) Multi-pistes & Masques de Détourage Géométriques (Rectangle arrondi, Cercle/Ovale, Étoile, Cœur, Scission linéaire, contour progressif Feather, mode Inversé, Canvas 2D composite 60 FPS, export FFmpeg geq, badge orange timeline).
 - ✅ **Étape 17 :** Aimantation Magnétique Intelligente & Marqueurs Temporels (Smart Snapping sur tête de lecture, coupes et marqueurs avec guide visuel cyan en direct, raccourci `N`, pose de marqueurs de rythme avec raccourci `M`, fanions réglette, popover d'édition, navigation `<` `>` et section Inspecteur dédiée).
+- ✅ **Étape 18 :** Gestionnaire de Sous-titres & Légendes (Subtitles Engine) (piste de sous-titres dédiée ambrée, import/export bidirectionnel `.srt` et `.vtt`, modale d'édition séquentielle synchronisée avec timecodes In/Out et saut direct, rendu Canvas 2D 60 FPS multi-lignes avec boîte de fond protectrice, export FFmpeg drawtext burn-in, intégration Undo/Redo complète).
 - ✅ **Amélioration Ergonomique :** Curseur de timeline unifié et interactif (étiré sur 100% de la hauteur sans coupure, saisissable et déplaçable avec curseur `ew-resize`, clic direct sur piste pour seek).
-
-Perspectives pour les versions ultérieures : intégration native via Tauri 2 (binaire desktop autonome avec FFmpeg embarqué).
+- 🚀 **150 tests unitaires validés (100% succès)** sur 11 suites de test automatisées.
+- 💻 **Disponible simultanément en version Web (`localhost`) et en version Application de Bureau Windows (`Lancer-Kroma-Studio.bat`).**
 

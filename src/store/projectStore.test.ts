@@ -1126,5 +1126,65 @@ describe('useProjectStore', () => {
       expect(useProjectStore.getState().project.sequence.lanes[0].items.some((i) => i.item_id === id1)).toBe(true);
       expect(useProjectStore.getState().project.sequence.lanes[2].items.some((i) => i.item_id === id3)).toBe(true);
     });
+
+    it('gère le moteur de sous-titres (Étape 18) : ajout, import, export, édition et Undo/Redo', () => {
+      // 1. Ajout d'un sous-titre unitaire
+      useProjectStore.getState().setCurrentTimeUs(1_500_000);
+      useProjectStore.getState().addSubtitleCue('Bonjour le monde', 1_500_000, 2_000_000);
+
+      const subLane = useProjectStore.getState().project.sequence.lanes.find((l) => l.lane_type === 'subtitles');
+      expect(subLane).toBeDefined();
+      expect(subLane?.items.length).toBe(1);
+      const cue1 = subLane?.items[0];
+      expect(cue1?.text_layer_data?.raw_string).toBe('Bonjour le monde');
+      expect(cue1?.placement_time_us).toBe(1_500_000);
+      expect(cue1?.play_duration_us).toBe(2_000_000);
+
+      // 2. Modification du texte
+      useProjectStore.getState().updateSubtitleText(cue1!.item_id, 'Texte mis à jour');
+      const updatedCue = useProjectStore.getState().project.sequence.lanes.find((l) => l.lane_type === 'subtitles')?.items[0];
+      expect(updatedCue?.text_layer_data?.raw_string).toBe('Texte mis à jour');
+
+      // 3. Import groupé de sous-titres (importSubtitles)
+      const importedCues = [
+        { cue_id: 'sub_a', start_time_us: 4_000_000, end_time_us: 6_000_000, text: 'Premier sous-titre importé' },
+        { cue_id: 'sub_b', start_time_us: 7_000_000, end_time_us: 9_500_000, text: 'Deuxième sous-titre importé' },
+      ];
+      useProjectStore.getState().importSubtitles(importedCues, true);
+
+      const importedLane = useProjectStore.getState().project.sequence.lanes.find((l) => l.lane_type === 'subtitles');
+      expect(importedLane?.items.length).toBe(2);
+      expect(importedLane?.items[0].text_layer_data?.raw_string).toBe('Premier sous-titre importé');
+      expect(importedLane?.items[1].text_layer_data?.raw_string).toBe('Deuxième sous-titre importé');
+
+      // 4. Exportation .SRT et .VTT
+      const srtOutput = useProjectStore.getState().exportSubtitles('srt');
+      expect(srtOutput).toContain('00:00:04,000 --> 00:00:06,000');
+      expect(srtOutput).toContain('Premier sous-titre importé');
+
+      const vttOutput = useProjectStore.getState().exportSubtitles('vtt');
+      expect(vttOutput.startsWith('WEBVTT')).toBe(true);
+      expect(vttOutput).toContain('00:00:07.000 --> 00:00:09.500');
+
+      // 5. Mise à jour globale du style (taille, couleur, contour)
+      useProjectStore.getState().updateSubtitlesStyle({
+        font_size_pt: 32,
+        fill_color_hex: '#f59e0b',
+        has_background_box: true,
+      });
+      const styleUpdatedItem = useProjectStore.getState().project.sequence.lanes.find((l) => l.lane_type === 'subtitles')?.items[0];
+      expect(styleUpdatedItem?.text_layer_data?.font_size_pt).toBe(32);
+      expect(styleUpdatedItem?.text_layer_data?.fill_color_hex).toBe('#f59e0b');
+
+      // 6. Nettoyage de la piste (clearSubtitlesLane) avec Undo
+      useProjectStore.getState().clearSubtitlesLane();
+      const clearedLane = useProjectStore.getState().project.sequence.lanes.find((l) => l.lane_type === 'subtitles');
+      expect(clearedLane?.items.length).toBe(0);
+
+      // Undo restaure les sous-titres
+      useProjectStore.getState().undo();
+      const restoredLane = useProjectStore.getState().project.sequence.lanes.find((l) => l.lane_type === 'subtitles');
+      expect(restoredLane?.items.length).toBe(2);
+    });
   });
 });

@@ -29,6 +29,7 @@ import {
   Film,
   Music,
   Type,
+  Captions,
   XCircle,
 } from 'lucide-react';
 import { useProjectStore } from '../../store/projectStore';
@@ -90,6 +91,8 @@ export function InspectorPanel() {
     updateTimelineMarker,
     removeTimelineMarker,
     clearTimelineMarkers,
+    updateSubtitleText,
+    openSubtitlePanel,
   } = useProjectStore();
 
   // 0. Cas : Multi-sélection de clips (Ctrl+Clic sur la timeline)
@@ -247,6 +250,82 @@ export function InspectorPanel() {
     }
 
     if (!selectedItem || !parentLane) return null;
+
+    // ── Cas spécial : segment de sous-titre (Étape 18) ───
+    if (parentLane.lane_type === 'subtitles') {
+      return (
+        <aside className="inspector-panel">
+          <div className="inspector-panel__header">
+            <Captions size={16} style={{ color: '#f59e0b' }} />
+            <span>Sous-titre</span>
+          </div>
+          <div className="inspector-panel__body">
+            <div className="inspector-section">
+              <div className="inspector-section__title">
+                <Captions size={14} />
+                <span>Texte du sous-titre</span>
+              </div>
+              <textarea
+                rows={3}
+                value={selectedItem.text_layer_data?.raw_string || ''}
+                onChange={(e) => updateSubtitleText(selectedItem!.item_id, e.target.value)}
+                style={{
+                  width: '100%',
+                  backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  borderRadius: 6,
+                  color: '#ffffff',
+                  fontSize: 13,
+                  padding: '8px 10px',
+                  resize: 'vertical',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            <div className="inspector-section">
+              <div className="inspector-field">
+                <span className="inspector-field__label">Position :</span>
+                <span className="inspector-field__value">
+                  {formatDurationHuman(selectedItem.placement_time_us)}
+                </span>
+              </div>
+              <div className="inspector-field">
+                <span className="inspector-field__label">Durée :</span>
+                <span className="inspector-field__value">
+                  {formatDurationHuman(selectedItem.play_duration_us)}
+                </span>
+              </div>
+
+              <button
+                className="kroma-btn"
+                style={{
+                  marginTop: 10,
+                  width: '100%',
+                  justifyContent: 'center',
+                  borderColor: '#f59e0b',
+                  color: '#f59e0b',
+                }}
+                onClick={openSubtitlePanel}
+              >
+                <Captions size={14} />
+                <span>Ouvrir la liste complète</span>
+              </button>
+
+              <button
+                className="kroma-btn kroma-btn-danger"
+                style={{ marginTop: 8, width: '100%', justifyContent: 'center' }}
+                onClick={() => removeTimelineItem(selectedItem!.item_id)}
+              >
+                <Trash2 size={14} />
+                <span>Supprimer ce sous-titre</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+      );
+    }
 
     // ── Cas spécial : calque texte → afficher l'éditeur de texte dédié ───
     if (selectedItem.text_layer_data) {

@@ -309,7 +309,7 @@ export function buildFFmpegCommand(
   }
   const visualEntries: VisualItemEntry[] = [];
   for (const lane of project.sequence.lanes) {
-    if (lane.lane_type === 'visual' || lane.lane_type === 'text_overlay') {
+    if (lane.lane_type === 'visual' || lane.lane_type === 'text_overlay' || lane.lane_type === 'subtitles') {
       for (const item of lane.items) {
         visualEntries.push({ lane, item });
       }
@@ -571,13 +571,18 @@ export function buildFFmpegCommand(
 
       currentVideoTag = nextBaseTag;
       videoStep++;
-    } else if (lane.lane_type === 'text_overlay' && item.text_layer_data) {
+    } else if ((lane.lane_type === 'text_overlay' || lane.lane_type === 'subtitles') && item.text_layer_data) {
       const textData = item.text_layer_data;
       const escapedText = escapeDrawText(textData.raw_string || '');
       // Mise à l'échelle de la taille de police proportionnellement à la hauteur de résolution
       const fontSize = Math.round(textData.font_size_pt * (height / 1080) * 2);
 
-      const nc = textData.normalized_center || { x_ratio: 0.5, y_ratio: 0.5 };
+      const isSub = lane.lane_type === 'subtitles';
+      const subStyle = project.sequence.subtitle_style;
+      const nc = textData.normalized_center || {
+        x_ratio: 0.5,
+        y_ratio: isSub ? (subStyle?.position_y_ratio ?? 0.88) : 0.5,
+      };
       const offX = item.spatial_placement?.offset_x_px || 0;
       const offY = item.spatial_placement?.offset_y_px || 0;
 
@@ -613,11 +618,15 @@ export function buildFFmpegCommand(
           ? `:borderw=${Math.round(textData.outline_thickness_px * 2)}:bordercolor=${textData.outline_color_hex || '#000000'}`
           : '';
 
+      const boxPart = isSub && (subStyle?.has_background_box ?? true)
+        ? ':box=1:boxcolor=black@0.75:boxborderw=8'
+        : '';
+
       const fontPart = textData.font_name ? `:font='${textData.font_name}'` : '';
       const nextBaseTag = `[v_base_${videoStep + 1}]`;
 
       filterParts.push(
-        `${currentVideoTag}drawtext=text='${escapedText}':fontsize=${fontSize}:fontcolor=${textData.fill_color_hex || '#FFFFFF'}${borderPart}${fontPart}:x='${xExpr}':y='${yExpr}':enable='between(t,${startSec.toFixed(3)},${endSec.toFixed(3)})'${nextBaseTag}`,
+        `${currentVideoTag}drawtext=text='${escapedText}':fontsize=${fontSize}:fontcolor=${textData.fill_color_hex || '#FFFFFF'}${borderPart}${boxPart}${fontPart}:x='${xExpr}':y='${yExpr}':enable='between(t,${startSec.toFixed(3)},${endSec.toFixed(3)})'${nextBaseTag}`,
       );
 
       currentVideoTag = nextBaseTag;

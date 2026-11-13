@@ -1308,6 +1308,21 @@ input {
   color: var(--clip-audio-text);
 }
 
+.timeline-clip--subtitles {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(245, 158, 11, 0.6);
+  color: #fef3c7;
+}
+
+.timeline-clip--subtitles:hover {
+  background: rgba(245, 158, 11, 0.32);
+  border-color: #f59e0b;
+}
+
+.track-icon--subtitles {
+  color: #f59e0b;
+}
+
 .timeline-clip--selected {
   border-color: #fff !important;
   box-shadow: 0 0 0 1px #fff, 0 4px 12px rgba(255, 255, 255, 0.2);

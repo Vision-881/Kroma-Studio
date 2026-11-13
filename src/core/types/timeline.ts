@@ -1,4 +1,6 @@
-export type LaneType = 'visual' | 'audio' | 'text_overlay';
+import type { SubtitleStyle } from '../subtitles/subtitles';
+
+export type LaneType = 'visual' | 'audio' | 'text_overlay' | 'subtitles';
 
 export interface TimeRangeUs {
   /** Point de départ temporel en microsecondes */
@@ -260,5 +262,7 @@ export interface TimelineSequence {
   lanes: TimelineLane[];
   /** Marqueurs temporels de timeline (Étape 17) */
   markers?: TimelineMarker[];
+  /** Paramètres de style global des sous-titres (Étape 18) */
+  subtitle_style?: SubtitleStyle;
 }
 

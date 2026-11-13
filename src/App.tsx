@@ -13,6 +13,7 @@ import { PreviewMonitor } from './components/player/PreviewMonitor';
 import { InspectorPanel } from './components/inspector/InspectorPanel';
 import { Timeline } from './components/timeline/Timeline';
 import { ExportDialog } from './components/export/ExportDialog';
+import { SubtitleManagerModal } from './components/subtitles/SubtitleManagerModal';
 
 function App() {
   return (
@@ -48,6 +49,9 @@ function App() {
 
       {/* ── Fenêtre modale d'exportation FFmpeg MP4 ── */}
       <ExportDialog />
+
+      {/* ── Fenêtre modale de sous-titres et légendes (Étape 18) ── */}
+      <SubtitleManagerModal />
     </div>
   );
 }
