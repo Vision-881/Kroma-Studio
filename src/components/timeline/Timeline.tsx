@@ -10,16 +10,19 @@ import { TimelineRuler } from './TimelineRuler';
 import { TimelinePlayhead } from './TimelinePlayhead';
 import { TimelineTrackHeader } from './TimelineTrackHeader';
 import { TimelineClip } from './TimelineClip';
+import { collectSnapTargets, snapPlayhead } from '../../core/timeline/snapping';
 
 export function Timeline() {
   const {
     project,
     zoomPixelsPerSecond,
     addItemFromAsset,
-    setSelectedItemId,
+    clearSelection,
+    selectAllItems,
     currentTimeUs,
     setCurrentTimeUs,
     activeSnapLineUs,
+    isSnappingEnabled,
   } = useProjectStore();
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -85,6 +88,28 @@ export function Timeline() {
     addItemFromAsset(asset, laneId, dropTimeUs);
   };
 
+  // Raccourcis universels de sélection : Ctrl+A (Tout sélectionner), Échap (Désélectionner tout)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isInput =
+        activeEl instanceof HTMLInputElement ||
+        activeEl instanceof HTMLTextAreaElement ||
+        (activeEl as HTMLElement)?.isContentEditable;
+      if (isInput) return;
+
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault();
+        selectAllItems();
+      } else if (e.key === 'Escape') {
+        clearSelection();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectAllItems, clearSelection]);
+
   const handleTimelineBackgroundMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (
@@ -92,7 +117,9 @@ export function Timeline() {
       target.classList.contains('timeline-lanes-list') ||
       target.classList.contains('timeline-tracks-scroll')
     ) {
-      setSelectedItemId(null);
+      if (!e.ctrlKey && !e.metaKey) {
+        clearSelection();
+      }
       const canvasEl = scrollContainerRef.current?.querySelector(
         '.timeline-tracks-canvas',
       ) as HTMLElement | null;
@@ -100,7 +127,18 @@ export function Timeline() {
         const rect = canvasEl.getBoundingClientRect();
         const clickOffsetPx = e.clientX - rect.left;
         const targetSeconds = Math.max(0, clickOffsetPx / zoomPixelsPerSecond);
-        setCurrentTimeUs(Math.round(targetSeconds * 1_000_000));
+        let targetUs = Math.round(targetSeconds * 1_000_000);
+
+        if (isSnappingEnabled) {
+          const thresholdUs = Math.round((18 / zoomPixelsPerSecond) * 1_000_000);
+          const snapTargets = collectSnapTargets(project, { playheadTimeUs: -1 });
+          const snap = snapPlayhead(targetUs, snapTargets, thresholdUs);
+          if (snap) {
+            targetUs = snap.snapped_time_us;
+          }
+        }
+
+        setCurrentTimeUs(targetUs);
       }
     }
   };

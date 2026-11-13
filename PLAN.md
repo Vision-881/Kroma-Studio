@@ -380,7 +380,7 @@ Dernière mise à jour : 13/11/2026 (Phase 2 — Étape 17 : Aimantation Magnét
   - Badge distinctif orange sur les clips de la timeline (`🔲 Masque`, `⚪ Cercle`, `⭐ Étoile`, `❤️ Cœur`, `✂️ Scission`).
 - **Tests unitaires :** Suite complète portée à **120 tests unitaires validés (100% succès)** sur 9 fichiers de test (dont 7 tests dans `maskRenderer.test.ts`, tests d'actions Zustand et tests d'exportation FFmpeg).
 
-### Étape 17 — Aimantation Magnétique Intelligente (Smart Snapping) & Marqueurs Temporels (13/11/2026) ✅ Terminé
+### Étape 17 — Aimantation Magnétique Intelligente (Smart Snapping), Multi-Sélection (Ctrl+Clic) & Marqueurs Temporels (13/11/2026) ✅ Terminé
 
 - **Modèle de données & Types canoniques (`src/core/types/timeline.ts` & `project.ts`) :**
   - Interface `TimelineMarker` : `marker_id`, `time_us`, `label`, `color`.
@@ -388,13 +388,19 @@ Dernière mise à jour : 13/11/2026 (Phase 2 — Étape 17 : Aimantation Magnét
   - Champ `markers?: TimelineMarker[]` sur `TimelineSequence`, initialisé à `[]` dans `createDefaultProject`.
 - **Moteur d'Aimantation Temporelle (`src/core/timeline/snapping.ts`) :**
   - Fonction pure `findNearestSnap(candidateTimeUs, targets, thresholdUs)` avec départage par ordre de priorité hiérarchique (`playhead` > `marker` > `clip_start` / `clip_end` > `origin`).
-  - Fonction `collectSnapTargets(project, options)` extrayant dynamiquement l'ensemble des repères de la timeline avec exclusion du clip manipulé.
+  - Fonction pure `snapPlayhead(candidateTimeUs, targets, thresholdUs)` pour l'aimantation de la tête de lecture.
+  - Fonction `collectSnapTargets(project, options)` extrayant dynamiquement l'ensemble des repères avec support de `excludeItemId` et `excludeItemIds` (Set performant O(1)).
   - Fonction `snapClipMovement(candidatePlacementUs, clipDurationUs, targets, thresholdUs)` assurant l'alignement magnétique instantané du bord gauche (début) ou du bord droit (fin) du clip.
-- **Gestion d'état Zustand & Undo/Redo (`src/store/projectStore.ts`) :**
-  - États : `isSnappingEnabled: boolean` (actif par défaut), `activeSnapLineUs: number | null`.
-  - Actions : `toggleSnapping`, `setSnappingEnabled`, `setActiveSnapLineUs`, `addTimelineMarker`, `updateTimelineMarker`, `removeTimelineMarker`, `clearTimelineMarkers`, `jumpToNextMarker`, `jumpToPrevMarker`.
-  - Intégration complète à la pile d'historique `past[]` / `future[]` avec compatibilité totale `Ctrl+Z` / `Ctrl+Y`.
-- **Réglette graduée & Marqueurs interactifs (`TimelineRuler.tsx`) :**
+  - Seuil magnétique calibré à 20px pour une réactivité optimale et intuitive au scrub et au drag.
+- **Sélection Multiple & Déplacement Groupé (Ctrl+Clic) (`src/store/projectStore.ts` & `TimelineClip.tsx`) :**
+  - État `selectedItemIds: string[]` synchronisé en permanence avec `selectedItemId`.
+  - Actions `toggleItemSelection`, `setSelectedItemIds`, `clearSelection`, `selectAllItems`, `removeSelectedItems`.
+  - Raccourci `Ctrl+Clic` / `Cmd+Clic` / `Shift+Clic` sur les clips pour ajouter ou retirer des éléments d'un groupe de sélection.
+  - Raccourcis globaux `Ctrl+A` (tout sélectionner) et `Échap` (tout désélectionner) sur la timeline.
+  - Déplacement groupé (`moveMultipleTimelineItems`) : glisser n'importe quel clip du groupe déplace l'intégralité des clips sélectionnés de manière solidaire et cadencée.
+  - Déplacement non destructif avec snapshot d'historique au premier mouvement : les 60 FPS de déplacement ne polluent pas l'historique Undo/Redo (`commitHistory: false` en temps réel).
+- **Réglette graduée & Marqueurs interactifs (`TimelineRuler.tsx` & `TimelinePlayhead.tsx`) :**
+  - Aimantation magnétique de la tête de lecture lors du glissement sur la réglette ou sur la tête rouge avec seuil de 18px et guide visuel cyan en temps réel.
   - Fanions losanges colorés en surimpression sur la réglette graduée.
   - Clic simple pour caler instantanément la tête de lecture sur le marqueur (`setCurrentTimeUs`).
   - Double-clic ouvrant un popover d'édition ergonomique pour renommer le marqueur, choisir sa pastille de couleur parmi les 6 teintes studio ou le supprimer.
@@ -402,10 +408,12 @@ Dernière mise à jour : 13/11/2026 (Phase 2 — Étape 17 : Aimantation Magnét
   - Bouton **Aimant (Magnet)** avec mise en surbrillance cyan lorsque l'aimantation est active, basculable par le raccourci universel **« N »**.
   - Bouton **Marqueur (+M)** pour insérer un marqueur à l'instant de la tête de lecture, activable par le raccourci universel **« M »**.
   - Boutons de navigation compacts `<` et `>` permettant de sauter instantanément d'un marqueur à l'autre avec badge numérique du nombre de marqueurs actifs.
+  - Bouton **Supprimer** dynamique : affiche le décompte lors de sélections multiples (`Supprimer (X)`) et efface tous les clips sélectionnés en un seul clic ou via la touche `Suppr` / `Backspace`.
 - **Aimantation dans la timeline (`TimelineClip.tsx` & `Timeline.tsx`) :**
   - Déplacement magnétique de clips et rognage (Trim) gauche/droite magnétiquement aimantés sur les repères clés (tête de lecture, coupes de pistes voisines, marqueurs de rythme).
   - Guide d'aimantation en direct : ligne verticale cyan lumineuse (`.timeline-snap-guide`) apparaissant instantanément sur la timeline au contact d'un repère magnétique.
-- **Section Inspecteur dédiée (`InspectorPanel.tsx`) :**
-  - Nouvelle section **« Marqueurs de Timeline »** affichant la liste complète des marqueurs, leur pastille couleur cliquable, leur libellé modifiable en direct, leur timecode avec bouton de saut direct et bouton de suppression.
-  - Boutons d'ajout rapide au timecode courant et d'effacement complet.
-- **Tests unitaires :** Suite complète portée à **131 tests unitaires validés (100% succès)** sur 10 fichiers de test (dont 9 tests dédiés dans `snapping.test.ts` et tests d'actions Zustand dans `projectStore.test.ts`).
+- **Panneau Inspecteur pour sélection multiple (`InspectorPanel.tsx`) :**
+  - Carte dédiée **« Sélection multiple (X) »** avec résumé du groupe (nombre d'éléments, durée cumulée, étendue temporelle totale).
+  - Liste interactive des clips sélectionnés avec badges de couleur par type de piste (`Vidéo`, `Audio`, `Texte`).
+  - Boutons d'action globale : `Désélectionner tout` et `Supprimer la sélection`.
+- **Tests unitaires :** Suite complète portée à **135 tests unitaires validés (100% succès)** sur 10 fichiers de test (dont 12 tests dans `snapping.test.ts` et tests de multi-sélection/déplacement groupé dans `projectStore.test.ts`).

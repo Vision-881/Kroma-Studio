@@ -59,6 +59,8 @@ interface ProjectState {
   selectedAssetId: string | null;
   /** Identifiant du clip sélectionné sur la timeline, ou null */
   selectedItemId: string | null;
+  /** Liste des identifiants des clips sélectionnés (sélection multiple Ctrl+Clic) */
+  selectedItemIds: string[];
   /** Position courante de la tête de lecture en microsecondes */
   currentTimeUs: number;
   /** Facteur de zoom horizontal de la timeline (pixels par seconde) */
@@ -83,14 +85,20 @@ interface ProjectState {
   // --- Actions Tête de lecture & Vue ---
   setCurrentTimeUs: (timeUs: number) => void;
   setSelectedItemId: (id: string | null) => void;
+  toggleItemSelection: (id: string) => void;
+  setSelectedItemIds: (ids: string[]) => void;
+  clearSelection: () => void;
+  selectAllItems: () => void;
+  removeSelectedItems: () => void;
   setZoomPixelsPerSecond: (zoom: number) => void;
   setActiveTool: (tool: TimelineTool) => void;
 
   // --- Actions Timeline ---
   addItemFromAsset: (asset: MediaAsset, targetLaneId?: string, placementTimeUs?: number) => void;
-  moveTimelineItem: (itemId: string, targetLaneId: string, newPlacementTimeUs: number) => void;
+  moveTimelineItem: (itemId: string, targetLaneId: string, newPlacementTimeUs: number, commitHistory?: boolean) => void;
+  moveMultipleTimelineItems: (shifts: Array<{ itemId: string; targetLaneId: string; newPlacementTimeUs: number }>, commitHistory?: boolean) => void;
   splitTimelineItemAtCurrentTime: (itemId?: string) => void;
-  trimTimelineItem: (itemId: string, handle: 'start' | 'end', deltaUs: number) => void;
+  trimTimelineItem: (itemId: string, handle: 'start' | 'end', deltaUs: number, commitHistory?: boolean) => void;
   removeTimelineItem: (itemId: string) => void;
   toggleLaneMute: (laneId: string) => void;
   toggleLaneSolo: (laneId: string) => void;
@@ -175,6 +183,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   isDirty: false,
   selectedAssetId: null,
   selectedItemId: null,
+  selectedItemIds: [],
   currentTimeUs: 0,
   zoomPixelsPerSecond: 60, // 60 pixels = 1 seconde par défaut
   activeTool: 'select',
@@ -274,7 +283,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setSelectedAsset: (id: string | null) =>
     set(() => ({
       selectedAssetId: id,
-      ...(id ? { selectedItemId: null } : {}),
+      ...(id ? { selectedItemId: null, selectedItemIds: [] } : {}),
     })),
 
   // --- Actions Tête de lecture & Vue ---
@@ -288,8 +297,88 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setSelectedItemId: (id: string | null) =>
     set(() => ({
       selectedItemId: id,
+      selectedItemIds: id ? [id] : [],
       ...(id ? { selectedAssetId: null } : {}),
     })),
+
+  toggleItemSelection: (id: string) =>
+    set((state) => {
+      const exists = state.selectedItemIds.includes(id);
+      const newIds = exists
+        ? state.selectedItemIds.filter((itemId) => itemId !== id)
+        : [...state.selectedItemIds, id];
+      const primaryId = newIds.length > 0 ? newIds[newIds.length - 1] : null;
+      return {
+        selectedItemIds: newIds,
+        selectedItemId: primaryId,
+        selectedAssetId: null,
+      };
+    }),
+
+  setSelectedItemIds: (ids: string[]) =>
+    set(() => ({
+      selectedItemIds: ids,
+      selectedItemId: ids.length > 0 ? ids[ids.length - 1] : null,
+      selectedAssetId: null,
+    })),
+
+  clearSelection: () =>
+    set(() => ({
+      selectedItemId: null,
+      selectedItemIds: [],
+      selectedAssetId: null,
+    })),
+
+  selectAllItems: () =>
+    set((state) => {
+      const allIds: string[] = [];
+      for (const lane of state.project.sequence.lanes) {
+        for (const item of lane.items) {
+          allIds.push(item.item_id);
+        }
+      }
+      return {
+        selectedItemIds: allIds,
+        selectedItemId: allIds[0] || null,
+        selectedAssetId: null,
+      };
+    }),
+
+  removeSelectedItems: () =>
+    set((state) => {
+      const idsToRemove = state.selectedItemIds.length > 0
+        ? new Set(state.selectedItemIds)
+        : state.selectedItemId
+        ? new Set([state.selectedItemId])
+        : null;
+
+      if (!idsToRemove || idsToRemove.size === 0) return state;
+
+      const updatedLanes = state.project.sequence.lanes.map((lane) => ({
+        ...lane,
+        items: lane.items.filter((item) => !idsToRemove.has(item.item_id)),
+      }));
+
+      const updatedSequence = {
+        ...state.project.sequence,
+        lanes: updatedLanes,
+      };
+
+      return {
+        past: pushPast(state.past, state.project),
+        future: [],
+        canUndo: true,
+        canRedo: false,
+        project: {
+          ...state.project,
+          sequence: updatedSequence,
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        selectedItemId: null,
+        selectedItemIds: [],
+        isDirty: true,
+      };
+    }),
 
   setZoomPixelsPerSecond: (zoom: number) =>
     set(() => ({
@@ -330,12 +419,18 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         modified_timestamp_utc: Date.now() * 1000,
       },
       selectedItemId: newItem.item_id,
+      selectedItemIds: [newItem.item_id],
       selectedAssetId: null,
       isDirty: true,
     });
   },
 
-  moveTimelineItem: (itemId: string, targetLaneId: string, newPlacementTimeUs: number) =>
+  moveTimelineItem: (
+    itemId: string,
+    targetLaneId: string,
+    newPlacementTimeUs: number,
+    commitHistory: boolean = true,
+  ) =>
     set((state) => {
       const updatedSequence = moveItemInSequence(
         state.project.sequence,
@@ -344,13 +439,41 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         newPlacementTimeUs,
       );
       return {
-        past: pushPast(state.past, state.project),
-        future: [],
-        canUndo: true,
-        canRedo: false,
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
         project: {
           ...state.project,
           sequence: updatedSequence,
+          modified_timestamp_utc: Date.now() * 1000,
+        },
+        isDirty: true,
+      };
+    }),
+
+  moveMultipleTimelineItems: (
+    shifts: Array<{ itemId: string; targetLaneId: string; newPlacementTimeUs: number }>,
+    commitHistory: boolean = true,
+  ) =>
+    set((state) => {
+      let currentSequence = state.project.sequence;
+      for (const shift of shifts) {
+        currentSequence = moveItemInSequence(
+          currentSequence,
+          shift.itemId,
+          shift.targetLaneId,
+          shift.newPlacementTimeUs,
+        );
+      }
+      return {
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
+        project: {
+          ...state.project,
+          sequence: currentSequence,
           modified_timestamp_utc: Date.now() * 1000,
         },
         isDirty: true,
@@ -398,7 +521,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       };
     }),
 
-  trimTimelineItem: (itemId: string, handle: 'start' | 'end', deltaUs: number) =>
+  trimTimelineItem: (
+    itemId: string,
+    handle: 'start' | 'end',
+    deltaUs: number,
+    commitHistory: boolean = true,
+  ) =>
     set((state) => {
       let maxSourceUs: number | undefined = undefined;
       for (const lane of state.project.sequence.lanes) {
@@ -423,10 +551,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       );
 
       return {
-        past: pushPast(state.past, state.project),
-        future: [],
-        canUndo: true,
-        canRedo: false,
+        past: commitHistory ? pushPast(state.past, state.project) : state.past,
+        future: commitHistory ? [] : state.future,
+        canUndo: commitHistory ? true : state.canUndo,
+        canRedo: commitHistory ? false : state.canRedo,
         project: {
           ...state.project,
           sequence: updatedSequence,
@@ -450,6 +578,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           modified_timestamp_utc: Date.now() * 1000,
         },
         selectedItemId: state.selectedItemId === itemId ? null : state.selectedItemId,
+        selectedItemIds: state.selectedItemIds.filter((id) => id !== itemId),
         isDirty: true,
       };
     }),
@@ -907,6 +1036,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         modified_timestamp_utc: Date.now() * 1000,
       },
       selectedItemId: newItem.item_id,
+      selectedItemIds: [newItem.item_id],
       selectedAssetId: null,
       isDirty: true,
     });
@@ -1490,6 +1620,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         isDirty: false,
         currentTimeUs: 0,
         selectedItemId: null,
+        selectedItemIds: [],
         selectedAssetId: null,
       });
       return true;
@@ -1509,6 +1640,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       isDirty: false,
       selectedAssetId: null,
       selectedItemId: null,
+      selectedItemIds: [],
       currentTimeUs: 0,
     })),
 
@@ -1522,6 +1654,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       isDirty: false,
       selectedAssetId: null,
       selectedItemId: null,
+      selectedItemIds: [],
       currentTimeUs: 0,
     })),
 }));

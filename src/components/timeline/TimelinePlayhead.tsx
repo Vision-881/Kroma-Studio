@@ -5,9 +5,17 @@
  */
 import React, { useRef, useCallback } from 'react';
 import { useProjectStore } from '../../store/projectStore';
+import { collectSnapTargets, snapPlayhead } from '../../core/timeline/snapping';
 
 export function TimelinePlayhead() {
-  const { currentTimeUs, setCurrentTimeUs, zoomPixelsPerSecond } = useProjectStore();
+  const {
+    currentTimeUs,
+    setCurrentTimeUs,
+    zoomPixelsPerSecond,
+    isSnappingEnabled,
+    setActiveSnapLineUs,
+    project,
+  } = useProjectStore();
   const isDraggingRef = useRef(false);
 
   const playheadX = (currentTimeUs / 1_000_000) * zoomPixelsPerSecond;
@@ -18,10 +26,24 @@ export function TimelinePlayhead() {
       const relativeX = clientX - rect.left;
       const clampedX = Math.max(0, relativeX);
       const targetSeconds = clampedX / zoomPixelsPerSecond;
-      const targetUs = Math.round(targetSeconds * 1_000_000);
+      let targetUs = Math.round(targetSeconds * 1_000_000);
+
+      if (isSnappingEnabled) {
+        // Seuil d'aimantation confortable de 18 pixels
+        const thresholdUs = Math.round((18 / zoomPixelsPerSecond) * 1_000_000);
+        const snapTargets = collectSnapTargets(project, { playheadTimeUs: -1 });
+        const snap = snapPlayhead(targetUs, snapTargets, thresholdUs);
+        if (snap) {
+          targetUs = snap.snapped_time_us;
+          setActiveSnapLineUs(snap.snapped_time_us);
+        } else {
+          setActiveSnapLineUs(null);
+        }
+      }
+
       setCurrentTimeUs(targetUs);
     },
-    [zoomPixelsPerSecond, setCurrentTimeUs],
+    [zoomPixelsPerSecond, setCurrentTimeUs, isSnappingEnabled, setActiveSnapLineUs, project],
   );
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -42,6 +64,7 @@ export function TimelinePlayhead() {
 
     const onMouseUp = () => {
       isDraggingRef.current = false;
+      setActiveSnapLineUs(null);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };

@@ -26,6 +26,10 @@ import {
   Crop,
   Bookmark,
   BookmarkPlus,
+  Film,
+  Music,
+  Type,
+  XCircle,
 } from 'lucide-react';
 import { useProjectStore } from '../../store/projectStore';
 import { formatDurationHuman, usToTimecode } from '../../core/time/timeUtils';
@@ -57,6 +61,9 @@ export function InspectorPanel() {
     currentTimeUs,
     setCurrentTimeUs,
     selectedItemId,
+    selectedItemIds,
+    clearSelection,
+    removeSelectedItems,
     selectedAssetId,
     removeTimelineItem,
     pushHistorySnapshot,
@@ -84,6 +91,146 @@ export function InspectorPanel() {
     removeTimelineMarker,
     clearTimelineMarkers,
   } = useProjectStore();
+
+  // 0. Cas : Multi-sélection de clips (Ctrl+Clic sur la timeline)
+  if (selectedItemIds && selectedItemIds.length > 1) {
+    const selectedItemsWithLane: Array<{ item: TimelineItem; laneName: string; laneType: string }> = [];
+    for (const lane of project.sequence.lanes) {
+      for (const item of lane.items) {
+        if (selectedItemIds.includes(item.item_id)) {
+          selectedItemsWithLane.push({
+            item,
+            laneName: lane.lane_title,
+            laneType: lane.lane_type,
+          });
+        }
+      }
+    }
+
+    const totalDurationUs = selectedItemsWithLane.reduce((acc, cur) => acc + cur.item.play_duration_us, 0);
+    const minStartUs = Math.min(...selectedItemsWithLane.map((c) => c.item.placement_time_us));
+    const maxEndUs = Math.max(...selectedItemsWithLane.map((c) => c.item.placement_time_us + c.item.play_duration_us));
+    const spanDurationUs = Math.max(0, maxEndUs - minStartUs);
+
+    return (
+      <aside className="inspector-panel">
+        <div className="inspector-panel__header">
+          <Layers size={16} />
+          <span>Sélection multiple ({selectedItemIds.length})</span>
+        </div>
+
+        <div className="inspector-panel__body">
+          <div className="inspector-section">
+            <div className="inspector-section__title">
+              <Info size={14} />
+              <span>Résumé du groupe</span>
+            </div>
+            <div className="inspector-field">
+              <span className="inspector-field__label">Clips sélectionnés :</span>
+              <span className="inspector-field__value" style={{ fontWeight: 600, color: '#06b6d4' }}>
+                {selectedItemIds.length} éléments
+              </span>
+            </div>
+            <div className="inspector-field">
+              <span className="inspector-field__label">Durée cumulée :</span>
+              <span className="inspector-field__value">{formatDurationHuman(totalDurationUs)}</span>
+            </div>
+            <div className="inspector-field">
+              <span className="inspector-field__label">Étendue temporelle :</span>
+              <span className="inspector-field__value">{formatDurationHuman(spanDurationUs)}</span>
+            </div>
+          </div>
+
+          <div className="inspector-section">
+            <div className="inspector-section__title">
+              <Layers size={14} />
+              <span>Éléments du groupe</span>
+            </div>
+            <div
+              className="multi-select-items-list"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+                maxHeight: 220,
+                overflowY: 'auto',
+              }}
+            >
+              {selectedItemsWithLane.map(({ item, laneType }) => {
+                const asset = project.asset_catalog.find((a) => a.asset_id === item.referenced_asset_id);
+                const title = item.text_layer_data?.raw_string || asset?.display_name || 'Clip sans nom';
+                return (
+                  <div
+                    key={item.item_id}
+                    className="multi-select-item-card"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '6px 8px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      borderRadius: 4,
+                      fontSize: 12,
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                      {laneType === 'visual' && !item.text_layer_data && (
+                        <Film size={13} style={{ color: '#38bdf8', flexShrink: 0 }} />
+                      )}
+                      {laneType === 'audio' && (
+                        <Music size={13} style={{ color: '#34d399', flexShrink: 0 }} />
+                      )}
+                      {item.text_layer_data && (
+                        <Type size={13} style={{ color: '#fbbf24', flexShrink: 0 }} />
+                      )}
+                      <span
+                        style={{
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          maxWidth: 140,
+                        }}
+                      >
+                        {title}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 10, opacity: 0.7, fontFamily: 'monospace' }}>
+                      {formatDurationHuman(item.play_duration_us)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div
+            className="inspector-section"
+            style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}
+          >
+            <button
+              className="kroma-btn"
+              style={{ width: '100%', justifyContent: 'center' }}
+              onClick={clearSelection}
+              title="Désélectionner tous les clips (Échap)"
+            >
+              <XCircle size={14} />
+              <span>Désélectionner tout</span>
+            </button>
+            <button
+              className="kroma-btn kroma-btn-danger"
+              style={{ width: '100%', justifyContent: 'center' }}
+              onClick={removeSelectedItems}
+              title={`Supprimer les ${selectedItemIds.length} éléments sélectionnés (Suppr)`}
+            >
+              <Trash2 size={14} />
+              <span>Supprimer la sélection ({selectedItemIds.length})</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+    );
+  }
 
   // 1. Cas : Un clip de la timeline est sélectionné
   if (selectedItemId) {

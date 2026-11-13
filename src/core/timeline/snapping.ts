@@ -82,6 +82,7 @@ export function findNearestSnap(
 
 export interface CollectSnapTargetsOptions {
   excludeItemId?: string;
+  excludeItemIds?: string[];
   playheadTimeUs?: number;
   includeOrigin?: boolean;
 }
@@ -98,7 +99,11 @@ export function collectSnapTargets(
   options: CollectSnapTargetsOptions = {},
 ): SnapTarget[] {
   const targets: SnapTarget[] = [];
-  const { excludeItemId, playheadTimeUs, includeOrigin = true } = options;
+  const { excludeItemId, excludeItemIds, playheadTimeUs, includeOrigin = true } = options;
+
+  const excludeSet = new Set<string>();
+  if (excludeItemId) excludeSet.add(excludeItemId);
+  if (excludeItemIds) excludeItemIds.forEach((id) => excludeSet.add(id));
 
   // 1. Origine de la timeline (0s)
   if (includeOrigin) {
@@ -132,7 +137,7 @@ export function collectSnapTargets(
   const lanes = project.sequence.lanes || [];
   for (const lane of lanes) {
     for (const item of lane.items) {
-      if (excludeItemId && item.item_id === excludeItemId) {
+      if (excludeSet.has(item.item_id)) {
         continue;
       }
 
@@ -152,6 +157,17 @@ export function collectSnapTargets(
   }
 
   return targets;
+}
+
+/**
+ * Aimante la position de la tête de lecture lors du scrubbing sur la réglette ou les pistes.
+ */
+export function snapPlayhead(
+  candidateTimeUs: number,
+  targets: SnapTarget[],
+  thresholdUs: number,
+): SnapResult | null {
+  return findNearestSnap(candidateTimeUs, targets, thresholdUs);
 }
 
 export interface ClipSnapResult {

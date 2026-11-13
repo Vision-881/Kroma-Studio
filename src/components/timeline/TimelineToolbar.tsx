@@ -31,8 +31,10 @@ export function TimelineToolbar() {
     zoomPixelsPerSecond,
     setZoomPixelsPerSecond,
     selectedItemId,
+    selectedItemIds,
     splitTimelineItemAtCurrentTime,
     removeTimelineItem,
+    removeSelectedItems,
     addTextItem,
     canUndo,
     canRedo,
@@ -100,7 +102,9 @@ export function TimelineToolbar() {
   };
 
   const handleDeleteSelected = () => {
-    if (selectedItemId) {
+    if (selectedItemIds.length > 0) {
+      removeSelectedItems();
+    } else if (selectedItemId) {
       removeTimelineItem(selectedItemId);
     }
   };
@@ -170,15 +174,21 @@ export function TimelineToolbar() {
           <span className="timeline-tool-btn__label">Diviser</span>
         </button>
 
-        {/* Bouton de suppression */}
+        {/* Bouton de suppression (Mono ou Multi-sélection) */}
         <button
           className="timeline-tool-btn"
           onClick={handleDeleteSelected}
-          disabled={!selectedItemId}
-          title="Supprimer le clip sélectionné (Suppr)"
+          disabled={!selectedItemId && selectedItemIds.length === 0}
+          title={
+            selectedItemIds.length > 1
+              ? `Supprimer les ${selectedItemIds.length} éléments sélectionnés (Suppr / Retour arrière)`
+              : 'Supprimer le clip sélectionné (Suppr)'
+          }
         >
           <Trash2 size={15} />
-          <span className="timeline-tool-btn__label">Supprimer</span>
+          <span className="timeline-tool-btn__label">
+            {selectedItemIds.length > 1 ? `Supprimer (${selectedItemIds.length})` : 'Supprimer'}
+          </span>
         </button>
 
         <div className="timeline-toolbar__separator" />

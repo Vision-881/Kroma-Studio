@@ -6,6 +6,7 @@ import React, { useRef, useCallback, useState } from 'react';
 import { useProjectStore } from '../../store/projectStore';
 import { formatDurationHuman } from '../../core/time/timeUtils';
 import { MARKER_PRESET_COLORS, type TimelineMarker } from '../../core/types/timeline';
+import { collectSnapTargets, snapPlayhead } from '../../core/timeline/snapping';
 import { Trash2, Check, X } from 'lucide-react';
 
 interface TimelineRulerProps {
@@ -19,6 +20,8 @@ export function TimelineRuler({ totalWidthPx }: TimelineRulerProps) {
     project,
     updateTimelineMarker,
     removeTimelineMarker,
+    isSnappingEnabled,
+    setActiveSnapLineUs,
   } = useProjectStore();
   const rulerRef = useRef<HTMLDivElement>(null);
 
@@ -55,10 +58,23 @@ export function TimelineRuler({ totalWidthPx }: TimelineRulerProps) {
       const relativeX = clientX - rect.left;
       const clampedX = Math.max(0, relativeX);
       const targetSeconds = clampedX / zoomPixelsPerSecond;
-      const targetUs = Math.round(targetSeconds * 1_000_000);
+      let targetUs = Math.round(targetSeconds * 1_000_000);
+
+      if (isSnappingEnabled) {
+        const thresholdUs = Math.round((18 / zoomPixelsPerSecond) * 1_000_000);
+        const snapTargets = collectSnapTargets(project, { playheadTimeUs: -1 });
+        const snap = snapPlayhead(targetUs, snapTargets, thresholdUs);
+        if (snap) {
+          targetUs = snap.snapped_time_us;
+          setActiveSnapLineUs(snap.snapped_time_us);
+        } else {
+          setActiveSnapLineUs(null);
+        }
+      }
+
       setCurrentTimeUs(targetUs);
     },
-    [zoomPixelsPerSecond, setCurrentTimeUs],
+    [zoomPixelsPerSecond, setCurrentTimeUs, isSnappingEnabled, setActiveSnapLineUs, project],
   );
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -69,6 +85,7 @@ export function TimelineRuler({ totalWidthPx }: TimelineRulerProps) {
     };
 
     const onMouseUp = () => {
+      setActiveSnapLineUs(null);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };

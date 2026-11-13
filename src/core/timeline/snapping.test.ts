@@ -3,6 +3,7 @@ import {
   findNearestSnap,
   collectSnapTargets,
   snapClipMovement,
+  snapPlayhead,
   type SnapTarget,
 } from './snapping';
 import { createDefaultProject } from '../types/project';
@@ -98,6 +99,55 @@ describe('Smart Snapping Engine (Étape 17)', () => {
       const targets = collectSnapTargets(project, { excludeItemId: 'dragged_clip' });
       expect(targets.some((t) => t.kind === 'clip_start')).toBe(false);
       expect(targets.some((t) => t.kind === 'clip_end')).toBe(false);
+    });
+
+    it('exclut une liste multiple d\'identifiants (excludeItemIds)', () => {
+      const project = createDefaultProject('Test Multi Exclude');
+      project.sequence.lanes[0].items.push(
+        {
+          item_id: 'clip_a',
+          referenced_asset_id: 'a1',
+          placement_time_us: 1_000_000,
+          source_in_point_us: 0,
+          source_duration_us: 1_000_000,
+          play_duration_us: 1_000_000,
+          item_gain: 1.0,
+        },
+        {
+          item_id: 'clip_b',
+          referenced_asset_id: 'a2',
+          placement_time_us: 3_000_000,
+          source_in_point_us: 0,
+          source_duration_us: 1_000_000,
+          play_duration_us: 1_000_000,
+          item_gain: 1.0,
+        },
+      );
+
+      const targets = collectSnapTargets(project, { excludeItemIds: ['clip_a', 'clip_b'] });
+      expect(targets.some((t) => t.time_us === 1_000_000)).toBe(false);
+      expect(targets.some((t) => t.time_us === 3_000_000)).toBe(false);
+    });
+  });
+
+  describe('snapPlayhead()', () => {
+    const targets: SnapTarget[] = [
+      { time_us: 0, kind: 'origin' },
+      { time_us: 3_000_000, kind: 'clip_start' },
+      { time_us: 7_000_000, kind: 'marker' },
+    ];
+
+    it('aimante la tête de lecture lorsqu\'elle est proche d\'une coupe', () => {
+      // 2.95s -> doit s'aimanter à 3.0s
+      const snap = snapPlayhead(2_950_000, targets, 100_000);
+      expect(snap).not.toBeNull();
+      expect(snap?.snapped_time_us).toBe(3_000_000);
+      expect(snap?.kind).toBe('clip_start');
+    });
+
+    it('ne s\'aimante pas si hors tolérance', () => {
+      const snap = snapPlayhead(5_000_000, targets, 100_000);
+      expect(snap).toBeNull();
     });
   });
 

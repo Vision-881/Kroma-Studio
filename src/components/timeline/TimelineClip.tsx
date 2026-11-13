@@ -27,10 +27,14 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
     project,
     zoomPixelsPerSecond,
     selectedItemId,
+    selectedItemIds,
     setSelectedItemId,
+    toggleItemSelection,
     activeTool,
     removeTimelineItem,
+    removeSelectedItems,
     moveTimelineItem,
+    moveMultipleTimelineItems,
     trimTimelineItem,
     setCurrentTimeUs,
     splitTimelineItemAtCurrentTime,
@@ -41,7 +45,7 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
     setActiveSnapLineUs,
   } = useProjectStore();
 
-  const isSelected = selectedItemId === item.item_id;
+  const isSelected = selectedItemIds.includes(item.item_id) || selectedItemId === item.item_id;
   const clipRef = useRef<HTMLDivElement>(null);
 
   // État du losange en cours de déplacement : offset courant affiché pendant le drag
@@ -139,8 +143,17 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
 
     if (isLocked) return;
 
+    // Ctrl+Clic / Cmd+Clic / Shift+Clic est déjà géré dans handleBodyMouseDown
+    if (e.ctrlKey || e.metaKey || e.shiftKey) {
+      return;
+    }
+
     if (activeTool === 'delete') {
-      removeTimelineItem(item.item_id);
+      if (selectedItemIds.includes(item.item_id) && selectedItemIds.length > 1) {
+        removeSelectedItems();
+      } else {
+        removeTimelineItem(item.item_id);
+      }
       return;
     }
 
@@ -157,19 +170,24 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
       return;
     }
 
-    // Outil sélection standard
-    setSelectedItemId(item.item_id);
+    // Si on a simplement cliqué (sans drag) sur un clip qui faisait partie d'une multi-sélection,
+    // on restreint la sélection à ce clip unique (comportement standard CapCut / OS)
+    if (selectedItemIds.length > 1 && selectedItemIds.includes(item.item_id)) {
+      setSelectedItemId(item.item_id);
+    }
   };
 
-  // ── Rognage (Trim) interactif ─────────────────────────────────────────────
+  // ── Rognage (Trim) interactif avec aimantation magnétique ─────────────────
   const handleTrimMouseDown = (e: React.MouseEvent, handle: 'start' | 'end') => {
     e.stopPropagation();
     if (isLocked) return;
 
     const startClientX = e.clientX;
     let accumulatedDeltaPx = 0;
+    let hasMoved = false;
 
-    const snapThresholdUs = Math.round((14 / zoomPixelsPerSecond) * 1_000_000);
+    // Seuil d'aimantation sensible et réactif : 20px
+    const snapThresholdUs = Math.round((20 / zoomPixelsPerSecond) * 1_000_000);
     const snapTargets = isSnappingEnabled
       ? collectSnapTargets(project, { excludeItemId: item.item_id, playheadTimeUs: currentTimeUs })
       : [];
@@ -177,6 +195,11 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
     const onMouseMove = (moveEvent: MouseEvent) => {
       const deltaPx = moveEvent.clientX - startClientX - accumulatedDeltaPx;
       if (Math.abs(deltaPx) >= 2) {
+        if (!hasMoved) {
+          hasMoved = true;
+          pushHistorySnapshot();
+        }
+
         const deltaSeconds = deltaPx / zoomPixelsPerSecond;
         let deltaUs = Math.round(deltaSeconds * 1_000_000);
 
@@ -198,7 +221,7 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
           }
         }
 
-        trimTimelineItem(item.item_id, handle, deltaUs);
+        trimTimelineItem(item.item_id, handle, deltaUs, false);
         accumulatedDeltaPx += deltaPx;
       }
     };
@@ -215,39 +238,102 @@ export function TimelineClip({ item, laneType, laneId, isLocked }: TimelineClipP
     window.addEventListener('mouseup', onMouseUp);
   };
 
-  // ── Déplacement (Move) interactif ────────────────────────────────────────
+  // ── Déplacement (Move) interactif (Support Mono & Multi-sélection) ────────
   const handleBodyMouseDown = (e: React.MouseEvent) => {
     if (isLocked || activeTool !== 'select') return;
     if ((e.target as HTMLElement).classList.contains('timeline-clip__trim-handle')) return;
 
     e.stopPropagation();
-    setSelectedItemId(item.item_id);
+
+    // 1. Gestion Ctrl+Clic / Cmd+Clic / Shift+Clic : bascule la sélection
+    if (e.ctrlKey || e.metaKey || e.shiftKey) {
+      toggleItemSelection(item.item_id);
+      return;
+    }
+
+    // 2. Si le clip n'est pas déjà dans la sélection, on sélectionne uniquement ce clip
+    const isAlreadySelected = selectedItemIds.includes(item.item_id);
+    if (!isAlreadySelected) {
+      setSelectedItemId(item.item_id);
+    }
 
     const startClientX = e.clientX;
-    const initialPlacementUs = item.placement_time_us;
+    let hasMoved = false;
 
-    const snapThresholdUs = Math.round((14 / zoomPixelsPerSecond) * 1_000_000);
+    // Déterminer les clips à déplacer ensemble :
+    // Si ce clip fait partie d'une multi-sélection active, déplacer TOUS les clips sélectionnés
+    const isMultiDrag = isAlreadySelected && selectedItemIds.length > 1;
+
+    const movingItems = isMultiDrag
+      ? project.sequence.lanes.flatMap((lane) =>
+          lane.items
+            .filter((it) => selectedItemIds.includes(it.item_id))
+            .map((it) => ({
+              itemId: it.item_id,
+              laneId: lane.lane_id,
+              initialPlacementUs: it.placement_time_us,
+              durationUs: it.play_duration_us,
+            }))
+        )
+      : [
+          {
+            itemId: item.item_id,
+            laneId,
+            initialPlacementUs: item.placement_time_us,
+            durationUs: item.play_duration_us,
+          },
+        ];
+
+    const movingIds = movingItems.map((m) => m.itemId);
+    const primaryInitialUs = item.placement_time_us;
+    const minInitialPlacementUs = Math.min(...movingItems.map((m) => m.initialPlacementUs));
+
+    // Seuil d'aimantation sensible et réactif de 20px
+    const snapThresholdUs = Math.round((20 / zoomPixelsPerSecond) * 1_000_000);
     const snapTargets = isSnappingEnabled
-      ? collectSnapTargets(project, { excludeItemId: item.item_id, playheadTimeUs: currentTimeUs })
+      ? collectSnapTargets(project, { excludeItemIds: movingIds, playheadTimeUs: currentTimeUs })
       : [];
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       const deltaPx = moveEvent.clientX - startClientX;
+      if (!hasMoved && Math.abs(deltaPx) >= 2) {
+        hasMoved = true;
+        pushHistorySnapshot();
+      }
+      if (!hasMoved) return;
+
       const deltaSeconds = deltaPx / zoomPixelsPerSecond;
-      const deltaUs = Math.round(deltaSeconds * 1_000_000);
-      let newPlacementUs = Math.max(0, initialPlacementUs + deltaUs);
+      const rawDeltaUs = Math.round(deltaSeconds * 1_000_000);
+
+      // Calcul du déplacement candidat du clip principal cliqué
+      const candidatePlacementUs = Math.max(0, primaryInitialUs + rawDeltaUs);
+      let effectivePlacementUs = candidatePlacementUs;
 
       if (isSnappingEnabled) {
-        const snap = snapClipMovement(newPlacementUs, item.play_duration_us, snapTargets, snapThresholdUs);
+        const snap = snapClipMovement(candidatePlacementUs, item.play_duration_us, snapTargets, snapThresholdUs);
         if (snap) {
-          newPlacementUs = snap.placementUs;
+          effectivePlacementUs = snap.placementUs;
           setActiveSnapLineUs(snap.snapLineUs);
         } else {
           setActiveSnapLineUs(null);
         }
       }
 
-      moveTimelineItem(item.item_id, laneId, newPlacementUs);
+      // Delta effectif à appliquer au clip principal
+      const effectiveDeltaUs = effectivePlacementUs - primaryInitialUs;
+      // Clamper pour qu'aucun clip sélectionné ne descende sous 0 us
+      const clampedDeltaUs = Math.max(-minInitialPlacementUs, effectiveDeltaUs);
+
+      if (isMultiDrag) {
+        const shifts = movingItems.map((m) => ({
+          itemId: m.itemId,
+          targetLaneId: m.laneId,
+          newPlacementTimeUs: Math.max(0, m.initialPlacementUs + clampedDeltaUs),
+        }));
+        moveMultipleTimelineItems(shifts, false);
+      } else {
+        moveTimelineItem(item.item_id, laneId, Math.max(0, primaryInitialUs + clampedDeltaUs), false);
+      }
     };
 
     const onMouseUp = () => {

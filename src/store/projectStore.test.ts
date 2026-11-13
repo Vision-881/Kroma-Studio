@@ -1058,5 +1058,73 @@ describe('useProjectStore', () => {
       markers = useProjectStore.getState().project.sequence.markers || [];
       expect(markers.length).toBe(2);
     });
+
+    it('gère la sélection multiple (Ctrl+Clic), le déplacement groupé et la suppression multiple', () => {
+      useProjectStore.getState().addAsset(dummyVideoAsset);
+      const visualLane = useProjectStore.getState().project.sequence.lanes[0].lane_id;
+      const audioLane = useProjectStore.getState().project.sequence.lanes[2].lane_id;
+
+      // Ajouter 2 clips vidéo et 1 clip audio
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, visualLane, 0);
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, visualLane, 5_000_000);
+      useProjectStore.getState().addItemFromAsset(dummyVideoAsset, audioLane, 0);
+
+      const itemsLane0 = useProjectStore.getState().project.sequence.lanes[0].items;
+      const itemsLane2 = useProjectStore.getState().project.sequence.lanes[2].items;
+      const id1 = itemsLane0[0].item_id;
+      const id2 = itemsLane0[1].item_id;
+      const id3 = itemsLane2[0].item_id;
+
+      // 1. Sélection unique initiale
+      useProjectStore.getState().setSelectedItemId(id1);
+      expect(useProjectStore.getState().selectedItemId).toBe(id1);
+      expect(useProjectStore.getState().selectedItemIds).toEqual([id1]);
+
+      // 2. Ctrl+Clic pour ajouter id2
+      useProjectStore.getState().toggleItemSelection(id2);
+      expect(useProjectStore.getState().selectedItemIds).toContain(id1);
+      expect(useProjectStore.getState().selectedItemIds).toContain(id2);
+      expect(useProjectStore.getState().selectedItemIds.length).toBe(2);
+
+      // 3. Ctrl+Clic pour ajouter id3
+      useProjectStore.getState().toggleItemSelection(id3);
+      expect(useProjectStore.getState().selectedItemIds.length).toBe(3);
+
+      // 4. Ctrl+Clic pour retirer id2
+      useProjectStore.getState().toggleItemSelection(id2);
+      expect(useProjectStore.getState().selectedItemIds.length).toBe(2);
+      expect(useProjectStore.getState().selectedItemIds).not.toContain(id2);
+
+      // 5. Tout sélectionner (Ctrl+A)
+      useProjectStore.getState().selectAllItems();
+      expect(useProjectStore.getState().selectedItemIds.length).toBe(3);
+
+      // 6. Déplacement groupé (moveMultipleTimelineItems)
+      useProjectStore.getState().moveMultipleTimelineItems([
+        { itemId: id1, targetLaneId: visualLane, newPlacementTimeUs: 1_000_000 },
+        { itemId: id3, targetLaneId: audioLane, newPlacementTimeUs: 1_000_000 },
+      ]);
+      let item1 = useProjectStore.getState().project.sequence.lanes[0].items.find((i) => i.item_id === id1);
+      let item3 = useProjectStore.getState().project.sequence.lanes[2].items.find((i) => i.item_id === id3);
+      expect(item1?.placement_time_us).toBe(1_000_000);
+      expect(item3?.placement_time_us).toBe(1_000_000);
+
+      // 7. Désélectionner tout
+      useProjectStore.getState().clearSelection();
+      expect(useProjectStore.getState().selectedItemIds.length).toBe(0);
+      expect(useProjectStore.getState().selectedItemId).toBeNull();
+
+      // 8. Suppression multiple (removeSelectedItems) avec Undo/Redo
+      useProjectStore.getState().setSelectedItemIds([id1, id3]);
+      useProjectStore.getState().removeSelectedItems();
+      expect(useProjectStore.getState().project.sequence.lanes[0].items.some((i) => i.item_id === id1)).toBe(false);
+      expect(useProjectStore.getState().project.sequence.lanes[2].items.some((i) => i.item_id === id3)).toBe(false);
+      expect(useProjectStore.getState().selectedItemIds.length).toBe(0);
+
+      // Undo restaure les éléments
+      useProjectStore.getState().undo();
+      expect(useProjectStore.getState().project.sequence.lanes[0].items.some((i) => i.item_id === id1)).toBe(true);
+      expect(useProjectStore.getState().project.sequence.lanes[2].items.some((i) => i.item_id === id3)).toBe(true);
+    });
   });
 });
