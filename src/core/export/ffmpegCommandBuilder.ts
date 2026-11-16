@@ -798,36 +798,50 @@ export function buildFFmpegCommand(
  * Génère le script de commande Windows Batch (.bat) prêt à l'emploi.
  */
 export function generateWindowsBatch(result: FFmpegExportResult): string {
-  return `@echo off
-chcp 65001 > nul
-echo ========================================================
-echo  Kroma Studio — Exportation video MP4 via FFmpeg
-echo  Fichier de sortie : ${result.outputFilename}
-echo  Resolution        : ${result.resolution.width}x${result.resolution.height} @ ${result.fps} FPS
-echo  Duree totale      : ${result.totalDurationSeconds}s
-echo ========================================================
-echo.
-echo Verification de la presence de FFmpeg...
-where ffmpeg >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [ERREUR] FFmpeg n'a pas ete trouve dans le PATH systeme.
-    echo Veuillez installer FFmpeg et l'ajouter a votre PATH.
-    pause
-    exit /b 1
-)
+  const lines = [
+    '@echo off',
+    'setlocal enabledelayedexpansion',
+    'chcp 65001 > nul',
+    '',
+    'rem Detection automatique des chemins d\'installation frequents de FFmpeg (ex: WinGet)',
+    'if exist "%LOCALAPPDATA%\\Microsoft\\WinGet\\Links\\ffmpeg.exe" (',
+    '    set "PATH=%LOCALAPPDATA%\\Microsoft\\WinGet\\Links;!PATH!"',
+    ')',
+    'if exist "C:\\ffmpeg\\bin\\ffmpeg.exe" (',
+    '    set "PATH=C:\\ffmpeg\\bin;!PATH!"',
+    ')',
+    '',
+    'echo ========================================================',
+    'echo  Kroma Studio - Exportation video MP4 via FFmpeg',
+    `echo  Fichier de sortie : ${result.outputFilename}`,
+    `echo  Resolution        : ${result.resolution.width}x${result.resolution.height} @ ${result.fps} FPS`,
+    `echo  Duree totale      : ${result.totalDurationSeconds}s`,
+    'echo ========================================================',
+    'echo.',
+    'echo Verification de la presence de FFmpeg...',
+    'where ffmpeg >nul 2>nul',
+    'if !errorlevel! neq 0 (',
+    '    echo [ERREUR] FFmpeg n\'a pas ete trouve dans le PATH systeme.',
+    '    echo Veuillez installer FFmpeg et l\'ajouter a votre PATH.',
+    '    pause',
+    '    exit /b 1',
+    ')',
+    '',
+    'echo Lancement de l\'encodage...',
+    result.windowsCommand,
+    '',
+    'if !errorlevel! equ 0 (',
+    '    echo.',
+    `    echo [SUCCES] Exportation terminee avec succes : ${result.outputFilename}`,
+    ') else (',
+    '    echo.',
+    '    echo [ERREUR] L\'encodage a echoue avec le code !errorlevel!.',
+    ')',
+    'pause',
+    '',
+  ];
 
-echo Lancement de l'encodage...
-${result.windowsCommand}
-
-if %errorlevel% equ 0 (
-    echo.
-    echo [SUCCES] Exportation terminee avec succes : ${result.outputFilename}
-) else (
-    echo.
-    echo [ERREUR] L'encodage a echoue avec le code %errorlevel%.
-)
-pause
-`;
+  return lines.join('\r\n');
 }
 
 /**
